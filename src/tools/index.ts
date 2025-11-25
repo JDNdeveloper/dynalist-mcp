@@ -139,6 +139,48 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   );
 
   // ═══════════════════════════════════════════════════════════════════
+  // TOOL: search_documents
+  // ═══════════════════════════════════════════════════════════════════
+  server.tool(
+    "search_documents",
+    "Search for documents and folders by name. Returns matching items with their ID, title, URL, and type.",
+    {
+      query: z.string().describe("Text to search for in document/folder names (case-insensitive)"),
+      type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
+    },
+    async ({ query, type }) => {
+      const response = await client.listFiles();
+      const queryLower = query.toLowerCase();
+
+      const matches = response.files
+        .filter((f) => {
+          const nameMatch = f.title?.toLowerCase().includes(queryLower);
+          const typeMatch = type === "all" || f.type === type;
+          return nameMatch && typeMatch;
+        })
+        .map((f) => ({
+          id: f.id,
+          title: f.title,
+          type: f.type,
+          url: f.type === "document" ? buildDynalistUrl(f.id) : undefined,
+          permission: f.type === "document" ? getPermissionLabel(f.permission) : undefined,
+          children: f.type === "folder" ? f.children : undefined,
+        }));
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: matches.length > 0
+              ? JSON.stringify(matches, null, 2)
+              : `No ${type === "all" ? "documents or folders" : type + "s"} found matching "${query}"`,
+          },
+        ],
+      };
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
   // TOOL: read_node_as_markdown ⭐ PRINCIPAL
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
