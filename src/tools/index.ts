@@ -7,7 +7,66 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, findRootNodeId, findNodeParent } from "../dynalist-client.js";
 import { parseDynalistUrl, buildDynalistUrl } from "../utils/url-parser.js";
 import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown.js";
-import { parseMarkdownBullets, groupByLevel } from "../utils/markdown-parser.js";
+import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser.js";
+
+/**
+ * Helper: Insert a tree of nodes under a parent, level by level
+ * Returns total nodes created and array of created node IDs for level 0
+ */
+async function insertTreeUnderParent(
+  client: DynalistClient,
+  fileId: string,
+  parentId: string,
+  tree: ParsedNode[],
+  options: { startIndex?: number; checkbox?: boolean } = {}
+): Promise<{ totalCreated: number; rootNodeIds: string[] }> {
+  if (tree.length === 0) {
+    return { totalCreated: 0, rootNodeIds: [] };
+  }
+
+  const levels = groupByLevel(tree);
+  let totalCreated = 0;
+  let rootNodeIds: string[] = [];
+  let previousLevelIds: string[] = [];
+
+  for (let levelIdx = 0; levelIdx < levels.length; levelIdx++) {
+    const level = levels[levelIdx];
+    const changes: { action: string; parent_id: string; index: number; content: string; checkbox?: boolean }[] = [];
+    const childCountPerParent = new Map<string, number>();
+
+    for (const node of level) {
+      const nodeParentId = node.parentLevelIndex === -1
+        ? parentId
+        : previousLevelIds[node.parentLevelIndex];
+
+      const baseIndex = (levelIdx === 0 && options.startIndex !== undefined)
+        ? options.startIndex
+        : 0;
+      const count = childCountPerParent.get(nodeParentId) || 0;
+
+      changes.push({
+        action: "insert",
+        parent_id: nodeParentId,
+        index: baseIndex + count,
+        content: node.content,
+        checkbox: options.checkbox || undefined,
+      });
+      childCountPerParent.set(nodeParentId, count + 1);
+    }
+
+    const response = await client.editDocument(fileId, changes as any);
+    const newIds = response.new_node_ids || [];
+
+    if (levelIdx === 0) {
+      rootNodeIds = newIds;
+    }
+
+    totalCreated += newIds.length;
+    previousLevelIds = newIds;
+  }
+
+  return { totalCreated, rootNodeIds };
+}
 
 /**
  * Register all Dynalist tools with the MCP server
@@ -128,26 +187,71 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
     "send_to_inbox",
-    "Send a new item to your Dynalist inbox",
+    "Send items to your Dynalist inbox. Supports indented markdown/bullets for hierarchical content.",
     {
-      content: z.string().describe("The text content of the item"),
-      note: z.string().optional().describe("Optional note for the item"),
-      checkbox: z.boolean().optional().default(false).describe("Whether to add a checkbox"),
-      checked: z.boolean().optional().default(false).describe("Whether the checkbox is checked"),
+      content: z.string().describe("The text content - can be single line or indented markdown with '- bullets'"),
+      note: z.string().optional().describe("Optional note for the first/root item"),
+      checkbox: z.boolean().optional().default(false).describe("Whether to add checkboxes to items"),
     },
-    async ({ content, note, checkbox, checked }) => {
-      const response = await client.sendToInbox({
-        content,
+    async ({ content, note, checkbox }) => {
+      // Parse content as markdown to detect hierarchy
+      const tree = parseMarkdownBullets(content);
+
+      if (tree.length === 0) {
+        return {
+          content: [{ type: "text", text: "No content to add (empty input)" }],
+          isError: true,
+        };
+      }
+
+      // Step 1: Add first top-level item via inbox API (to get inbox file_id)
+      const firstResponse = await client.sendToInbox({
+        content: tree[0].content,
         note,
         checkbox,
-        checked,
       });
+
+      const inboxFileId = firstResponse.file_id;
+      const firstNodeId = firstResponse.node_id;
+      let totalCreated = 1;
+
+      // Step 2: Insert children of first node (if any)
+      if (tree[0].children.length > 0) {
+        const result = await insertTreeUnderParent(client, inboxFileId, firstNodeId, tree[0].children, { checkbox });
+        totalCreated += result.totalCreated;
+      }
+
+      // Step 3: Insert remaining top-level items with their children
+      if (tree.length > 1) {
+        const inboxDoc = await client.readDocument(inboxFileId);
+        const inboxRootId = findRootNodeId(inboxDoc.nodes);
+        const rootNode = inboxDoc.nodes.find(n => n.id === inboxRootId);
+        const firstNodeIndex = rootNode?.children?.indexOf(firstNodeId) ?? -1;
+
+        // Remaining top-level items (without their children first)
+        const remainingTopLevel: ParsedNode[] = tree.slice(1).map(n => ({ content: n.content, children: [] }));
+        const topResult = await insertTreeUnderParent(client, inboxFileId, inboxRootId, remainingTopLevel, {
+          startIndex: firstNodeIndex + 1,
+          checkbox,
+        });
+        totalCreated += topResult.totalCreated;
+
+        // Now insert children of each remaining top-level node
+        for (let i = 0; i < topResult.rootNodeIds.length; i++) {
+          const parentId = topResult.rootNodeIds[i];
+          const children = tree[i + 1].children;
+          if (children.length > 0) {
+            const childResult = await insertTreeUnderParent(client, inboxFileId, parentId, children, { checkbox });
+            totalCreated += childResult.totalCreated;
+          }
+        }
+      }
 
       return {
         content: [
           {
             type: "text",
-            text: `Item added to inbox successfully!\nDocument: ${response.file_id}\nNode ID: ${response.node_id}\nPosition: ${response.index}`,
+            text: `Successfully added ${totalCreated} items to inbox!\nDocument: ${inboxFileId}\nFirst node: ${buildDynalistUrl(inboxFileId, firstNodeId)}`,
           },
         ],
       };
@@ -526,77 +630,20 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         };
       }
 
-      // Group nodes by level for batch insertion
-      const levels = groupByLevel(tree);
-      let totalCreated = 0;
-      let firstNodeUrl = "";
+      // Use helper to insert tree
+      const result = await insertTreeUnderParent(client, documentId, parentNodeId, tree, {
+        startIndex: position === "as_first_child" ? 0 : undefined,
+      });
 
-      // Track created IDs per level
-      let previousLevelIds: string[] = [];
-
-      // Insert level by level (batch insert per level = fewer HTTP requests)
-      for (let levelIdx = 0; levelIdx < levels.length; levelIdx++) {
-        const level = levels[levelIdx];
-
-        // Build batch changes for this level
-        const changes: { action: string; parent_id: string; index: number; content: string }[] = [];
-
-        // Track how many children we've added per parent (for explicit index)
-        const childCountPerParent = new Map<string, number>();
-
-        for (const node of level) {
-          // Determine parent_id
-          let nodeParentId: string;
-          if (node.parentLevelIndex === -1) {
-            // Root node - parent is the target from URL
-            nodeParentId = parentNodeId;
-          } else {
-            // Child node - parent is from previous level
-            nodeParentId = previousLevelIds[node.parentLevelIndex];
-          }
-
-          // Use explicit index to preserve order when multiple children go under same parent
-          // For level 0, first node respects position setting
-          let insertIndex: number;
-          if (levelIdx === 0 && position === "as_first_child") {
-            // Insert at beginning, use explicit index
-            const count = childCountPerParent.get(nodeParentId) || 0;
-            insertIndex = count;
-            childCountPerParent.set(nodeParentId, count + 1);
-          } else {
-            // For level > 0, parents were just created so they're empty
-            // Use explicit index starting from 0 to preserve order
-            const count = childCountPerParent.get(nodeParentId) || 0;
-            insertIndex = count;
-            childCountPerParent.set(nodeParentId, count + 1);
-          }
-
-          changes.push({
-            action: "insert",
-            parent_id: nodeParentId,
-            index: insertIndex,
-            content: node.content,
-          });
-        }
-
-        // Execute batch insert for this level
-        const response = await client.editDocument(documentId, changes as any);
-        const newIds = response.new_node_ids || [];
-
-        // Track first node URL
-        if (levelIdx === 0 && newIds.length > 0) {
-          firstNodeUrl = buildDynalistUrl(documentId, newIds[0]);
-        }
-
-        totalCreated += newIds.length;
-        previousLevelIds = newIds;
-      }
+      const firstNodeUrl = result.rootNodeIds.length > 0
+        ? buildDynalistUrl(documentId, result.rootNodeIds[0])
+        : "";
 
       return {
         content: [
           {
             type: "text",
-            text: `Successfully inserted ${totalCreated} nodes in ${levels.length} batch(es)!\nFirst node: ${firstNodeUrl}`,
+            text: `Successfully inserted ${result.totalCreated} nodes!\nFirst node: ${firstNodeUrl}`,
           },
         ],
       };
