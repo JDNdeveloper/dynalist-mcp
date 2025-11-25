@@ -532,6 +532,119 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   );
 
   // ═══════════════════════════════════════════════════════════════════
+  // TOOL: get_recent_changes
+  // ═══════════════════════════════════════════════════════════════════
+  server.tool(
+    "get_recent_changes",
+    "Get nodes created or modified within a time period. Useful for tracking recent activity in a document.",
+    {
+      url: z.string().optional().describe("Dynalist URL"),
+      file_id: z.string().optional().describe("Document ID (alternative to URL)"),
+      since: z.union([z.string(), z.number()]).describe("Start date - ISO string (e.g. '2024-01-15') or timestamp in milliseconds"),
+      until: z.union([z.string(), z.number()]).optional().describe("End date - ISO string or timestamp (default: now)"),
+      type: z.enum(["created", "modified", "both"]).optional().default("modified").describe("Filter by change type"),
+      parent_levels: z.number().optional().default(1).describe("How many parent levels to include for context"),
+      sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
+    },
+    async ({ url, file_id, since, until, type, parent_levels, sort }) => {
+      let documentId = file_id;
+
+      if (url) {
+        const parsed = parseDynalistUrl(url);
+        documentId = parsed.documentId;
+      }
+
+      if (!documentId) {
+        return {
+          content: [{ type: "text", text: "Error: Either 'url' or 'file_id' must be provided" }],
+          isError: true,
+        };
+      }
+
+      // Parse timestamps
+      const parseTimestamp = (val: string | number): number => {
+        if (typeof val === "number") return val;
+        const date = new Date(val);
+        return date.getTime();
+      };
+
+      const sinceTs = parseTimestamp(since);
+      const untilTs = until ? parseTimestamp(until) : Date.now();
+
+      if (isNaN(sinceTs)) {
+        return {
+          content: [{ type: "text", text: "Error: Invalid 'since' date format" }],
+          isError: true,
+        };
+      }
+
+      const doc = await client.readDocument(documentId);
+      const nodeMap = buildNodeMap(doc.nodes);
+
+      // Filter nodes by time range and type
+      const matches = doc.nodes
+        .filter((node) => {
+          const createdInRange = node.created >= sinceTs && node.created <= untilTs;
+          const modifiedInRange = node.modified >= sinceTs && node.modified <= untilTs;
+
+          if (type === "created") return createdInRange;
+          if (type === "modified") return modifiedInRange && !createdInRange; // Modified but not newly created
+          // "both" - either created or modified in range
+          return createdInRange || modifiedInRange;
+        })
+        .map((node) => {
+          const createdInRange = node.created >= sinceTs && node.created <= untilTs;
+          const modifiedInRange = node.modified >= sinceTs && node.modified <= untilTs;
+
+          const result: {
+            id: string;
+            content: string;
+            created: number;
+            modified: number;
+            url: string;
+            change_type: string;
+            parents?: { id: string; content: string }[];
+          } = {
+            id: node.id,
+            content: node.content,
+            created: node.created,
+            modified: node.modified,
+            url: buildDynalistUrl(documentId!, node.id),
+            change_type: createdInRange ? "created" : "modified",
+          };
+
+          // Add parents if requested
+          if (parent_levels > 0) {
+            const parents = getAncestors(doc.nodes, node.id, parent_levels);
+            if (parents.length > 0) {
+              result.parents = parents;
+            }
+          }
+
+          return result;
+        });
+
+      // Sort
+      matches.sort((a, b) => {
+        const aTime = a.change_type === "created" ? a.created : a.modified;
+        const bTime = b.change_type === "created" ? b.created : b.modified;
+        return sort === "newest_first" ? bTime - aTime : aTime - bTime;
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: matches.length > 0
+              ? JSON.stringify(matches, null, 2)
+              : `No changes found in the specified time period`,
+          },
+        ],
+      };
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
   // TOOL: delete_node
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
