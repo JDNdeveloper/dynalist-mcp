@@ -640,14 +640,18 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       }
 
       // Parse timestamps
-      const parseTimestamp = (val: string | number): number => {
+      const parseTimestamp = (val: string | number, endOfDay: boolean = false): number => {
         if (typeof val === "number") return val;
         const date = new Date(val);
+        // If it's a date-only string (no time component) and endOfDay is true, use end of day
+        if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+          date.setUTCHours(23, 59, 59, 999);
+        }
         return date.getTime();
       };
 
-      const sinceTs = parseTimestamp(since);
-      const untilTs = until ? parseTimestamp(until) : Date.now();
+      const sinceTs = parseTimestamp(since, false);
+      const untilTs = until ? parseTimestamp(until, true) : Date.now();
 
       if (isNaN(sinceTs)) {
         return {
