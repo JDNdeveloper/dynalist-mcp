@@ -10,6 +10,46 @@ import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown.js
 import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser.js";
 
 /**
+ * Helper: Count words in a string
+ */
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+}
+
+/**
+ * Helper: Check content size and return warning if too large
+ * Returns null if content is OK, or warning message if too large
+ */
+function checkContentSize(
+  content: string,
+  bypassWarning: boolean,
+  recommendations: string[]
+): { warning: string; canBypass: boolean } | null {
+  const wordCount = countWords(content);
+
+  if (wordCount <= 3000 || bypassWarning) {
+    return null; // OK to return content
+  }
+
+  const canBypass = wordCount <= 20000;
+
+  let warning = `⚠️ LARGE RESULT WARNING\n`;
+  warning += `This query would return ~${wordCount.toLocaleString()} words which may fill your context.\n\n`;
+  warning += `Recommendations:\n`;
+  for (const rec of recommendations) {
+    warning += `- ${rec}\n`;
+  }
+
+  if (canBypass) {
+    warning += `\nTo receive the full result anyway (${wordCount.toLocaleString()} words), repeat the request with bypass_warning: true`;
+  } else {
+    warning += `\n❌ Result too large (>${20000} words). Please reduce the scope using the recommendations above.`;
+  }
+
+  return { warning, canBypass };
+}
+
+/**
  * Helper: Get ancestor nodes (parents) up to N levels
  * Returns array with nearest parent first
  */
@@ -185,16 +225,17 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
     "read_node_as_markdown",
-    "Read a Dynalist document or specific node and return it as Markdown. Provide either a URL (with optional #z=nodeId deep link) or file_id + node_id.",
+    "Read a Dynalist document or specific node and return it as Markdown. Provide either a URL (with optional #z=nodeId deep link) or file_id + node_id. WARNING: Large documents may return many words - use max_depth to limit.",
     {
       url: z.string().optional().describe("Dynalist URL (e.g., https://dynalist.io/d/xxx#z=yyy)"),
       file_id: z.string().optional().describe("Document ID (alternative to URL)"),
       node_id: z.string().optional().describe("Node ID to start from (optional, reads entire doc if not provided)"),
-      max_depth: z.number().optional().describe("Maximum depth to traverse (optional, unlimited if not set)"),
+      max_depth: z.number().optional().describe("Maximum depth to traverse (optional, unlimited if not set) - USE THIS TO LIMIT OUTPUT SIZE"),
       include_notes: z.boolean().optional().default(true).describe("Include notes as sub-bullets"),
       include_checked: z.boolean().optional().default(true).describe("Include checked/completed items"),
+      bypass_warning: z.boolean().optional().default(false).describe("Set to true to receive large results (3000-20000 words) without warning"),
     },
-    async ({ url, file_id, node_id, max_depth, include_notes, include_checked }) => {
+    async ({ url, file_id, node_id, max_depth, include_notes, include_checked, bypass_warning }) => {
       // Parse URL if provided
       let documentId = file_id;
       let nodeId = node_id;
@@ -223,7 +264,6 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       };
 
       let markdown: string;
-      let targetNode: string | undefined;
 
       if (nodeId) {
         // Render from specific node
@@ -234,11 +274,22 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           };
         }
         markdown = nodeToMarkdown(doc.nodes, nodeId, options);
-        targetNode = nodeId;
       } else {
         // Render entire document
         markdown = documentToMarkdown(doc.nodes, options);
-        targetNode = findRootNodeId(doc.nodes);
+      }
+
+      // Check content size
+      const sizeCheck = checkContentSize(markdown, bypass_warning || false, [
+        "Use max_depth to limit traversal depth (e.g., max_depth: 2)",
+        "Target a specific node_id instead of entire document",
+        "Use include_notes: false to reduce output",
+      ]);
+
+      if (sizeCheck) {
+        return {
+          content: [{ type: "text", text: sizeCheck.warning }],
+        };
       }
 
       return {
@@ -448,16 +499,17 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
     "search_in_document",
-    "Search for text in a Dynalist document. Returns matching nodes with optional parent context and children.",
+    "Search for text in a Dynalist document. Returns matching nodes with optional parent context and children. WARNING: Many matches with parents/children can return many words.",
     {
       url: z.string().optional().describe("Dynalist URL"),
       file_id: z.string().optional().describe("Document ID (alternative to URL)"),
       query: z.string().describe("Text to search for (case-insensitive)"),
       search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
-      parent_levels: z.number().optional().default(1).describe("How many parent levels to include (0 = none, 1 = direct parent, 2+ = ancestors). If more levels requested than exist, returns all available up to root."),
+      parent_levels: z.number().optional().default(1).describe("How many parent levels to include (0 = none, 1 = direct parent, 2+ = ancestors)"),
       include_children: z.boolean().optional().default(false).describe("Include direct children (level 1) of each match"),
+      bypass_warning: z.boolean().optional().default(false).describe("Set to true to receive large results (3000-20000 words) without warning"),
     },
-    async ({ url, file_id, query, search_notes, parent_levels, include_children }) => {
+    async ({ url, file_id, query, search_notes, parent_levels, include_children, bypass_warning }) => {
       let documentId = file_id;
 
       if (url) {
@@ -518,13 +570,28 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           return result;
         });
 
+      const resultText = matches.length > 0
+        ? JSON.stringify(matches, null, 2)
+        : `No matches found for "${query}"`;
+
+      // Check content size
+      const sizeCheck = checkContentSize(resultText, bypass_warning || false, [
+        "Use a more specific query to reduce matches",
+        "Use parent_levels: 0 to exclude parent context",
+        "Use include_children: false to exclude children",
+      ]);
+
+      if (sizeCheck) {
+        return {
+          content: [{ type: "text", text: sizeCheck.warning }],
+        };
+      }
+
       return {
         content: [
           {
             type: "text",
-            text: matches.length > 0
-              ? JSON.stringify(matches, null, 2)
-              : `No matches found for "${query}"`,
+            text: resultText,
           },
         ],
       };
@@ -536,7 +603,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
     "get_recent_changes",
-    "Get nodes created or modified within a time period. Useful for tracking recent activity in a document.",
+    "Get nodes created or modified within a time period. WARNING: Long time periods with active documents can return many words.",
     {
       url: z.string().optional().describe("Dynalist URL"),
       file_id: z.string().optional().describe("Document ID (alternative to URL)"),
@@ -545,8 +612,9 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       type: z.enum(["created", "modified", "both"]).optional().default("modified").describe("Filter by change type"),
       parent_levels: z.number().optional().default(1).describe("How many parent levels to include for context"),
       sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
+      bypass_warning: z.boolean().optional().default(false).describe("Set to true to receive large results (3000-20000 words) without warning"),
     },
-    async ({ url, file_id, since, until, type, parent_levels, sort }) => {
+    async ({ url, file_id, since, until, type, parent_levels, sort, bypass_warning }) => {
       let documentId = file_id;
 
       if (url) {
@@ -579,7 +647,6 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       }
 
       const doc = await client.readDocument(documentId);
-      const nodeMap = buildNodeMap(doc.nodes);
 
       // Filter nodes by time range and type
       const matches = doc.nodes
@@ -594,7 +661,6 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         })
         .map((node) => {
           const createdInRange = node.created >= sinceTs && node.created <= untilTs;
-          const modifiedInRange = node.modified >= sinceTs && node.modified <= untilTs;
 
           const result: {
             id: string;
@@ -631,13 +697,28 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         return sort === "newest_first" ? bTime - aTime : aTime - bTime;
       });
 
+      const resultText = matches.length > 0
+        ? JSON.stringify(matches, null, 2)
+        : `No changes found in the specified time period`;
+
+      // Check content size
+      const sizeCheck = checkContentSize(resultText, bypass_warning || false, [
+        "Use a shorter time period (narrower since/until range)",
+        "Use parent_levels: 0 to exclude parent context",
+        "Filter by type: 'created' or 'modified' instead of 'both'",
+      ]);
+
+      if (sizeCheck) {
+        return {
+          content: [{ type: "text", text: sizeCheck.warning }],
+        };
+      }
+
       return {
         content: [
           {
             type: "text",
-            text: matches.length > 0
-              ? JSON.stringify(matches, null, 2)
-              : `No changes found in the specified time period`,
+            text: resultText,
           },
         ],
       };
