@@ -10,6 +10,34 @@ import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown.js
 import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser.js";
 
 /**
+ * Helper: Get ancestor nodes (parents) up to N levels
+ * Returns array with nearest parent first
+ */
+function getAncestors(
+  nodes: import("../dynalist-client.js").DynalistNode[],
+  nodeId: string,
+  levels: number
+): { id: string; content: string }[] {
+  if (levels <= 0) return [];
+
+  const ancestors: { id: string; content: string }[] = [];
+  let currentId = nodeId;
+
+  for (let i = 0; i < levels; i++) {
+    const parentInfo = findNodeParent(nodes, currentId);
+    if (!parentInfo) break; // Reached root or node not found
+
+    const parentNode = nodes.find(n => n.id === parentInfo.parentId);
+    if (!parentNode) break;
+
+    ancestors.push({ id: parentNode.id, content: parentNode.content });
+    currentId = parentNode.id;
+  }
+
+  return ancestors;
+}
+
+/**
  * Helper: Insert a tree of nodes under a parent, level by level
  * Returns total nodes created and array of created node IDs for level 0
  */
@@ -378,14 +406,16 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
     "search_in_document",
-    "Search for text in a Dynalist document and return matching nodes with their URLs",
+    "Search for text in a Dynalist document. Returns matching nodes with optional parent context and children.",
     {
       url: z.string().optional().describe("Dynalist URL"),
       file_id: z.string().optional().describe("Document ID (alternative to URL)"),
       query: z.string().describe("Text to search for (case-insensitive)"),
       search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
+      parent_levels: z.number().optional().default(1).describe("How many parent levels to include (0 = none, 1 = direct parent, 2+ = ancestors). If more levels requested than exist, returns all available up to root."),
+      include_children: z.boolean().optional().default(false).describe("Include direct children (level 1) of each match"),
     },
-    async ({ url, file_id, query, search_notes }) => {
+    async ({ url, file_id, query, search_notes, parent_levels, include_children }) => {
       let documentId = file_id;
 
       if (url) {
@@ -401,6 +431,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       }
 
       const doc = await client.readDocument(documentId);
+      const nodeMap = buildNodeMap(doc.nodes);
       const queryLower = query.toLowerCase();
 
       const matches = doc.nodes
@@ -409,12 +440,41 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           const noteMatch = search_notes && node.note?.toLowerCase().includes(queryLower);
           return contentMatch || noteMatch;
         })
-        .map((node) => ({
-          id: node.id,
-          content: node.content,
-          note: node.note || undefined,
-          url: buildDynalistUrl(documentId!, node.id),
-        }));
+        .map((node) => {
+          const result: {
+            id: string;
+            content: string;
+            note?: string;
+            url: string;
+            parents?: { id: string; content: string }[];
+            children?: { id: string; content: string }[];
+          } = {
+            id: node.id,
+            content: node.content,
+            note: node.note || undefined,
+            url: buildDynalistUrl(documentId!, node.id),
+          };
+
+          // Add parents if requested
+          if (parent_levels > 0) {
+            const parents = getAncestors(doc.nodes, node.id, parent_levels);
+            if (parents.length > 0) {
+              result.parents = parents;
+            }
+          }
+
+          // Add children if requested
+          if (include_children && node.children && node.children.length > 0) {
+            result.children = node.children
+              .map(childId => {
+                const childNode = nodeMap.get(childId);
+                return childNode ? { id: childNode.id, content: childNode.content } : null;
+              })
+              .filter((c): c is { id: string; content: string } => c !== null);
+          }
+
+          return result;
+        });
 
       return {
         content: [

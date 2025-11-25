@@ -9,7 +9,7 @@ Enables Claude and other AI assistants to read, write, and manipulate Dynalist d
 ### Read Operations
 - **list_documents** - List all documents and folders in your account
 - **read_node_as_markdown** - Extract bullet points as Markdown (supports deep links, depth limits, notes)
-- **search_in_document** - Case-insensitive search across content and notes
+- **search_in_document** - Search with context: returns parents (configurable levels) and optional children
 
 ### Write Operations
 - **send_to_inbox** - Add items to your Dynalist inbox (supports hierarchical markdown)
