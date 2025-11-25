@@ -10,10 +10,10 @@ import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown.js
 import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser.js";
 
 /**
- * Helper: Count words in a string
+ * Helper: Estimate token count (~4 chars per token)
  */
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
 }
 
 /**
@@ -25,10 +25,10 @@ function checkContentSize(
   bypassWarning: boolean,
   recommendations: string[]
 ): { warning: string; canBypass: boolean } | null {
-  const wordCount = countWords(content);
+  const tokenCount = estimateTokens(content);
 
   // If bypass was used preemptively (result is small), warn against this practice
-  if (bypassWarning && wordCount <= 3000) {
+  if (bypassWarning && tokenCount <= 5000) {
     return {
       warning: `⚠️ INCORRECT USAGE: You used bypass_warning: true preemptively.\n\n` +
         `The bypass_warning option should ONLY be used AFTER receiving a size warning, ` +
@@ -38,23 +38,23 @@ function checkContentSize(
     };
   }
 
-  if (wordCount <= 3000 || bypassWarning) {
+  if (tokenCount <= 5000 || bypassWarning) {
     return null; // OK to return content
   }
 
-  const canBypass = wordCount <= 20000;
+  const canBypass = tokenCount <= 24500;
 
   let warning = `⚠️ LARGE RESULT WARNING\n`;
-  warning += `This query would return ~${wordCount.toLocaleString()} words which may fill your context.\n\n`;
+  warning += `This query would return ~${tokenCount.toLocaleString()} tokens which may fill your context.\n\n`;
   warning += `Recommendations:\n`;
   for (const rec of recommendations) {
     warning += `- ${rec}\n`;
   }
 
   if (canBypass) {
-    warning += `\nTo receive the full result anyway (${wordCount.toLocaleString()} words), repeat the SAME request with bypass_warning: true`;
+    warning += `\nTo receive the full result anyway (~${tokenCount.toLocaleString()} tokens), repeat the SAME request with bypass_warning: true`;
   } else {
-    warning += `\n❌ Result too large (>${20000} words). Please reduce the scope using the recommendations above.`;
+    warning += `\n❌ Result too large (>${(24500).toLocaleString()} tokens). Please reduce the scope using the recommendations above.`;
   }
 
   return { warning, canBypass };
