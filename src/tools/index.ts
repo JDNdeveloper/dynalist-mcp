@@ -18,7 +18,7 @@ function countWords(text: string): number {
 
 /**
  * Helper: Check content size and return warning if too large
- * Returns null if content is OK, or warning message if too large
+ * Returns null if content is OK, or warning/error message
  */
 function checkContentSize(
   content: string,
@@ -26,6 +26,17 @@ function checkContentSize(
   recommendations: string[]
 ): { warning: string; canBypass: boolean } | null {
   const wordCount = countWords(content);
+
+  // If bypass was used preemptively (result is small), warn against this practice
+  if (bypassWarning && wordCount <= 3000) {
+    return {
+      warning: `⚠️ INCORRECT USAGE: You used bypass_warning: true preemptively.\n\n` +
+        `The bypass_warning option should ONLY be used AFTER receiving a size warning, ` +
+        `not on the first request. Please repeat the request WITHOUT bypass_warning to get the result.\n\n` +
+        `This ensures you're aware of large results before they fill your context.`,
+      canBypass: false,
+    };
+  }
 
   if (wordCount <= 3000 || bypassWarning) {
     return null; // OK to return content
@@ -41,7 +52,7 @@ function checkContentSize(
   }
 
   if (canBypass) {
-    warning += `\nTo receive the full result anyway (${wordCount.toLocaleString()} words), repeat the request with bypass_warning: true`;
+    warning += `\nTo receive the full result anyway (${wordCount.toLocaleString()} words), repeat the SAME request with bypass_warning: true`;
   } else {
     warning += `\n❌ Result too large (>${20000} words). Please reduce the scope using the recommendations above.`;
   }
@@ -233,7 +244,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       max_depth: z.number().optional().describe("Maximum depth to traverse (optional, unlimited if not set) - USE THIS TO LIMIT OUTPUT SIZE"),
       include_notes: z.boolean().optional().default(true).describe("Include notes as sub-bullets"),
       include_checked: z.boolean().optional().default(true).describe("Include checked/completed items"),
-      bypass_warning: z.boolean().optional().default(false).describe("Set to true to receive large results (3000-20000 words) without warning"),
+      bypass_warning: z.boolean().optional().default(false).describe("ONLY use after receiving a size warning. Do NOT set true on first request."),
     },
     async ({ url, file_id, node_id, max_depth, include_notes, include_checked, bypass_warning }) => {
       // Parse URL if provided
@@ -283,7 +294,6 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       const sizeCheck = checkContentSize(markdown, bypass_warning || false, [
         "Use max_depth to limit traversal depth (e.g., max_depth: 2)",
         "Target a specific node_id instead of entire document",
-        "Use include_notes: false to reduce output",
       ]);
 
       if (sizeCheck) {
@@ -507,7 +517,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
       parent_levels: z.number().optional().default(1).describe("How many parent levels to include (0 = none, 1 = direct parent, 2+ = ancestors)"),
       include_children: z.boolean().optional().default(false).describe("Include direct children (level 1) of each match"),
-      bypass_warning: z.boolean().optional().default(false).describe("Set to true to receive large results (3000-20000 words) without warning"),
+      bypass_warning: z.boolean().optional().default(false).describe("ONLY use after receiving a size warning. Do NOT set true on first request."),
     },
     async ({ url, file_id, query, search_notes, parent_levels, include_children, bypass_warning }) => {
       let documentId = file_id;
@@ -612,7 +622,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       type: z.enum(["created", "modified", "both"]).optional().default("modified").describe("Filter by change type"),
       parent_levels: z.number().optional().default(1).describe("How many parent levels to include for context"),
       sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
-      bypass_warning: z.boolean().optional().default(false).describe("Set to true to receive large results (3000-20000 words) without warning"),
+      bypass_warning: z.boolean().optional().default(false).describe("ONLY use after receiving a size warning. Do NOT set true on first request."),
     },
     async ({ url, file_id, since, until, type, parent_levels, sort, bypass_warning }) => {
       let documentId = file_id;
