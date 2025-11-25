@@ -434,13 +434,14 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
     "delete_node",
-    "Delete a node from a Dynalist document",
+    "Delete a node from a Dynalist document. By default, only the node is deleted and its children move up to the parent. Use include_children=true to delete the node AND all its descendants.",
     {
       url: z.string().optional().describe("Dynalist URL with node deep link"),
       file_id: z.string().optional().describe("Document ID (alternative to URL)"),
       node_id: z.string().describe("Node ID to delete"),
+      include_children: z.boolean().optional().default(false).describe("If true, delete the node AND all its children/descendants. If false (default), only delete the node (children move up to parent)."),
     },
-    async ({ url, file_id, node_id }) => {
+    async ({ url, file_id, node_id, include_children }) => {
       let documentId = file_id;
 
       if (url) {
@@ -455,15 +456,42 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         };
       }
 
-      await client.editDocument(documentId, [
-        { action: "delete", node_id }
-      ]);
+      let deletedCount = 1;
+
+      if (include_children) {
+        // Read document to find all descendants
+        const doc = await client.readDocument(documentId);
+        const nodeMap = buildNodeMap(doc.nodes);
+
+        // Collect all descendant IDs recursively
+        const nodesToDelete: string[] = [];
+        function collectDescendants(id: string) {
+          nodesToDelete.push(id);
+          const node = nodeMap.get(id);
+          if (node?.children) {
+            for (const childId of node.children) {
+              collectDescendants(childId);
+            }
+          }
+        }
+        collectDescendants(node_id);
+
+        // Delete all nodes (children first, then parents - reverse order)
+        const changes = nodesToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
+        await client.editDocument(documentId, changes);
+        deletedCount = nodesToDelete.length;
+      } else {
+        // Delete only the node itself
+        await client.editDocument(documentId, [
+          { action: "delete", node_id }
+        ]);
+      }
 
       return {
         content: [
           {
             type: "text",
-            text: `Node deleted successfully!\nDocument: ${documentId}\nDeleted Node: ${node_id}`,
+            text: `Deleted ${deletedCount} node(s) successfully!\nDocument: ${documentId}${include_children ? " (including all children)" : " (children moved to parent)"}`,
           },
         ],
       };
@@ -514,16 +542,20 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
   );
 
   // ═══════════════════════════════════════════════════════════════════
-  // TOOL: move_node_after (intuitive move with relative positioning)
+  // TOOL: move_node_relative (intuitive move with relative positioning)
   // ═══════════════════════════════════════════════════════════════════
   server.tool(
-    "move_node_after",
-    "Move a node relative to another node (after, before, or as child). The node and all its children are moved together.",
+    "move_node_relative",
+    "Move a node (and all its children) to a new position relative to a reference node. This is the intuitive way to reorganize your outline - just specify where you want the node to go.",
     {
-      source_url: z.string().describe("URL of the node to move (with deep link #z=nodeId)"),
-      reference_url: z.string().describe("URL of the reference node"),
+      source_url: z.string().describe("URL of the node to move (with deep link #z=nodeId). The entire subtree (node + all descendants) will be moved."),
+      reference_url: z.string().describe("URL of the reference node that determines the target location"),
       position: z.enum(["after", "before", "as_first_child", "as_last_child"]).describe(
-        "Where to place relative to reference: 'after' = same level after reference, 'before' = same level before reference, 'as_first_child' = first child of reference, 'as_last_child' = last child of reference"
+        "Where to place the node relative to the reference: " +
+        "'after' = immediately after the reference (same parent, same level), " +
+        "'before' = immediately before the reference (same parent, same level), " +
+        "'as_first_child' = as the first child inside the reference node, " +
+        "'as_last_child' = as the last child inside the reference node"
       ),
     },
     async ({ source_url, reference_url, position }) => {

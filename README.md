@@ -12,15 +12,15 @@ Enables Claude and other AI assistants to read, write, and manipulate Dynalist d
 - **search_in_document** - Case-insensitive search across content and notes
 
 ### Write Operations
-- **send_to_inbox** - Add items to your Dynalist inbox
+- **send_to_inbox** - Add items to your Dynalist inbox (supports hierarchical markdown)
 - **edit_node** - Modify existing nodes (content, note, checkbox, heading, color)
 - **insert_node** - Insert a single new node
 - **insert_nodes_from_markdown** - Bulk import from indented markdown/bullet lists
 
 ### Structure Operations
-- **delete_node** - Remove a node from a document
-- **move_node** - Move node with parent/index control
-- **move_node_after** - Intuitive positioning (after/before/as_child of reference node)
+- **delete_node** - Remove a node (optionally with all children)
+- **move_node** - Move node with explicit parent/index
+- **move_node_relative** - Move node + subtree relative to another node (after/before/as_child)
 
 ## Setup
 
