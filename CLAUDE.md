@@ -1,54 +1,54 @@
 # Dynalist MCP Server
 
-Server MCP (Model Context Protocol) care integrează Dynalist.io cu Claude și alți asistenți AI.
+MCP (Model Context Protocol) server that integrates Dynalist.io with Claude and other AI assistants.
 
-## Ce face proiectul
+## What this project does
 
-Permite Claude să citească, scrie și manipuleze documente Dynalist programatic prin 10 tool-uri MCP:
+Allows Claude to read, write, and manipulate Dynalist documents programmatically via 12 MCP tools:
 
-**Read**: `list_documents`, `read_node_as_markdown`, `search_in_document`
+**Read**: `list_documents`, `search_documents`, `read_node_as_markdown`, `search_in_document`, `get_recent_changes`
 **Write**: `send_to_inbox`, `edit_node`, `insert_node`, `insert_nodes_from_markdown`
-**Structure**: `delete_node`, `move_node`, `move_node_after`
+**Structure**: `delete_node`, `move_node`, `move_node_relative`
 
-## Structura proiectului
+## Project structure
 
 ```
 src/
 ├── index.ts                 # Entry point - bootstrap MCP server
-├── dynalist-client.ts       # Wrapper pentru Dynalist API
-├── tools/index.ts           # Definițiile celor 10 tool-uri MCP
+├── dynalist-client.ts       # Wrapper for the Dynalist API
+├── tools/index.ts           # Definitions for all MCP tools
 └── utils/
-    ├── node-to-markdown.ts  # Conversie noduri → Markdown
-    ├── url-parser.ts        # Parse/build URL-uri Dynalist
-    └── markdown-parser.ts   # Parse text indentat în arbori
+    ├── node-to-markdown.ts  # Convert nodes to Markdown
+    ├── url-parser.ts        # Parse/build Dynalist URLs
+    └── markdown-parser.ts   # Parse indented text into trees
 ```
 
-## Stack tehnic
+## Tech stack
 
-- `@modelcontextprotocol/sdk` - framework MCP
-- `zod` - validare parametri tool-uri
+- `@modelcontextprotocol/sdk` - MCP framework
+- `zod` - tool parameter validation
 - TypeScript 5.5, Node.js ES2022
 
-## Comenzi
+## Commands
 
 ```bash
-npm run build      # Compilare TypeScript → dist/
-npm run inspector  # Debug cu MCP Inspector
+npm run build      # Compile TypeScript to dist/
+npm run inspector  # Debug with MCP Inspector
 ```
 
-## Configurare
+## Configuration
 
-Necesită `DYNALIST_API_TOKEN` în environment. Vezi `.env.example`.
+Requires `DYNALIST_API_TOKEN` in the environment. See `.env.example`.
 
-## Arhitectura fluxului
+## Architecture
 
 ```
 Claude Desktop → MCP stdio → index.ts → tools/index.ts → DynalistClient → Dynalist API
 ```
 
-## Note pentru dezvoltare
+## Development notes
 
-- Tool-urile acceptă atât ID-uri cât și URL-uri complete Dynalist (`https://dynalist.io/d/{id}#z={nodeId}`)
-- `insert_nodes_from_markdown` face batch insert pentru eficiență
-- `move_node_after` oferă poziționare intuitivă (after/before/as_child)
-- Toate tool-urile folosesc Zod pentru validare strictă a parametrilor
+- Tools accept both IDs and full Dynalist URLs (`https://dynalist.io/d/{id}#z={nodeId}`).
+- `insert_nodes_from_markdown` does batch inserts for efficiency.
+- `move_node_relative` provides intuitive positioning (after/before/as_child).
+- All tools use Zod for strict parameter validation.
