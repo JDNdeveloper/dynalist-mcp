@@ -2,7 +2,7 @@
  * Convert Dynalist nodes to Markdown format
  */
 
-import { DynalistNode, buildNodeMap } from "../dynalist-client.js";
+import { DynalistNode, buildNodeMap } from "../dynalist-client";
 
 export interface ConvertOptions {
   /** Maximum depth to traverse (undefined = unlimited) */

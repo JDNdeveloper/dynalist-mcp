@@ -27,13 +27,14 @@ src/
 
 - `@modelcontextprotocol/sdk` - MCP framework
 - `zod` - tool parameter validation
-- TypeScript 5.5, Node.js ES2022
+- TypeScript 5, Bun runtime (runs TS natively, no build step)
 
 ## Commands
 
 ```bash
-npm run build      # Compile TypeScript to dist/
-npm run inspector  # Debug with MCP Inspector
+bun run start      # Run the MCP server
+bun run typecheck  # Type-check without emitting (run after making changes)
+bun run inspector  # Debug with MCP Inspector
 ```
 
 ## Configuration

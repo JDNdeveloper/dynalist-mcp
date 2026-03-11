@@ -4,10 +4,10 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client.js";
-import { parseDynalistUrl, buildDynalistUrl } from "../utils/url-parser.js";
-import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown.js";
-import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser.js";
+import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
+import { parseDynalistUrl, buildDynalistUrl } from "../utils/url-parser";
+import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown";
+import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser";
 
 /**
  * Helper: Estimate token count (~4 chars per token)

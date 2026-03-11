@@ -3,18 +3,17 @@
   "version": "1.0.0",
   "description": "MCP server for Dynalist.io - extract and manage outliner content",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "src/index.ts",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector node dist/index.js"
+    "start": "bun src/index.ts",
+    "inspector": "bunx @modelcontextprotocol/inspector bun src/index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": ["mcp", "dynalist", "outliner", "model-context-protocol"],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.5.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -33,8 +33,7 @@ Visit https://dynalist.io/developer and generate an API token.
 ### 2. Install dependencies
 
 ```bash
-npm install
-npm run build
+bun install
 ```
 
 ### 3. Configure Claude Desktop
@@ -45,8 +44,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "dynalist": {
-      "command": "node",
-      "args": ["/FULL/PATH/TO/dynalist-mcp/dist/index.js"],
+      "command": "bash",
+      "args": ["-c", "bun /FULL/PATH/TO/dynalist-mcp/src/index.ts"],
       "env": {
         "DYNALIST_API_TOKEN": "your_token_here"
       }
@@ -97,15 +96,14 @@ send_to_inbox with content: "Remember to review the PR"
 ## Development
 
 ```bash
-npm run build      # Compile TypeScript
-npm run dev        # Watch mode
-npm run inspector  # Test with MCP Inspector
+bun run typecheck  # Type-check without emitting
+bun run inspector  # Test with MCP Inspector
 ```
 
 ### Testing with MCP Inspector
 
 ```bash
-DYNALIST_API_TOKEN=your_token npx @modelcontextprotocol/inspector node dist/index.js
+DYNALIST_API_TOKEN=your_token bunx @modelcontextprotocol/inspector bun src/index.ts
 ```
 
 ## License

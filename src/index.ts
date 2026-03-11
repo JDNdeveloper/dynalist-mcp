@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Dynalist MCP Server
  *
@@ -6,15 +6,15 @@
  * Allows AI assistants to read and write to your Dynalist outlines.
  *
  * Usage:
- *   DYNALIST_API_TOKEN=your_token node dist/index.js
+ *   DYNALIST_API_TOKEN=your_token bun src/index.ts
  *
  * Get your API token from: https://dynalist.io/developer
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { DynalistClient } from "./dynalist-client.js";
-import { registerTools } from "./tools/index.js";
+import { DynalistClient } from "./dynalist-client";
+import { registerTools } from "./tools/index";
 
 // Get API token from environment
 const API_TOKEN = process.env.DYNALIST_API_TOKEN;
