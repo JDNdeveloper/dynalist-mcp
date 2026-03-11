@@ -56,6 +56,7 @@ export interface EditDocumentChange {
   checkbox?: boolean;
   heading?: number;
   color?: number;
+  collapsed?: boolean;
 }
 
 export interface EditDocumentResponse {
@@ -142,6 +143,21 @@ export function buildNodeMap(nodes: DynalistNode[]): Map<string, DynalistNode> {
   const map = new Map<string, DynalistNode>();
   for (const node of nodes) {
     map.set(node.id, node);
+  }
+  return map;
+}
+
+/**
+ * Build a parent map for O(1) parent lookups.
+ * Maps each node ID to its parent ID and index within the parent's children array.
+ */
+export function buildParentMap(nodes: DynalistNode[]): Map<string, { parentId: string; index: number }> {
+  const map = new Map<string, { parentId: string; index: number }>();
+  for (const node of nodes) {
+    const children = node.children || [];
+    for (let i = 0; i < children.length; i++) {
+      map.set(children[i], { parentId: node.id, index: i });
+    }
   }
   return map;
 }

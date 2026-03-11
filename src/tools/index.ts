@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, buildNodeMap, findRootNodeId, findNodeParent } from "../dynalist-client.js";
+import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client.js";
 import { parseDynalistUrl, buildDynalistUrl } from "../utils/url-parser.js";
 import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown.js";
 import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser.js";
@@ -61,11 +61,12 @@ function checkContentSize(
 }
 
 /**
- * Helper: Get ancestor nodes (parents) up to N levels
- * Returns array with nearest parent first
+ * Helper: Get ancestor nodes (parents) up to N levels.
+ * Returns array with nearest parent first.
  */
 function getAncestors(
-  nodes: import("../dynalist-client.js").DynalistNode[],
+  nodeMap: Map<string, import("../dynalist-client.js").DynalistNode>,
+  parentMap: Map<string, { parentId: string; index: number }>,
   nodeId: string,
   levels: number
 ): { id: string; content: string }[] {
@@ -75,10 +76,10 @@ function getAncestors(
   let currentId = nodeId;
 
   for (let i = 0; i < levels; i++) {
-    const parentInfo = findNodeParent(nodes, currentId);
-    if (!parentInfo) break; // Reached root or node not found
+    const parentInfo = parentMap.get(currentId);
+    if (!parentInfo) break;
 
-    const parentNode = nodes.find(n => n.id === parentInfo.parentId);
+    const parentNode = nodeMap.get(parentInfo.parentId);
     if (!parentNode) break;
 
     ancestors.push({ id: parentNode.id, content: parentNode.content });
@@ -110,7 +111,7 @@ async function insertTreeUnderParent(
 
   for (let levelIdx = 0; levelIdx < levels.length; levelIdx++) {
     const level = levels[levelIdx];
-    const changes: { action: string; parent_id: string; index: number; content: string; checkbox?: boolean }[] = [];
+    const changes: EditDocumentChange[] = [];
     const childCountPerParent = new Map<string, number>();
 
     for (const node of level) {
@@ -133,7 +134,7 @@ async function insertTreeUnderParent(
       childCountPerParent.set(nodeParentId, count + 1);
     }
 
-    const response = await client.editDocument(fileId, changes as any);
+    const response = await client.editDocument(fileId, changes);
     const newIds = response.new_node_ids || [];
 
     if (levelIdx === 0) {
@@ -405,8 +406,9 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       checkbox: z.boolean().optional().describe("Whether to show checkbox"),
       heading: z.number().min(0).max(3).optional().describe("Heading level (0-3)"),
       color: z.number().min(0).max(6).optional().describe("Color label (0-6)"),
+      collapsed: z.boolean().optional().describe("Whether the node is collapsed"),
     },
-    async ({ url, file_id, node_id, content, note, checked, checkbox, heading, color }) => {
+    async ({ url, file_id, node_id, content, note, checked, checkbox, heading, color, collapsed }) => {
       let documentId = file_id;
 
       if (url) {
@@ -421,20 +423,21 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         };
       }
 
-      const change: Record<string, unknown> = {
+      const change: EditDocumentChange = {
         action: "edit",
         node_id,
       };
 
-      // Only include fields that are explicitly set
+      // Only include fields that are explicitly set.
       if (content !== undefined) change.content = content;
       if (note !== undefined) change.note = note;
       if (checked !== undefined) change.checked = checked;
       if (checkbox !== undefined) change.checkbox = checkbox;
       if (heading !== undefined) change.heading = heading;
       if (color !== undefined) change.color = color;
+      if (collapsed !== undefined) change.collapsed = collapsed;
 
-      const response = await client.editDocument(documentId, [change as any]);
+      const response = await client.editDocument(documentId, [change]);
 
       return {
         content: [
@@ -478,7 +481,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         };
       }
 
-      const change: Record<string, unknown> = {
+      const change: EditDocumentChange = {
         action: "insert",
         parent_id,
         index,
@@ -489,7 +492,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       if (checkbox) change.checkbox = checkbox;
       if (heading) change.heading = heading;
 
-      const response = await client.editDocument(documentId, [change as any]);
+      const response = await client.editDocument(documentId, [change]);
 
       const newNodeId = response.new_node_ids?.[0];
 
@@ -536,6 +539,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
 
       const doc = await client.readDocument(documentId);
       const nodeMap = buildNodeMap(doc.nodes);
+      const parentMap = buildParentMap(doc.nodes);
       const queryLower = query.toLowerCase();
 
       const matches = doc.nodes
@@ -561,7 +565,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
 
           // Add parents if requested
           if (parent_levels > 0) {
-            const parents = getAncestors(doc.nodes, node.id, parent_levels);
+            const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {
               result.parents = parents;
             }
@@ -661,6 +665,8 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       }
 
       const doc = await client.readDocument(documentId);
+      const nodeMap = buildNodeMap(doc.nodes);
+      const parentMap = buildParentMap(doc.nodes);
 
       // Filter nodes by time range and type
       const matches = doc.nodes
@@ -695,7 +701,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
 
           // Add parents if requested
           if (parent_levels > 0) {
-            const parents = getAncestors(doc.nodes, node.id, parent_levels);
+            const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {
               result.parents = parents;
             }
@@ -900,6 +906,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
 
       // Fetch document to find parent/index
       const doc = await client.readDocument(documentId);
+      const parentMap = buildParentMap(doc.nodes);
 
       let targetParentId: string;
       let targetIndex: number;
@@ -912,7 +919,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         targetIndex = -1;
       } else {
         // "after" or "before" - find the parent of the reference node
-        const refParentInfo = findNodeParent(doc.nodes, refNodeId);
+        const refParentInfo = parentMap.get(refNodeId) ?? null;
         if (!refParentInfo) {
           return {
             content: [{ type: "text", text: "Error: Could not find parent of reference node" }],

@@ -178,12 +178,6 @@ export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
 
     levels.push(nextLevel);
 
-    // Collect all children as next parents
-    currentParents = [];
-    for (const parent of currentParents.length > 0 ? currentParents : roots) {
-      // We need to collect children in order
-    }
-    // Actually rebuild from roots traversing to this depth
     currentParents = getNodesAtDepth(roots, levels.length - 1);
   }
 
