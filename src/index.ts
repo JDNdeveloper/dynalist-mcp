@@ -15,12 +15,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DynalistClient } from "./dynalist-client";
 import { registerTools } from "./tools/index";
-import { readFileSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
+import pkg from "../package.json";
 
 // Get API token from environment
 const API_TOKEN = process.env.DYNALIST_API_TOKEN;
