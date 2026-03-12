@@ -105,7 +105,7 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 
 ### `search_in_document`
 
-Search for text in a document. Use `parent_levels` to include ancestor breadcrumbs -- the most efficient way to understand where matches live in the hierarchy without a separate `read_document` call.
+Search for text in a document. Use `parent_levels` to include ancestor breadcrumbs, the most efficient way to understand where matches live in the hierarchy without a separate `read_document` call.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -205,7 +205,7 @@ Check version numbers for documents without fetching content. Useful for detecti
 
 ### `send_to_inbox`
 
-Send items to your Dynalist inbox. The target document is the user's configured inbox -- it cannot be changed via this tool. For inserting into a specific document, use `insert_node` or `insert_nodes`.
+Send items to your Dynalist inbox. The target document is the user's configured inbox and cannot be changed via this tool. For inserting into a specific document, use `insert_node` or `insert_nodes`.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -225,7 +225,7 @@ Send items to your Dynalist inbox. The target document is the user's configured 
 
 ### `edit_node`
 
-Edit an existing node. Only specified fields are updated -- omitted fields are left unchanged (not reset to defaults). This is a partial update.
+Edit an existing node. Only specified fields are updated. Omitted fields are left unchanged (not reset to defaults). This is a partial update.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|

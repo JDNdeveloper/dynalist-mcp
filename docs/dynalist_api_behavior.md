@@ -37,7 +37,7 @@ behaves, based on exhaustive testing against a real account.
   `"owner"`, `"manage"`, `"edit"`, `"read"`, `"no_access"`.
 - Files with `permission: 0` do not appear in the response at all.
 
-## `/doc/read` response -- node shape
+## `/doc/read` response: node shape
 
 ```
 {
@@ -70,7 +70,7 @@ behaves, based on exhaustive testing against a real account.
 - The `nodes` array is flat (not nested). Parent-child relationships are expressed through
   the `children` arrays.
 
-## `/doc/edit` -- node actions
+## `/doc/edit`: node actions
 
 ### Insert
 
@@ -133,7 +133,7 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
   Our client batches in chunks of 200 to stay within the limit.
 - `new_node_ids` in the response corresponds to insert actions only, in order.
 
-## `/doc/edit` -- rate limiting
+## `/doc/edit`: rate limiting
 
 - Rolling window of ~500-600 changes. Once exceeded, returns `_code: "TooManyRequests"`
   with HTTP 200 (not an HTTP error status).
@@ -144,7 +144,7 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
 - Insert and delete share the same rate limit budget.
 - Per-batch API response time when not rate limited: ~160-200ms.
 
-## `/file/edit` -- file actions
+## `/file/edit`: file actions
 
 ### Create
 

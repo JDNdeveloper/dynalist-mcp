@@ -172,8 +172,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "These are orthogonal. Setting max_depth high does NOT expand collapsed nodes. Setting " +
         "include_collapsed_children: true does NOT bypass the depth limit.\n\n" +
         "When children are hidden, the response signals the cause:\n" +
-        "- depth_limited: true -- call read_document with that node's node_id to zoom in.\n" +
-        "- collapsed: true with children_count > 0 -- re-request with include_collapsed_children: true.",
+        "- depth_limited: true. Call read_document with that node's node_id to zoom in.\n" +
+        "- collapsed: true with children_count > 0. Re-request with include_collapsed_children: true.",
       inputSchema: {
         file_id: z.string().describe("Document file ID"),
         node_id: z.string().optional().describe(
@@ -302,7 +302,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         "Search for text in a Dynalist document. Returns matching nodes with full metadata. " +
-        "Use parent_levels to include ancestor breadcrumbs -- this is the most efficient way to " +
+        "Use parent_levels to include ancestor breadcrumbs, the most efficient way to " +
         "understand where matches live in the hierarchy without a separate read_document call.",
       inputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -437,8 +437,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "end-of-day for 'until'.",
       inputSchema: {
         file_id: z.string().describe("Document file ID"),
-        since: z.union([z.string(), z.number()]).describe("Start date -- ISO string (e.g. '2024-01-15') or timestamp in milliseconds"),
-        until: z.union([z.string(), z.number()]).optional().describe("End date -- ISO string or timestamp in milliseconds (default: now)"),
+        since: z.union([z.string(), z.number()]).describe("Start date: ISO string (e.g. '2024-01-15') or timestamp in milliseconds"),
+        until: z.union([z.string(), z.number()]).optional().describe("End date: ISO string or timestamp in milliseconds (default: now)"),
         type: z.enum(["created", "modified", "both"]).optional().default("both").describe(
           "Filter by change type. 'created' = only new nodes, 'modified' = only edited (not newly created) nodes, " +
           "'both' = all changes (default)."

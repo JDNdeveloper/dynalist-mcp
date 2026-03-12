@@ -50,7 +50,7 @@ Multiple files can have the same title, resulting in the same path. Use `id` anc
 
 ## Examples
 
-**Work machine allowlist** -- only allow access to specific folders:
+**Work machine allowlist.** Only allow access to specific folders:
 ```json
 {
   "access": {
@@ -63,7 +63,7 @@ Multiple files can have the same title, resulting in the same path. Use `id` anc
 }
 ```
 
-**Personal machine denylist** -- allow everything except sensitive content:
+**Personal machine denylist.** Allow everything except sensitive content:
 ```json
 {
   "access": {

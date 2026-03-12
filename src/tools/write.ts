@@ -25,11 +25,11 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     {
       description:
         "Send items to your Dynalist inbox. The target document is the user's configured inbox " +
-        "in Dynalist settings -- it cannot be changed via this tool. For inserting into a specific " +
+        "in Dynalist settings and cannot be changed via this tool. For inserting into a specific " +
         "document, use insert_node or insert_nodes instead. Supports indented markdown/bullets " +
         "for hierarchical content.",
       inputSchema: {
-        content: z.string().describe("The text content -- can be single line or indented markdown with '- bullets'"),
+        content: z.string().describe("The text content. Can be single line or indented markdown with '- bullets'."),
         note: z.string().optional().describe("Optional note for the first/root item"),
         checkbox: z.boolean().optional().describe("Whether to add checkboxes to items (default from config)"),
       },
@@ -112,8 +112,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "edit_node",
     {
       description:
-        "Edit an existing node in a Dynalist document. Only specified fields are updated -- " +
-        "omitted fields are left unchanged (not reset to defaults). This is a partial update.",
+        "Edit an existing node in a Dynalist document. Only specified fields are updated. " +
+        "Omitted fields are left unchanged (not reset to defaults). This is a partial update.",
       inputSchema: {
         file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("Node ID to edit"),

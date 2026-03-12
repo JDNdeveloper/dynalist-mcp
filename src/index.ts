@@ -30,7 +30,7 @@ const dynalistClient = new DynalistClient(API_TOKEN);
 
 // Server instructions injected into the LLM system prompt by MCP clients.
 const INSTRUCTIONS = `\
-Dynalist is an outliner application -- a tool for organizing information as nested, \
+Dynalist is an outliner application, a tool for organizing information as nested, \
 hierarchical bullet-point lists. Content is organized at two levels:
 
 1. File tree (folders and documents): The top level is a tree of folders and documents, \
@@ -109,7 +109,7 @@ the file tree.
 single flat node. It parses indented markdown and creates the full hierarchy in batch.
 - Delete behavior: delete_node promotes children up to the parent by default (the node is \
 removed but its children survive). Use include_children: true to delete the entire subtree.
-- Move: move_node uses relative positioning -- specify a reference node and a position \
+- Move: move_node uses relative positioning. Specify a reference node and a position \
 (after, before, first_child, last_child).
 - Inbox target: send_to_inbox sends to whatever document the user configured as their \
 inbox in Dynalist settings. For inserting into a specific document, use insert_node or \

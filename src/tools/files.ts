@@ -247,7 +247,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       description:
         "Move a document or folder to a different parent folder. If moving a folder, all its " +
         "contents (documents and subfolders) move with it. This operates on the file tree, not " +
-        "on nodes within a document -- use move_node for moving nodes.",
+        "on nodes within a document. Use move_node for moving nodes.",
       inputSchema: {
         file_id: z.string().describe("File ID of the document or folder to move"),
         parent_folder_id: z.string().describe("Destination folder file ID"),

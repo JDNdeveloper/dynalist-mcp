@@ -1,6 +1,6 @@
 # Dynalist MCP Server
 
-A [Model Context Protocol](https://modelcontextprotocol.io/) server for [Dynalist.io](https://dynalist.io/) -- the infinite document outliner.
+A [Model Context Protocol](https://modelcontextprotocol.io/) server for [Dynalist.io](https://dynalist.io/), the infinite document outliner.
 
 Claude and other AI assistants can read, write, search, and organize Dynalist documents programmatically via 17 MCP tools.
 
@@ -153,7 +153,7 @@ Users who need strict isolation should use separate Dynalist accounts rather tha
 
 Rule precedence is based on path specificity, **not** policy severity. Unlike AWS IAM (where explicit deny always wins), a more-specific `allow` overrides a less-specific `deny`.
 
-For example, if `/Private/**` is `deny` but `/Private/Shopping List` is `allow`, the Shopping List is accessible because the exact match is more specific. Deny rules are not absolute ceilings -- they can be overridden by more specific rules underneath them.
+For example, if `/Private/**` is `deny` but `/Private/Shopping List` is `allow`, the Shopping List is accessible because the exact match is more specific. Deny rules are not absolute ceilings. They can be overridden by more specific rules underneath them.
 
 Audit your rules so that no more-specific allow/read rules punch holes through broader deny rules.
 

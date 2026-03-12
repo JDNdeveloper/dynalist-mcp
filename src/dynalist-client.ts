@@ -18,7 +18,7 @@ const MAX_RETRY_DELAY_MS = 10000;
 
 // Batch config: the API silently drops changes beyond its burst limit
 // (~500 changes). Batches of 200 stay safely within the limit. No
-// inter-batch delay -- the retry logic handles rate limits if needed.
+// inter-batch delay. The retry logic handles rate limits if needed.
 const CHANGES_BATCH_SIZE = 200;
 const INTER_BATCH_DELAY_MS = 0;
 
@@ -41,7 +41,7 @@ export class DynalistApiError extends Error {
 
   constructor(code: string, msg: string) {
     const guidance = ERROR_GUIDANCE[code];
-    const fullMessage = guidance ? `${msg} -- ${guidance}` : msg;
+    const fullMessage = guidance ? `${msg}: ${guidance}` : msg;
     super(fullMessage);
     this.name = "DynalistApiError";
     this.code = code;

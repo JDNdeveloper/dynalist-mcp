@@ -280,7 +280,7 @@ describe("AccessController.getPolicy", () => {
     expect(await ac.getPolicy("da", config)).toBe("deny");
   });
 
-  test("overlapping rules: /A/** deny + /A/B/** allow -- deeper allow wins", async () => {
+  test("overlapping rules: /A/** deny + /A/B/** allow, deeper allow wins", async () => {
     const ac = new AccessController(client);
     // Set up /Folder A/Sub/Nested Doc.
     server.addFolder("fa_sub", "Sub", "fa");
@@ -299,7 +299,7 @@ describe("AccessController.getPolicy", () => {
     expect(await ac.getPolicy("fa_sub", config)).toBe("allow");
   });
 
-  test("overlapping rules: /A/** allow + /A/B/** deny -- deeper deny wins", async () => {
+  test("overlapping rules: /A/** allow + /A/B/** deny, deeper deny wins", async () => {
     const ac = new AccessController(client);
     server.addFolder("fa_sub", "Sub", "fa");
     server.addDocument("da_sub", "Nested Doc", "fa_sub");
@@ -317,7 +317,7 @@ describe("AccessController.getPolicy", () => {
     expect(await ac.getPolicy("fa_sub", config)).toBe("deny");
   });
 
-  test("overlapping rules: /A/** deny + /A/B exact allow -- exact wins", async () => {
+  test("overlapping rules: /A/** deny + /A/B exact allow, exact wins", async () => {
     const ac = new AccessController(client);
     const config = makeConfig({
       access: {
@@ -333,7 +333,7 @@ describe("AccessController.getPolicy", () => {
     expect(await ac.getPolicy("db", config)).toBe("deny");
   });
 
-  test("overlapping rules: /A/* read + /A/B exact allow -- exact wins", async () => {
+  test("overlapping rules: /A/* read + /A/B exact allow, exact wins", async () => {
     const ac = new AccessController(client);
     const config = makeConfig({
       access: {

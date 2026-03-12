@@ -75,13 +75,13 @@ src/
 
 The following docs must be kept up to date when the corresponding features change:
 
-- `README.md` -- Getting started, feature summary, connect instructions, security model.
-- `docs/tools.md` -- Parameter tables, response shapes, and usage notes for all 17 tools. Update when tool parameters, responses, or descriptions change.
-- `docs/configuration.md` -- Config file reference, environment variables, field table, logging. Update when config schema or defaults change.
-- `docs/access-control.md` -- ACL rules, glob syntax, specificity, ID anchoring, examples. Update when access control behavior changes.
-- `docs/client-setup.md` -- Claude Desktop, Claude Code, and general MCP client setup. Update when supported clients or connection instructions change.
-- `docs/api-coverage.md` -- Mapping between Dynalist API endpoints and MCP tools. Update when tools are added or removed.
-- `docs/dynalist_api_behavior.md` -- Observed Dynalist API behavior and edge cases.
+- `README.md`: Getting started, feature summary, connect instructions, security model.
+- `docs/tools.md`: Parameter tables, response shapes, and usage notes for all 17 tools. Update when tool parameters, responses, or descriptions change.
+- `docs/configuration.md`: Config file reference, environment variables, field table, logging. Update when config schema or defaults change.
+- `docs/access-control.md`: ACL rules, glob syntax, specificity, ID anchoring, examples. Update when access control behavior changes.
+- `docs/client-setup.md`: Claude Desktop, Claude Code, and general MCP client setup. Update when supported clients or connection instructions change.
+- `docs/api-coverage.md`: Mapping between Dynalist API endpoints and MCP tools. Update when tools are added or removed.
+- `docs/dynalist_api_behavior.md`: Observed Dynalist API behavior and edge cases.
 
 ## Bundling and releasing
 
