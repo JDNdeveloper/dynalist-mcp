@@ -3,7 +3,7 @@
  * Validates with Zod, reloads on mtime change, fail-closed on invalid config.
  */
 
-import { statSync, readFileSync } from "fs";
+import { statSync, readFileSync, appendFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import { z } from "zod";
 // ─── Zod schemas ───────────────────────────────────────────────────────
 
 const AccessRuleSchema = z.object({
-  path: z.string(),
+  path: z.string().refine((p) => p.startsWith("/"), { message: "Access rule path must start with '/'" }),
   policy: z.enum(["allow", "read", "deny"]),
   id: z.string().optional(),
 });
@@ -55,6 +55,7 @@ const ConfigSchema = z.object({
   readOnly: z.boolean().default(false),
   cache: CacheSchema.default({}),
   logLevel: z.enum(["error", "warn", "info", "debug"]).default("warn"),
+  logFile: z.string().optional(),
 });
 
 export type AccessRule = z.infer<typeof AccessRuleSchema>;
@@ -171,12 +172,20 @@ export function getConfig(): Config {
 const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 } as const;
 
 /**
- * Log to stderr (stdout is reserved for MCP protocol). Respects the
- * configured logLevel.
+ * Log to stderr (stdout is reserved for MCP protocol) and optionally to
+ * a file. Respects the configured logLevel.
  */
 export function log(level: keyof typeof LOG_LEVELS, message: string): void {
   const threshold = LOG_LEVELS[cachedConfig.logLevel];
   if (LOG_LEVELS[level] <= threshold) {
-    console.error(`[dynalist-mcp] [${level}] ${message}`);
+    const line = `[dynalist-mcp] [${level}] ${message}`;
+    console.error(line);
+    if (cachedConfig.logFile) {
+      try {
+        appendFileSync(cachedConfig.logFile, `${new Date().toISOString()} ${line}\n`);
+      } catch {
+        // Silently ignore write failures to avoid recursive error loops.
+      }
+    }
   }
 }

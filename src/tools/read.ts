@@ -134,7 +134,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             type: f.type,
             url: f.type === "document" ? buildDynalistUrl(f.id) : undefined,
             permission: f.type === "document" ? getPermissionLabel(f.permission) : undefined,
-            children: f.type === "folder" ? (f.children ?? []) : undefined,
+            children: f.type === "folder" ? (f.children ?? []).filter((childId) => policies.get(childId) !== "deny") : undefined,
           };
           if (policy === "read") {
             match.access_policy = "read";
@@ -573,8 +573,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
       if (allowedIds.length > 0) {
         const response = await client.checkForUpdates(allowedIds);
-        for (let i = 0; i < allowedIds.length; i++) {
-          versions[allowedIds[i]] = response.versions[i] ?? -1;
+        for (const id of allowedIds) {
+          versions[id] = response.versions[id] ?? -1;
         }
       }
 

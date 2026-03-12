@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient } from "../dynalist-client";
+import { DynalistClient, FileEditResponse } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
@@ -58,9 +58,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         index,
       }]);
 
-      const fileId = response.created_file_ids?.[0];
+      if (!response.results?.[0]) {
+        return makeErrorResponse("ApiError", "Failed to create document. The parent folder may not exist.");
+      }
+
+      const fileId = response.created?.[0];
       if (!fileId) {
-        return makeErrorResponse("Unknown", "Document created but no file ID was returned");
+        return makeErrorResponse("ApiError", "Document created but no file ID was returned.");
       }
 
       // Invalidate path cache since the file tree changed.
@@ -115,9 +119,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         index,
       }]);
 
-      const fileId = response.created_file_ids?.[0];
+      if (!response.results?.[0]) {
+        return makeErrorResponse("ApiError", "Failed to create folder. The parent folder may not exist.");
+      }
+
+      const fileId = response.created?.[0];
       if (!fileId) {
-        return makeErrorResponse("Unknown", "Folder created but no file ID was returned");
+        return makeErrorResponse("ApiError", "Folder created but no file ID was returned.");
       }
 
       // Invalidate path cache since the file tree changed.
@@ -154,12 +162,16 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      await client.editFiles([{
+      const response = await client.editFiles([{
         action: "edit",
         type: "document",
         file_id,
         title,
       }]);
+
+      if (!response.results?.[0]) {
+        return makeErrorResponse("ApiError", "Failed to rename document. It may not exist or you lack permission.");
+      }
 
       // Invalidate path cache since the file tree paths changed.
       ac.invalidateCache();
@@ -195,12 +207,16 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      await client.editFiles([{
+      const response = await client.editFiles([{
         action: "edit",
         type: "folder",
         file_id,
         title,
       }]);
+
+      if (!response.results?.[0]) {
+        return makeErrorResponse("ApiError", "Failed to rename folder. It may not exist or you lack permission.");
+      }
 
       // Invalidate path cache since the file tree paths changed.
       ac.invalidateCache();
@@ -249,19 +265,24 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       const destError = requireAccess(destPolicy, "write", config.readOnly);
       if (destError) return makeErrorResponse(destError.error, destError.message);
 
-      // The Dynalist file/edit move action requires a type, but we don't know
-      // if the file is a document or folder. Try document first; if it fails,
-      // the error will propagate.
-      //
-      // NOTE: The Dynalist API may accept either type for move operations.
-      // This will be verified in Phase 6 (manual behavior discovery).
-      await client.editFiles([{
+      // Detect file type from the file tree so we send the correct type.
+      const listResponse = await client.listFiles();
+      const file = listResponse.files.find((f) => f.id === file_id);
+      if (!file) {
+        return makeErrorResponse("NotFound", "File not found.");
+      }
+
+      const response = await client.editFiles([{
         action: "move",
-        type: "document",
+        type: file.type,
         file_id,
         parent_id: parent_folder_id,
         index,
       }]);
+
+      if (!response.results?.[0]) {
+        return makeErrorResponse("ApiError", "Failed to move file. The destination folder may not exist.");
+      }
 
       // Invalidate path cache since the file tree changed.
       ac.invalidateCache();

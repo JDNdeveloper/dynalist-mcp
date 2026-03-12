@@ -155,21 +155,35 @@ function buildPathMap(files: DynalistFile[], rootFileId: string): Map<string, st
  * Log warnings for rules with ID mismatches and for ambiguous
  * duplicate-title paths.
  */
-function validateRules(rules: AccessRule[], pathMap: Map<string, string>): void {
-  // Check ID-anchored rules for path mismatches.
+function validateRules(rules: AccessRule[], pathMap: Map<string, string>): string[] {
+  const errors: string[] = [];
+  const allPaths = new Set(pathMap.values());
+
+  // Check that every rule matches at least one valid path.
   for (const rule of rules) {
-    if (!rule.id) continue;
-    const resolvedPath = pathMap.get(rule.id);
-    if (!resolvedPath) {
-      log("warn", `Access rule for '${rule.path}' has id '${rule.id}' which does not exist in the file tree.`);
-      continue;
-    }
-    // Strip glob suffix for comparison.
-    const ruleBase = rule.path.replace(/\/\*\*?$/, "");
-    if (resolvedPath !== ruleBase) {
-      log("warn",
-        `Access rule for '${rule.path}' has id '${rule.id}' which now resolves to '${resolvedPath}'. Update your config.`
-      );
+    if (rule.id) {
+      // ID-anchored: the ID must exist in the tree.
+      const resolvedPath = pathMap.get(rule.id);
+      if (!resolvedPath) {
+        errors.push(`Access rule for '${rule.path}' has id '${rule.id}' which does not exist in the file tree.`);
+        continue;
+      }
+      // Check for path drift.
+      const ruleBase = rule.path.replace(/\/\*\*?$/, "");
+      if (resolvedPath !== ruleBase) {
+        log("warn",
+          `Access rule for '${rule.path}' has id '${rule.id}' which now resolves to '${resolvedPath}'. Update your config.`
+        );
+      }
+    } else {
+      // Path-only: the base path must match at least one file/folder.
+      const ruleBase = rule.path.replace(/\/\*\*?$/, "");
+      if (!allPaths.has(ruleBase)) {
+        errors.push(
+          `Access rule path '${rule.path}' does not match any file or folder in the account. ` +
+          `Check for typos, or remove the rule if the path was deleted.`
+        );
+      }
     }
   }
 
@@ -195,6 +209,8 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): void 
       );
     }
   }
+
+  return errors;
 }
 
 // ─── AccessController ─────────────────────────────────────────────────
@@ -240,7 +256,12 @@ export class AccessController {
       const pathMap = buildPathMap(response.files, response.root_file_id);
 
       if (config.access?.rules) {
-        validateRules(config.access.rules, pathMap);
+        const errors = validateRules(config.access.rules, pathMap);
+        if (errors.length > 0) {
+          log("error", `Access rule validation failed:\n  ${errors.join("\n  ")}`);
+          // Fail closed: return null so all tools are denied.
+          return null;
+        }
       }
 
       this.cache = { pathMap, fetchedAt: Date.now() };

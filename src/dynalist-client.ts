@@ -4,11 +4,23 @@
  */
 
 import type { DynalistApiResponse } from "./types";
+import { log } from "./config";
 
 const API_BASE = "https://dynalist.io/api/v1";
 
-const MAX_RETRIES = 3;
-const BASE_RETRY_DELAY_MS = 1000;
+// Retry config: exponential backoff on TooManyRequests.
+// 5s base capped at 10s: 5s, 10s, 10s, ... up to 10 attempts (95s max).
+// The API rate limit window clears in ~45-50s, so 10 retries gives ~2x
+// headroom. If still limited after 95s, something is genuinely wrong.
+const MAX_RETRIES = 10;
+const BASE_RETRY_DELAY_MS = 5000;
+const MAX_RETRY_DELAY_MS = 10000;
+
+// Batch config: the API silently drops changes beyond its burst limit
+// (~500 changes). Batches of 200 stay safely within the limit. No
+// inter-batch delay -- the retry logic handles rate limits if needed.
+const CHANGES_BATCH_SIZE = 200;
+const INTER_BATCH_DELAY_MS = 0;
 
 const ERROR_GUIDANCE: Record<string, string> = {
   InvalidToken: "Check your DYNALIST_API_TOKEN environment variable.",
@@ -83,7 +95,6 @@ export interface EditDocumentChange {
   checkbox?: boolean;
   heading?: number;
   color?: number;
-  collapsed?: boolean;
 }
 
 export interface EditDocumentResponse {
@@ -106,12 +117,12 @@ export interface FileEditChange {
 }
 
 export interface FileEditResponse {
-  results: unknown[];
-  created_file_ids?: string[];
+  results: boolean[];
+  created?: string[];
 }
 
 export interface CheckForUpdatesResponse {
-  versions: number[];
+  versions: Record<string, number>;
 }
 
 export class DynalistClient {
@@ -135,9 +146,10 @@ export class DynalistClient {
         return data;
       }
 
-      // Retry on rate limit with exponential backoff.
+      // Retry on rate limit with capped exponential backoff.
       if (data._code === "TooManyRequests" && attempt < MAX_RETRIES) {
-        const delay = BASE_RETRY_DELAY_MS * Math.pow(2, attempt);
+        const delay = Math.min(BASE_RETRY_DELAY_MS * Math.pow(2, attempt), MAX_RETRY_DELAY_MS);
+        log("warn", `Rate limited on ${endpoint}, attempt ${attempt + 1}/${MAX_RETRIES}, retrying in ${delay}ms`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -165,12 +177,41 @@ export class DynalistClient {
 
   /**
    * Make changes to document content (insert, edit, move, delete nodes).
+   * Automatically batches in chunks of 500 to stay within the API burst
+   * limit. Returns merged new_node_ids across all batches.
    */
   async editDocument(fileId: string, changes: EditDocumentChange[]): Promise<EditDocumentResponse> {
-    return this.request<EditDocumentResponse>("/doc/edit", {
-      file_id: fileId,
-      changes,
-    });
+    if (changes.length <= CHANGES_BATCH_SIZE) {
+      return this.request<EditDocumentResponse>("/doc/edit", {
+        file_id: fileId,
+        changes,
+      });
+    }
+
+    // Batch large change sets.
+    const totalBatches = Math.ceil(changes.length / CHANGES_BATCH_SIZE);
+    log("info", `Batching ${changes.length} changes into ${totalBatches} batches of ${CHANGES_BATCH_SIZE}.`);
+    const allNewNodeIds: string[] = [];
+    for (let i = 0; i < changes.length; i += CHANGES_BATCH_SIZE) {
+      if (i > 0 && INTER_BATCH_DELAY_MS > 0) {
+        await new Promise(resolve => setTimeout(resolve, INTER_BATCH_DELAY_MS));
+      }
+
+      const batchNum = Math.floor(i / CHANGES_BATCH_SIZE) + 1;
+      const batch = changes.slice(i, i + CHANGES_BATCH_SIZE);
+      log("info", `Sending ${batch.length} changes (batch ${batchNum}/${totalBatches})`);
+      const batchStart = Date.now();
+      const response = await this.request<EditDocumentResponse>("/doc/edit", {
+        file_id: fileId,
+        changes: batch,
+      });
+      log("info", `Batch ${batchNum}/${totalBatches} completed in ${Date.now() - batchStart}ms`);
+      if (response.new_node_ids) {
+        allNewNodeIds.push(...response.new_node_ids);
+      }
+    }
+
+    return { new_node_ids: allNewNodeIds.length > 0 ? allNewNodeIds : undefined };
   }
 
   /**

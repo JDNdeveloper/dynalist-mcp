@@ -117,7 +117,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         checkbox: z.boolean().optional().describe("Whether to show checkbox"),
         heading: z.number().min(0).max(3).optional().describe("Heading level (0-3)"),
         color: z.number().min(0).max(6).optional().describe("Color label (0-6)"),
-        collapsed: z.boolean().optional().describe("Whether the node is collapsed"),
       },
       outputSchema: {
         file_id: z.string().describe("Document ID"),
@@ -134,7 +133,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       checkbox,
       heading,
       color,
-      collapsed,
     }: {
       file_id: string;
       node_id: string;
@@ -144,7 +142,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       checkbox?: boolean;
       heading?: number;
       color?: number;
-      collapsed?: boolean;
     }) => {
       const config = getConfig();
 
@@ -165,7 +162,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       if (checkbox !== undefined) change.checkbox = checkbox;
       if (heading !== undefined) change.heading = heading;
       if (color !== undefined) change.color = color;
-      if (collapsed !== undefined) change.collapsed = collapsed;
 
       await client.editDocument(file_id, [change]);
 
@@ -236,8 +232,11 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         content,
       };
 
+      // Auto-enable checkbox when checked is set.
+      const effectiveCheckbox = checkbox || (checked !== undefined);
+
       if (note) change.note = note;
-      if (checkbox) change.checkbox = checkbox;
+      if (effectiveCheckbox) change.checkbox = effectiveCheckbox;
       if (heading) change.heading = heading;
       if (color !== undefined && color > 0) change.color = color;
       if (checked !== undefined) change.checked = checked;

@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, buildNodeMap, buildParentMap } from "../dynalist-client";
+import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
@@ -22,14 +22,14 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     "delete_node",
     {
       description:
-        "Delete a node from a Dynalist document. By default, only the node is deleted and its " +
-        "children move up to the parent. Use include_children=true to delete the node AND all its descendants.",
+        "Delete a node and all its descendants from a Dynalist document. " +
+        "Use promote_children=true to move children up to the deleted node's parent before deleting.",
       inputSchema: {
         file_id: z.string().describe("Document ID"),
         node_id: z.string().describe("Node ID to delete"),
-        include_children: z.boolean().optional().default(false).describe(
-          "If true, delete the node AND all its children/descendants. " +
-          "If false (default), only delete the node (children move up to parent)."
+        promote_children: z.boolean().optional().default(false).describe(
+          "If true, move the node's children to its parent (preserving order) before deleting. " +
+          "If false (default), delete the node and all its descendants."
         ),
       },
       outputSchema: {
@@ -40,11 +40,11 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     wrapToolHandler(async ({
       file_id,
       node_id,
-      include_children,
+      promote_children,
     }: {
       file_id: string;
       node_id: string;
-      include_children: boolean;
+      promote_children: boolean;
     }) => {
       const config = getConfig();
 
@@ -53,38 +53,77 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      let deletedCount = 1;
+      // Reject deleting the root node.
+      if (node_id === "root") {
+        return makeErrorResponse("InvalidInput", "Cannot delete the root node of a document.");
+      }
 
-      if (include_children) {
-        const doc = await client.readDocument(file_id);
-        const nodeMap = buildNodeMap(doc.nodes);
+      const doc = await client.readDocument(file_id);
+      const rootId = findRootNodeId(doc.nodes);
+      if (node_id === rootId) {
+        return makeErrorResponse("InvalidInput", "Cannot delete the root node of a document.");
+      }
 
-        // Collect all descendant IDs recursively.
-        const nodesToDelete: string[] = [];
-        function collectDescendants(id: string) {
-          nodesToDelete.push(id);
-          const node = nodeMap.get(id);
-          if (node?.children) {
-            for (const childId of node.children) {
-              collectDescendants(childId);
-            }
+      const nodeMap = buildNodeMap(doc.nodes);
+      const parentMap = buildParentMap(doc.nodes);
+      const targetNode = nodeMap.get(node_id);
+
+      if (promote_children && targetNode?.children && targetNode.children.length > 0) {
+        // Move children to the deleted node's parent at the same position.
+        const parentInfo = parentMap.get(node_id);
+        if (!parentInfo) {
+          return makeErrorResponse("NodeNotFound", "Could not find parent of node to delete.");
+        }
+
+        // Move each child to be a sibling of the node being deleted,
+        // placed at the node's index. Each successive child goes after
+        // the previous one, so we increment the index.
+        const moveChanges = targetNode.children.map((childId, i) => ({
+          action: "move" as const,
+          node_id: childId,
+          parent_id: parentInfo.parentId,
+          index: parentInfo.index + i,
+        }));
+        await client.editDocument(file_id, moveChanges);
+
+        // Now delete just the (now childless) node.
+        await client.editDocument(file_id, [{ action: "delete", node_id }]);
+
+        return makeResponse({
+          file_id,
+          deleted_count: 1,
+          promoted_children: targetNode.children.length,
+        });
+      }
+
+      // Collect the target node and all descendants via depth-first traversal.
+      // The Dynalist API's delete action only removes the specified node and
+      // orphans its children, so we must enumerate the full subtree ourselves.
+      const nodesToDelete: string[] = [];
+      function collectDescendants(id: string) {
+        nodesToDelete.push(id);
+        const node = nodeMap.get(id);
+        if (node?.children) {
+          for (const childId of node.children) {
+            collectDescendants(childId);
           }
         }
-        collectDescendants(node_id);
-
-        // Delete all nodes (children first, then parents - reverse order).
-        const changes = nodesToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
-        await client.editDocument(file_id, changes);
-        deletedCount = nodesToDelete.length;
-      } else {
-        await client.editDocument(file_id, [
-          { action: "delete", node_id },
-        ]);
       }
+      collectDescendants(node_id);
+
+      // Delete in reverse (children before parents). This ordering makes the
+      // operation idempotent on partial failure: if batching is interrupted
+      // mid-way (rate limit exhaustion, server restart, etc.), only leaf nodes
+      // have been deleted and the remaining nodes are still connected to the
+      // tree. Retrying the tool call re-reads the document, re-collects the
+      // surviving subtree, and deletes the rest. Parent-first ordering would
+      // orphan children on partial failure with no way to recover them.
+      const changes = nodesToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
+      await client.editDocument(file_id, changes);
 
       return makeResponse({
         file_id,
-        deleted_count: deletedCount,
+        deleted_count: nodesToDelete.length,
       });
     })
   );
@@ -134,6 +173,31 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
+      // Reject self-referential moves that would orphan the node.
+      if (node_id === reference_node_id) {
+        return makeErrorResponse("InvalidInput", "Cannot move a node relative to itself.");
+      }
+
+      // Read the document to validate the move and resolve positions.
+      const doc = await client.readDocument(file_id);
+      const nodeMap = buildNodeMap(doc.nodes);
+
+      // Check if the reference node is a descendant of the node being moved.
+      if (position === "first_child" || position === "last_child") {
+        function isDescendant(ancestorId: string, targetId: string): boolean {
+          const node = nodeMap.get(ancestorId);
+          if (!node?.children) return false;
+          for (const childId of node.children) {
+            if (childId === targetId) return true;
+            if (isDescendant(childId, targetId)) return true;
+          }
+          return false;
+        }
+        if (isDescendant(node_id, reference_node_id)) {
+          return makeErrorResponse("InvalidInput", "Cannot move a node into one of its own descendants.");
+        }
+      }
+
       let targetParentId: string;
       let targetIndex: number;
 
@@ -145,7 +209,6 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         targetIndex = -1;
       } else {
         // "after" or "before": find the parent of the reference node.
-        const doc = await client.readDocument(file_id);
         const parentMap = buildParentMap(doc.nodes);
 
         const refParentInfo = parentMap.get(reference_node_id);

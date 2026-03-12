@@ -1,0 +1,269 @@
+# Dynalist API Behavior Reference
+
+Canonical reference for how the Dynalist API (https://apidocs.dynalist.io/) actually
+behaves, based on exhaustive testing against a real account. This document drives the
+dummy test server (Phase 7) and tool definition improvements (Phase 8).
+
+## Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/file/list` | List all documents and folders. |
+| `/file/edit` | Create, rename, or move files/folders. No delete. |
+| `/doc/read` | Read a document's nodes. |
+| `/doc/edit` | Insert, edit, move, or delete nodes within a document. |
+| `/doc/check_for_updates` | Check version numbers without fetching content. |
+| `/inbox/add` | Add an item to the user's inbox. |
+
+## `/file/list` response
+
+```
+{
+  root_file_id: string,
+  files: [
+    {
+      id: string,
+      title: string,
+      type: "document" | "folder",
+      permission: number,       // 0=none, 1=read, 2=edit, 3=manage, 4=owner
+      collapsed?: boolean,      // folders only, not always present
+      children?: string[]       // folders only, array of child file IDs
+    }
+  ]
+}
+```
+
+- Documents do not have `children`.
+- Permission is a number (0-4), but the MCP layer maps it to strings for readability:
+  `"owner"`, `"manage"`, `"edit"`, `"read"`, `"no_access"`.
+- Files with `permission: 0` do not appear in the response at all.
+
+## `/doc/read` response -- node shape
+
+```
+{
+  file_id: string,
+  title: string,
+  version: number,
+  nodes: [
+    {
+      id: string,
+      content: string,
+      note: string,
+      created: number,          // milliseconds since epoch
+      modified: number,         // milliseconds since epoch
+      children: string[],       // child node IDs (empty array if leaf)
+      checked?: boolean,        // present only when true
+      checkbox?: boolean,       // present only when true
+      heading?: number,         // 1-3, omitted when 0
+      color?: number,           // 1-6, omitted when 0
+      collapsed?: boolean       // always present
+    }
+  ]
+}
+```
+
+- The root node has the document title as `content`.
+- `note` is always present (empty string when no note).
+- `checked`, `checkbox`, `heading`, `color` are omitted when at their default (falsy) values.
+- `collapsed` is always present, even when `false`.
+- `created` and `modified` are millisecond Unix timestamps.
+- The `nodes` array is flat (not nested). Parent-child relationships are expressed through
+  the `children` arrays.
+
+## `/doc/edit` -- node actions
+
+### Insert
+
+```json
+{ "action": "insert", "parent_id": "...", "index": 0, "content": "..." }
+```
+
+Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `color` (1-6).
+
+- `parent_id` and `index` are required.
+- `index: 0` = first child, `index: -1` = last child.
+- Response includes `new_node_ids` array with IDs in the same order as the changes array.
+- Setting `checked: true` without `checkbox: true` is accepted but semantically
+  inconsistent (the API stores `checked` but the UI has no checkbox to display).
+
+### Edit
+
+```json
+{ "action": "edit", "node_id": "...", "content": "new content" }
+```
+
+Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `color` (1-6).
+
+- **Omitting a field leaves it unchanged.** This is critical: edit is a partial update,
+  not a full replacement. The dummy server must implement this behavior.
+- Empty `content` (""): allowed. Node stored with empty content.
+- Empty `note` (""): clears the note.
+- `heading: 0`: removes heading. `color: 0`: removes color.
+- `collapsed` is NOT supported in edit actions. The field is silently ignored.
+
+### Move
+
+```json
+{ "action": "move", "node_id": "...", "parent_id": "...", "index": 0 }
+```
+
+- Moves the node and all its descendants.
+- `index: -1` = last child of new parent.
+- Moving a node to be a child of itself: API silently accepts but the node becomes
+  orphaned (unreachable from the root tree). Our tool validates and rejects this.
+
+### Delete
+
+```json
+{ "action": "delete", "node_id": "..." }
+```
+
+- **Deletes only the specified node.** Children become orphaned (exist in `nodes` array
+  but are unreachable from the root tree). This differs from the Dynalist web UI, which
+  does recursive deletion.
+- Orphaned nodes are invisible from root traversal, but are searchable (they exist in the
+  raw `nodes` array) and readable by direct node ID.
+- Orphans persist indefinitely. No evidence of server-side garbage collection.
+- Deleting the root node: API silently ignores (no error, no effect).
+
+### Batch changes
+
+- Multiple changes can be sent in a single request via the `changes` array.
+- The API silently drops changes beyond its burst limit (~500 changes per request).
+  Our client batches in chunks of 200 to stay within the limit.
+- `new_node_ids` in the response corresponds to insert actions only, in order.
+
+## `/doc/edit` -- rate limiting
+
+- Rolling window of ~500-600 changes. Once exceeded, returns `_code: "TooManyRequests"`
+  with HTTP 200 (not an HTTP error status).
+- No `Retry-After` header. Recovery takes ~45-50 seconds.
+- Read endpoints (`/doc/read`, `/file/list`) are NOT rate limited.
+- Rate limit is per-change, not per-request. A batch of 200 changes costs 200 against
+  the window.
+- Insert and delete share the same rate limit budget.
+- Per-batch API response time when not rate limited: ~160-200ms.
+
+## `/file/edit` -- file actions
+
+### Create
+
+```json
+{ "action": "create", "type": "document", "parent_id": "...", "title": "...", "index": 0 }
+```
+
+- `type`: `"document"` or `"folder"`.
+- Empty or omitted title: creates with title "Untitled".
+- Duplicate titles: allowed. Multiple files with the same title get separate IDs.
+- Creating inside a document ID (not a folder): API rejects (`results: [false]`).
+
+### Edit (rename)
+
+```json
+{ "action": "edit", "type": "document", "file_id": "...", "title": "new title" }
+```
+
+- Renaming a non-existent file: API silently ignores (`results: [false]`).
+- Renaming a read-only shared document: API silently ignores (`results: [false]`).
+- Renaming with edit or manage permission: succeeds.
+
+### Move
+
+```json
+{ "action": "move", "type": "document", "file_id": "...", "parent_id": "...", "index": 0 }
+```
+
+- The `type` field must match the actual file type. Sending `type: "document"` for a
+  folder causes a silent failure.
+- Moving to a non-existent folder: API silently ignores (`results: [false]`).
+
+### Response shape
+
+```json
+{
+  "_code": "Ok",
+  "results": [true],
+  "created": ["new_file_id"]
+}
+```
+
+- `results`: array of booleans, one per change. `true` = success, `false` = failure.
+  Failures are silent (no error code or message per-change).
+- `created`: array of new file IDs for create actions. Only present when creates succeed.
+
+### No delete action
+
+The `/file/edit` endpoint does not support a delete action. Files and folders can only
+be deleted through the Dynalist web UI.
+
+## `/doc/check_for_updates` response
+
+```json
+{
+  "versions": { "file_id_1": 33, "file_id_2": 83 }
+}
+```
+
+- `versions` is an object mapping file IDs to integer version numbers, NOT an array.
+- Non-existent or inaccessible document IDs are silently dropped from the response.
+- Empty `file_ids` input returns `{"versions": {}}`.
+
+## `/inbox/add`
+
+- Returns `file_id`, `node_id`, `index` of the created inbox item.
+- Fails with `NoInbox` error if no inbox location is configured in Dynalist settings.
+
+## Error codes
+
+All API responses use `_code` and `_msg` fields. On success, `_code` is `"Ok"`.
+
+| Code | Meaning |
+|------|---------|
+| `Ok` | Success. |
+| `InvalidToken` | API token is invalid or missing. |
+| `TooManyRequests` | Rate limit exceeded. Retry after ~45-50s. |
+| `NotFound` | Document or file does not exist. |
+| `NodeNotFound` | Node ID does not exist in the document. |
+| `Unauthorized` | No permission for this operation (e.g., write on read-only shared doc). |
+| `NoInbox` | No inbox location configured in Dynalist settings. |
+| `LockFail` | Document locked by another operation. |
+| `Invalid` | Malformed request or invalid parameters. |
+
+## Permissions behavior
+
+The API returns numeric permission levels on files:
+
+| Level | Label | Read | Write nodes | Rename file |
+|-------|-------|------|-------------|-------------|
+| 0 | no_access | File hidden from `/file/list` | N/A | N/A |
+| 1 | read | Yes | No (`Unauthorized` error) | No (silently ignored) |
+| 2 | edit | Yes | Yes | Yes |
+| 3 | manage | Yes | Yes | Yes |
+| 4 | owner | Yes | Yes | Yes |
+
+- Write attempts on read-only documents return `Unauthorized` with the message
+  "Unauthorized document access".
+- Rename/move on read-only documents: API silently ignores (`results: [false]`). No error.
+
+## Timestamps
+
+- All timestamps (`created`, `modified`) are milliseconds since epoch.
+- Both ISO date strings (`"2026-03-12"`) and millisecond integers are accepted as
+  query parameters in our MCP tools.
+
+## Orphaned nodes
+
+Nodes whose parent has been deleted via the raw API (single-node delete) become orphaned:
+
+- Present in the flat `nodes` array from `/doc/read`.
+- Not reachable via any node's `children` array (invisible from root traversal).
+- Findable via search (which scans all nodes).
+- Readable by direct node ID.
+- Persist indefinitely (no server-side garbage collection observed).
+- Can be deleted by node ID but cannot be moved back into the tree.
+
+Our `delete_node` tool avoids creating orphans by doing recursive deletion (children
+before parents). This ordering also makes the operation idempotent on partial failure:
+if interrupted mid-batch, surviving nodes remain connected to the tree and can be
+re-collected and deleted on retry.
