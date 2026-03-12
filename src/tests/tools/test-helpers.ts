@@ -1,0 +1,135 @@
+/**
+ * Shared helpers for tool integration tests.
+ * Sets up an MCP client-server pair connected in-memory.
+ */
+
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { AccessController } from "../../access-control";
+import { registerReadTools } from "../../tools/read";
+import { registerWriteTools } from "../../tools/write";
+import { registerStructureTools } from "../../tools/structure";
+import { registerFileTools } from "../../tools/files";
+import { DummyDynalistServer, MockDynalistClient } from "../dummy-server";
+
+export interface TestContext {
+  server: DummyDynalistServer;
+  mockClient: MockDynalistClient;
+  ac: AccessController;
+  mcpClient: Client;
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Create a fully wired test context: dummy server, MCP server with
+ * all tools registered, and an MCP client ready to call tools.
+ *
+ * Call `cleanup()` when done (e.g. in afterEach).
+ */
+export async function createTestContext(
+  setupFn?: (server: DummyDynalistServer) => void,
+): Promise<TestContext> {
+  const server = new DummyDynalistServer();
+  server.init();
+  if (setupFn) {
+    setupFn(server);
+  }
+
+  const mockClient = new MockDynalistClient(server);
+  const ac = new AccessController(mockClient);
+
+  const mcpServer = new McpServer({ name: "test-server", version: "1.0.0" });
+  registerReadTools(mcpServer, mockClient, ac);
+  registerWriteTools(mcpServer, mockClient, ac);
+  registerStructureTools(mcpServer, mockClient, ac);
+  registerFileTools(mcpServer, mockClient, ac);
+
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await mcpServer.connect(serverTransport);
+
+  const mcpClient = new Client({ name: "test-client", version: "1.0.0" });
+  await mcpClient.connect(clientTransport);
+
+  return {
+    server,
+    mockClient,
+    ac,
+    mcpClient,
+    cleanup: async () => {
+      await mcpClient.close();
+      await mcpServer.close();
+    },
+  };
+}
+
+/**
+ * Call a tool and return the structured content from the response.
+ * Throws if the tool call itself fails at the protocol level.
+ */
+export async function callTool(
+  client: Client,
+  name: string,
+  args: Record<string, unknown> = {},
+): Promise<{ structuredContent?: unknown; content?: unknown; isError?: boolean }> {
+  const result = await client.callTool({ name, arguments: args });
+  return result as { structuredContent?: unknown; content?: unknown; isError?: boolean };
+}
+
+/**
+ * Call a tool and extract the structuredContent, asserting no error.
+ */
+export async function callToolOk(
+  client: Client,
+  name: string,
+  args: Record<string, unknown> = {},
+): Promise<Record<string, unknown>> {
+  const result = await callTool(client, name, args);
+  if (result.isError) {
+    throw new Error(`Tool ${name} returned error: ${JSON.stringify(result.structuredContent)}`);
+  }
+  return result.structuredContent as Record<string, unknown>;
+}
+
+/**
+ * Call a tool and extract the structuredContent, asserting it IS an error.
+ */
+export async function callToolError(
+  client: Client,
+  name: string,
+  args: Record<string, unknown> = {},
+): Promise<{ error: string; message: string }> {
+  const result = await callTool(client, name, args);
+  if (!result.isError) {
+    throw new Error(`Expected tool ${name} to return error but got: ${JSON.stringify(result.structuredContent)}`);
+  }
+  return result.structuredContent as { error: string; message: string };
+}
+
+/**
+ * Standard test data setup used by most tool tests.
+ */
+export function standardSetup(server: DummyDynalistServer): void {
+  server.addFolder("folder_a", "Folder A", "root_folder");
+  server.addFolder("folder_b", "Folder B", "root_folder");
+
+  server.addDocument("doc1", "Test Document", "folder_a", [
+    server.makeNode("root", "Test Document", ["n1", "n2", "n3"]),
+    server.makeNode("n1", "First item", ["n1a", "n1b"]),
+    server.makeNode("n1a", "Child A", []),
+    server.makeNode("n1b", "Child B", [], { note: "A note on child B" }),
+    server.makeNode("n2", "Second item", ["n2a"]),
+    server.makeNode("n2a", "Nested child", []),
+    server.makeNode("n3", "Third item", [], { checked: true, checkbox: true }),
+  ]);
+
+  server.addDocument("doc2", "Another Document", "folder_b", [
+    server.makeNode("root", "Another Document", ["m1"]),
+    server.makeNode("m1", "Only item", []),
+  ]);
+
+  server.addDocument("inbox_doc", "Inbox", "root_folder", [
+    server.makeNode("inbox_root", "Inbox", []),
+  ]);
+  server.setInbox("inbox_doc", "inbox_root");
+}

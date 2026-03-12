@@ -163,9 +163,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       inputSchema: {
         file_id: z.string().describe("Document ID"),
         node_id: z.string().optional().describe("Node to start from (omit to read from document root)"),
-        max_depth: z.number().optional().describe(
-          "Maximum depth to traverse. 0 = only the target node, 1 = target + immediate children, etc. " +
-          "Default: 5 (configurable via readDefaults.maxDepth in ~/.dynalist-mcp.json, set to null for unlimited)"
+        max_depth: z.number().nullable().optional().describe(
+          "Maximum depth to traverse. 0 = only the target node, 1 = target + immediate children, null = unlimited. " +
+          "Default: 5 (configurable via readDefaults.maxDepth in ~/.dynalist-mcp.json)"
         ),
         include_collapsed_children: z.boolean().optional().describe(
           "Whether to include children of collapsed nodes. When false (default), collapsed nodes appear " +
@@ -206,7 +206,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     }: {
       file_id: string;
       node_id?: string;
-      max_depth?: number;
+      max_depth?: number | null;
       include_collapsed_children?: boolean;
       include_notes?: boolean;
       include_checked?: boolean;
@@ -405,7 +405,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id: z.string().describe("Document ID"),
         since: z.union([z.string(), z.number()]).describe("Start date - ISO string (e.g. '2024-01-15') or timestamp in milliseconds"),
         until: z.union([z.string(), z.number()]).optional().describe("End date - ISO string or timestamp (default: now)"),
-        type: z.enum(["created", "modified", "both"]).optional().default("modified").describe("Filter by change type"),
+        type: z.enum(["created", "modified", "both"]).optional().default("both").describe(
+          "Filter by change type. 'created' = only new nodes, 'modified' = only edited (not newly created) nodes, " +
+          "'both' = all changes (default)"
+        ),
         parent_levels: z.number().optional().default(1).describe("How many parent levels to include for context"),
         sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
         bypass_warning: z.boolean().optional().default(false).describe("ONLY use after receiving a size warning. Do NOT set true on first request."),
