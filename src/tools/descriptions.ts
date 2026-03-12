@@ -1,7 +1,20 @@
 /**
- * Shared parameter descriptions for tool schemas. Descriptions that appear
- * in multiple tools live here so wording changes only need to happen once.
+ * Shared parameter descriptions and guidance for tool schemas. Descriptions
+ * that appear in multiple tools live here so wording changes only need to
+ * happen once.
+ *
+ * *_GUIDANCE constants hold the core policy wording. They are interpolated
+ * into both per-parameter *_DESCRIPTION strings and the MCP system
+ * instructions in index.ts.
  */
+
+// Guidance strings (shared policy wording, reused across descriptions and MCP instructions).
+export const CHECKED_GUIDANCE =
+  "Items can be checked off with or without a visible checkbox. " +
+  "Do not add a checkbox unless the user explicitly asks for one.";
+export const CHECKBOX_GUIDANCE =
+  "Only set if the user explicitly asks for a checkbox or surrounding nodes already use " +
+  "checkboxes. Omit when unsure. Do not add checkboxes just because an item is being checked off.";
 
 // Shared input parameter descriptions.
 export const FILE_ID_DESCRIPTION = "Document file ID";
@@ -9,8 +22,9 @@ export const BYPASS_WARNING_DESCRIPTION =
   "ONLY set true AFTER receiving a size warning. Do NOT set true on first request.";
 export const PARENT_LEVELS_DESCRIPTION =
   "How many parent levels to include for context (0 = none)";
-export const CHECKBOX_DESCRIPTION =
-  "Only set this if surrounding nodes already use checkboxes. Omit when unsure.";
+export const CHECKED_DESCRIPTION =
+  `Checked (completed) state. ${CHECKED_GUIDANCE} To check an item off, just set checked: true.`;
+export const CHECKBOX_DESCRIPTION = CHECKBOX_GUIDANCE;
 export const HEADING_DESCRIPTION =
   "Heading level. 0 = no heading (removes heading), 1 = H1, 2 = H2, 3 = H3.";
 export const COLOR_DESCRIPTION =

@@ -457,52 +457,34 @@ describe("insert_node", () => {
     expect(newNode.checkbox).toBeUndefined();
   });
 
-  test("checked: true without checkbox auto-enables checkbox", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Auto checkbox",
-      checked: true,
-    });
-
-    // Verify the node has both checkbox and checked set.
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "Auto checkbox")!;
-    expect(newNode.checked).toBe(true);
-    expect(newNode.checkbox).toBe(true);
-  });
-
-  test("auto-checkbox round-trip: node has both checked and checkbox true", async () => {
+  test("checked: true without checkbox does not add a checkbox", async () => {
     await callToolOk(ctx.mcpClient, "insert_node", {
       file_id: "doc1",
       parent_id: "root",
-      content: "Round trip check",
+      content: "Checked no checkbox",
       checked: true,
     });
 
-    // Read back via read_document and verify both fields.
-    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+    // The node should be checked but have no checkbox.
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "Checked no checkbox")!;
+    expect(newNode.checked).toBe(true);
+    expect(newNode.checkbox).toBeUndefined();
+  });
+
+  test("checked: true with checkbox: true sets both", async () => {
+    await callToolOk(ctx.mcpClient, "insert_node", {
       file_id: "doc1",
+      parent_id: "root",
+      content: "Checked with checkbox",
+      checked: true,
+      checkbox: true,
     });
-    const rootNode = readResult.node as Record<string, unknown>;
 
-    // Find the node in the tree recursively.
-    function findNode(node: Record<string, unknown>, content: string): Record<string, unknown> | null {
-      if (node.content === content) return node;
-      const children = node.children as Array<Record<string, unknown>> | undefined;
-      if (children) {
-        for (const child of children) {
-          const found = findNode(child, content);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-
-    const node = findNode(rootNode, "Round trip check");
-    expect(node).not.toBeNull();
-    expect(node!.checked).toBe(true);
-    expect(node!.checkbox).toBe(true);
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "Checked with checkbox")!;
+    expect(newNode.checked).toBe(true);
+    expect(newNode.checkbox).toBe(true);
   });
 
   // ─── 11c: optional fields ──────────────────────────────────────────

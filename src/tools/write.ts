@@ -15,7 +15,7 @@ import {
   wrapToolHandler,
   insertTreeUnderParent,
 } from "../utils/dynalist-helpers";
-import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION } from "./descriptions";
+import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION } from "./descriptions";
 
 export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -122,10 +122,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         node_id: z.string().describe("Node ID to edit"),
         content: z.string().optional().describe("New content text"),
         note: z.string().optional().describe("New note text. Supports multiline (use \\n). Set to '' to clear."),
-        checked: z.boolean().optional().describe(
-          "Checked state. Setting checked: true without checkbox: true is accepted but the UI " +
-          "won't show a checkbox to display the state."
-        ),
+        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
         checkbox: z.boolean().optional().describe(
           `Whether to show a checkbox on this node. ${CHECKBOX_DESCRIPTION}`
         ),
@@ -204,14 +201,12 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         index: z.number().optional().default(-1).describe(
           "Position under parent. 0 = first child, -1 = last child (default)."
         ),
-        checkbox: z.boolean().optional().default(false).describe(
+        checkbox: z.boolean().optional().describe(
           `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
         ),
         heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
         color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
-        checked: z.boolean().optional().describe(
-          "Initial checked state. Automatically enables checkbox when set."
-        ),
+        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -236,7 +231,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       content: string;
       note?: string;
       index: number;
-      checkbox: boolean;
+      checkbox?: boolean;
       heading?: number;
       color?: number;
       checked?: boolean;
@@ -255,11 +250,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         content,
       };
 
-      // Auto-enable checkbox when checked is set to true.
-      const effectiveCheckbox = checkbox || (checked === true);
-
       if (note !== undefined) change.note = note;
-      if (effectiveCheckbox) change.checkbox = effectiveCheckbox;
+      if (checkbox) change.checkbox = checkbox;
       if (heading !== undefined && heading > 0) change.heading = heading;
       if (color !== undefined && color > 0) change.color = color;
       if (checked !== undefined) change.checked = checked;

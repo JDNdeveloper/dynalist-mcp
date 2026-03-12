@@ -15,6 +15,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DynalistClient } from "./dynalist-client";
 import { registerTools } from "./tools/index";
+import { CHECKED_GUIDANCE, CHECKBOX_GUIDANCE } from "./tools/descriptions";
 import pkg from "../package.json";
 
 // Get API token from environment
@@ -121,9 +122,8 @@ nodes within a single document. Do not confuse file IDs with node IDs.
 - Version checking: use check_document_versions to check if documents have changed before \
 doing expensive reads.
 - edit_node: omitted fields are left unchanged, not reset to defaults.
-- Checkbox usage: only set the checkbox parameter if surrounding nodes in the same document \
-already use checkboxes. When unsure, omit the checkbox parameter to fall back to the user's \
-configured default. Do not add checkboxes speculatively.
+- Checking items off: to mark an item as completed, set checked: true. ${CHECKED_GUIDANCE}
+- Checkbox usage: ${CHECKBOX_GUIDANCE}
 `;
 
 // Create MCP server
