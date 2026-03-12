@@ -42,7 +42,9 @@ export function checkContentSize(
     };
   }
 
-  if (tokenCount <= warningThreshold || bypassWarning) {
+  // Bypass only works for results between warning and max threshold.
+  // Results exceeding max threshold cannot be bypassed.
+  if (tokenCount <= warningThreshold || (bypassWarning && tokenCount <= maxThreshold)) {
     return null;
   }
 
@@ -316,15 +318,23 @@ export async function insertTreeUnderParent(
         ? parentId
         : previousLevelIds[node.parentLevelIndex];
 
-      const baseIndex = (levelIdx === 0 && options.startIndex !== undefined)
-        ? options.startIndex
+      // For level 0, use the caller's startIndex. When undefined (as_last_child),
+      // every insert uses -1 to append at end. For deeper levels, children are
+      // inserted into freshly created parents so index 0 is correct.
+      const baseIndex = levelIdx === 0
+        ? (options.startIndex ?? -1)
         : 0;
       const count = childCountPerParent.get(nodeParentId) || 0;
+
+      // When appending at end (-1), every insert must use -1 so the server
+      // appends each one after the previous. Adding count would produce
+      // non-negative indices that insert at the wrong position.
+      const insertIndex = baseIndex === -1 ? -1 : baseIndex + count;
 
       changes.push({
         action: "insert",
         parent_id: nodeParentId,
-        index: baseIndex + count,
+        index: insertIndex,
         content: node.content,
         checkbox: options.checkbox || undefined,
       });

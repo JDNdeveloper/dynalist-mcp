@@ -199,10 +199,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         ),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID"),
-        title: z.string().describe("Document title"),
-        url: z.string().describe("Dynalist URL"),
-        node: z.any().describe(
+        file_id: z.string().optional().describe("Document file ID"),
+        title: z.string().optional().describe("Document title"),
+        url: z.string().optional().describe("Dynalist URL"),
+        node: z.any().optional().describe(
           "Root of the node tree. Each node has: node_id (string), content (string), " +
           "note (string, omitted when empty), checked (boolean), checkbox (boolean), " +
           "heading (number, 0=none, 1=H1, 2=H2, 3=H3, omitted when 0), " +
@@ -211,6 +211,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           "children_count (total direct children regardless of visibility), " +
           "children (array of child nodes, empty when hidden by depth/collapsed filtering)."
         ),
+        warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
       },
     },
     wrapToolHandler(async ({
@@ -312,16 +313,17 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning: z.boolean().optional().default(false).describe("ONLY set true AFTER receiving a size warning. Do NOT set true on first request."),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID"),
-        title: z.string().describe("Document title"),
-        url: z.string().describe("Dynalist URL"),
-        count: z.number().describe("Number of matches found"),
-        query: z.string().describe("The search query that was used"),
-        matches: z.array(z.any()).describe(
+        file_id: z.string().optional().describe("Document file ID"),
+        title: z.string().optional().describe("Document title"),
+        url: z.string().optional().describe("Dynalist URL"),
+        count: z.number().optional().describe("Number of matches found"),
+        query: z.string().optional().describe("The search query that was used"),
+        matches: z.array(z.any()).optional().describe(
           "Matching nodes. Each has: node_id, content, note (if present), url, checked, " +
           "checkbox, heading, color, collapsed, and optionally parents (array of {node_id, content}) " +
           "and children (array of {node_id, content})."
         ),
+        warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
       },
     },
     wrapToolHandler(async ({
@@ -446,15 +448,16 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning: z.boolean().optional().default(false).describe("ONLY set true AFTER receiving a size warning. Do NOT set true on first request."),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID"),
-        title: z.string().describe("Document title"),
-        url: z.string().describe("Dynalist URL"),
-        count: z.number().describe("Number of changes found"),
-        matches: z.array(z.any()).describe(
+        file_id: z.string().optional().describe("Document file ID"),
+        title: z.string().optional().describe("Document title"),
+        url: z.string().optional().describe("Dynalist URL"),
+        count: z.number().optional().describe("Number of changes found"),
+        matches: z.array(z.any()).optional().describe(
           "Changed nodes. Each has: node_id, content, note (if present), created, modified, " +
           "url, change_type, checked, checkbox, heading, color, collapsed, and optionally " +
           "parents (array of {node_id, content})."
         ),
+        warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
       },
     },
     wrapToolHandler(async ({

@@ -39,7 +39,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
         deleted_count: z.number().describe("Number of nodes deleted"),
-        promoted_children: z.number().optional().describe("Number of children promoted to parent (only when include_children is false)"),
+        promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when include_children is false)"),
       },
     },
     wrapToolHandler(async ({
@@ -80,6 +80,9 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           return makeErrorResponse("NodeNotFound", "Could not find parent of node to delete.");
         }
 
+        // Capture count before mutations, since editDocument mutates the in-memory node.
+        const promotedCount = targetNode.children.length;
+
         // Move each child to be a sibling of the node being deleted,
         // placed at the node's index. Each successive child goes after
         // the previous one, so we increment the index.
@@ -97,7 +100,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         return makeResponse({
           file_id,
           deleted_count: 1,
-          promoted_children: targetNode.children.length,
+          promoted_children: promotedCount,
         });
       }
 

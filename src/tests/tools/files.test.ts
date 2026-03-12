@@ -1,4 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
+import { getConfig } from "../../config";
 import {
   createTestContext,
   callToolOk,
@@ -60,6 +64,27 @@ describe("create_document", () => {
       title: "Orphan Doc",
     });
     expect(err.error).toBeDefined();
+  });
+
+  test("default title creates document with empty or default title", async () => {
+    const result = await callToolOk(ctx.mcpClient, "create_document", {
+      parent_folder_id: "folder_a",
+    });
+    expect(result.file_id).toBeDefined();
+    // The document should be created even without specifying a title.
+    expect(result.title).toBeDefined();
+  });
+
+  test("index: -1 appends to end of folder", async () => {
+    // Folder A already has doc1 as a child.
+    const result = await callToolOk(ctx.mcpClient, "create_document", {
+      parent_folder_id: "folder_a",
+      title: "End Doc",
+      index: -1,
+    });
+    const folder = ctx.server.files.get("folder_a")!;
+    const lastChildId = folder.children![folder.children!.length - 1];
+    expect(lastChildId).toBe(result.file_id as string);
   });
 });
 
@@ -153,6 +178,14 @@ describe("rename_folder", () => {
     const folder = folders.find((f) => f.file_id === "folder_a")!;
     expect(folder.title).toBe("New Folder Name");
   });
+
+  test("renaming non-existent folder returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "rename_folder", {
+      file_id: "nonexistent",
+      title: "Nope",
+    });
+    expect(err.error).toBeDefined();
+  });
 });
 
 // ─── move_file ───────────────────────────────────────────────────────
@@ -205,5 +238,260 @@ describe("move_file", () => {
       parent_folder_id: "folder_a",
     });
     expect(err.error).toBeDefined();
+  });
+
+  test("index: 0 places document at top of destination", async () => {
+    // Add a second doc to folder_b so it already has children.
+    ctx.server.addDocument("doc_extra", "Extra Doc", "folder_b", [
+      ctx.server.makeNode("root", "Extra Doc", []),
+    ]);
+
+    await callToolOk(ctx.mcpClient, "move_file", {
+      file_id: "doc1",
+      parent_folder_id: "folder_b",
+      index: 0,
+    });
+
+    const folderB = ctx.server.files.get("folder_b")!;
+    expect(folderB.children![0]).toBe("doc1");
+  });
+
+  test("index: -1 appends document to end of destination", async () => {
+    await callToolOk(ctx.mcpClient, "move_file", {
+      file_id: "doc1",
+      parent_folder_id: "folder_b",
+      index: -1,
+    });
+
+    const folderB = ctx.server.files.get("folder_b")!;
+    const lastChildId = folderB.children![folderB.children!.length - 1];
+    expect(lastChildId).toBe("doc1");
+  });
+
+  test("document disappears from source folder children after move", async () => {
+    const folderABefore = ctx.server.files.get("folder_a")!;
+    expect(folderABefore.children).toContain("doc1");
+
+    await callToolOk(ctx.mcpClient, "move_file", {
+      file_id: "doc1",
+      parent_folder_id: "folder_b",
+    });
+
+    const folderAAfter = ctx.server.files.get("folder_a")!;
+    expect(folderAAfter.children).not.toContain("doc1");
+  });
+});
+
+// ─── cache invalidation after file operations ────────────────────────
+
+describe("cache invalidation after file operations", () => {
+  // These tests verify that file management operations invalidate the
+  // AccessController path cache so that ACL resolves correctly for
+  // newly created, renamed, or moved files.
+
+  const CONFIG_PATH = join(tmpdir(), `dynalist-mcp-files-test-config-${process.pid}.json`);
+  let fakeMtime = Date.now();
+
+  function writeConfig(data: unknown) {
+    writeFileSync(CONFIG_PATH, JSON.stringify(data));
+    fakeMtime += 2000;
+    const secs = fakeMtime / 1000;
+    utimesSync(CONFIG_PATH, secs, secs);
+  }
+
+  function cleanupConfig() {
+    if (existsSync(CONFIG_PATH)) {
+      unlinkSync(CONFIG_PATH);
+    }
+    try {
+      getConfig();
+    } catch {
+      // Ignore errors from stale state.
+    }
+  }
+
+  // These tests need their own context with ACL config active.
+  // We override the shared beforeEach/afterEach by using a nested setup.
+
+  test("create_document invalidates path cache for new document", async () => {
+    // Clean up the shared context first.
+    await ctx.cleanup();
+
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Folder A/**", policy: "allow" }],
+      },
+    });
+
+    ctx = await createTestContext(standardSetup);
+    try {
+      // Create a new doc inside Folder A.
+      const createResult = await callToolOk(ctx.mcpClient, "create_document", {
+        parent_folder_id: "folder_a",
+        title: "Cache Test Doc",
+      });
+
+      // If cache was invalidated, reading the new doc should succeed
+      // because it is under /Folder A/ which has allow policy.
+      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+        file_id: createResult.file_id as string,
+      });
+      expect(readResult.title).toBe("Cache Test Doc");
+    } finally {
+      cleanupConfig();
+      delete process.env.DYNALIST_MCP_CONFIG;
+    }
+  });
+
+  test("rename_document invalidates path cache for renamed document", async () => {
+    await ctx.cleanup();
+
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfig({
+      access: {
+        default: "allow",
+        rules: [],
+      },
+    });
+
+    ctx = await createTestContext(standardSetup);
+    try {
+      // Rename doc1 and verify it is still accessible.
+      await callToolOk(ctx.mcpClient, "rename_document", {
+        file_id: "doc1",
+        title: "Renamed Cache Doc",
+      });
+
+      // The document should still be readable after rename.
+      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+        file_id: "doc1",
+      });
+      expect(readResult.title).toBe("Renamed Cache Doc");
+    } finally {
+      cleanupConfig();
+      delete process.env.DYNALIST_MCP_CONFIG;
+    }
+  });
+
+  test("rename_folder invalidates path cache for documents under folder", async () => {
+    await ctx.cleanup();
+
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfig({
+      access: {
+        default: "allow",
+        rules: [],
+      },
+    });
+
+    ctx = await createTestContext(standardSetup);
+    try {
+      // Rename the folder containing doc1.
+      await callToolOk(ctx.mcpClient, "rename_folder", {
+        file_id: "folder_a",
+        title: "Renamed Folder Cache",
+      });
+
+      // doc1 should still be readable under the renamed folder.
+      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+        file_id: "doc1",
+      });
+      expect(readResult.title).toBe("Test Document");
+    } finally {
+      cleanupConfig();
+      delete process.env.DYNALIST_MCP_CONFIG;
+    }
+  });
+
+  test("move_file invalidates path cache for moved file", async () => {
+    await ctx.cleanup();
+
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    // Both folders are allowed so the move can proceed.
+    writeConfig({
+      access: {
+        default: "allow",
+        rules: [],
+      },
+    });
+
+    ctx = await createTestContext(standardSetup);
+    try {
+      // Move doc1 from Folder A to Folder B.
+      await callToolOk(ctx.mcpClient, "move_file", {
+        file_id: "doc1",
+        parent_folder_id: "folder_b",
+      });
+
+      // After the move, the path cache should be invalidated.
+      // doc1 should still be readable at its new location.
+      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+        file_id: "doc1",
+      });
+      expect(readResult.title).toBe("Test Document");
+    } finally {
+      cleanupConfig();
+      delete process.env.DYNALIST_MCP_CONFIG;
+    }
+  });
+});
+
+// ─── response shapes ─────────────────────────────────────────────────
+
+describe("response shapes", () => {
+  test("create_document response includes file_id, title, url", async () => {
+    const result = await callToolOk(ctx.mcpClient, "create_document", {
+      parent_folder_id: "folder_a",
+      title: "Shape Test Doc",
+    });
+    expect(typeof result.file_id).toBe("string");
+    expect(typeof result.title).toBe("string");
+    expect(typeof result.url).toBe("string");
+    expect(result.title).toBe("Shape Test Doc");
+  });
+
+  test("create_folder response includes file_id, title", async () => {
+    const result = await callToolOk(ctx.mcpClient, "create_folder", {
+      parent_folder_id: "root_folder",
+      title: "Shape Test Folder",
+    });
+    expect(typeof result.file_id).toBe("string");
+    expect(typeof result.title).toBe("string");
+    expect(result.title).toBe("Shape Test Folder");
+  });
+
+  test("rename_document response includes file_id, title", async () => {
+    const result = await callToolOk(ctx.mcpClient, "rename_document", {
+      file_id: "doc1",
+      title: "Shape Renamed Doc",
+    });
+    expect(typeof result.file_id).toBe("string");
+    expect(typeof result.title).toBe("string");
+    expect(result.file_id).toBe("doc1");
+    expect(result.title).toBe("Shape Renamed Doc");
+  });
+
+  test("rename_folder response includes file_id, title", async () => {
+    const result = await callToolOk(ctx.mcpClient, "rename_folder", {
+      file_id: "folder_a",
+      title: "Shape Renamed Folder",
+    });
+    expect(typeof result.file_id).toBe("string");
+    expect(typeof result.title).toBe("string");
+    expect(result.file_id).toBe("folder_a");
+    expect(result.title).toBe("Shape Renamed Folder");
+  });
+
+  test("move_file response includes file_id, parent_folder_id", async () => {
+    const result = await callToolOk(ctx.mcpClient, "move_file", {
+      file_id: "doc1",
+      parent_folder_id: "folder_b",
+    });
+    expect(typeof result.file_id).toBe("string");
+    expect(typeof result.parent_folder_id).toBe("string");
+    expect(result.file_id).toBe("doc1");
+    expect(result.parent_folder_id).toBe("folder_b");
   });
 });

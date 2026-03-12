@@ -178,7 +178,8 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
     } else {
       // Path-only: the base path must match at least one file/folder.
       const ruleBase = rule.path.replace(/\/\*\*?$/, "");
-      if (!allPaths.has(ruleBase)) {
+      // Root-level globs like /** and /* produce an empty ruleBase, which is valid.
+      if (ruleBase !== "" && !allPaths.has(ruleBase)) {
         errors.push(
           `Access rule path '${rule.path}' does not match any file or folder in the account. ` +
           `Check for typos, or remove the rule if the path was deleted.`

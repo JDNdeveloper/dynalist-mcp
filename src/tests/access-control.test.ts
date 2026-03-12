@@ -67,6 +67,24 @@ describe("requireAccess", () => {
     expect(err.error).toBe("NotFound");
     expect(err.message).toBe("Document not found or access denied.");
   });
+
+  test("ReadOnly error message says 'read-only per access policy'", () => {
+    const err = requireAccess("read", "write", false)!;
+    expect(err.error).toBe("ReadOnly");
+    expect(err.message).toBe("Document is read-only per access policy.");
+  });
+
+  test("global readOnly blocks write even when policy is allow", () => {
+    const err = requireAccess("allow", "write", true);
+    expect(err).not.toBeNull();
+    expect(err!.error).toBe("ReadOnly");
+    expect(err!.message).toBe("Server is in read-only mode.");
+  });
+
+  test("global readOnly error message says 'Server is in read-only mode.'", () => {
+    const err = requireAccess("allow", "write", true)!;
+    expect(err.message).toBe("Server is in read-only mode.");
+  });
 });
 
 // ─── AccessController.getPolicy ──────────────────────────────────────
@@ -207,13 +225,238 @@ describe("AccessController.getPolicy", () => {
     // Non-existent file ID.
     expect(await ac.getPolicy("nonexistent", config)).toBe("allow");
   });
+
+  test("default allow permits unmatched files", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny" }],
+      },
+    });
+    // Doc A is not matched by any rule, so it falls back to default allow.
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+  });
+
+  test("default read makes unmatched files read-only", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "read",
+        rules: [{ path: "/Private/**", policy: "deny" }],
+      },
+    });
+    // Doc A is not matched by any rule, so it falls back to default read.
+    expect(await ac.getPolicy("da", config)).toBe("read");
+  });
+
+  test("/* does NOT match the folder path prefix itself", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A/*", policy: "deny" }],
+      },
+    });
+    // The glob /* should only match children, not the folder itself.
+    expect(await ac.getPolicy("fa", config)).toBe("allow");
+    // But children should be matched.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("/** DOES match the path prefix itself", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A/**", policy: "deny" }],
+      },
+    });
+    // The glob /** should match the folder itself as well as descendants.
+    expect(await ac.getPolicy("fa", config)).toBe("deny");
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("overlapping rules: /A/** deny + /A/B/** allow -- deeper allow wins", async () => {
+    const ac = new AccessController(client);
+    // Set up /Folder A/Sub/Nested Doc.
+    server.addFolder("fa_sub", "Sub", "fa");
+    server.addDocument("da_sub", "Nested Doc", "fa_sub");
+
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [
+          { path: "/Folder A/**", policy: "deny" },
+          { path: "/Folder A/Sub/**", policy: "allow" },
+        ],
+      },
+    });
+    expect(await ac.getPolicy("da_sub", config)).toBe("allow");
+    expect(await ac.getPolicy("fa_sub", config)).toBe("allow");
+  });
+
+  test("overlapping rules: /A/** allow + /A/B/** deny -- deeper deny wins", async () => {
+    const ac = new AccessController(client);
+    server.addFolder("fa_sub", "Sub", "fa");
+    server.addDocument("da_sub", "Nested Doc", "fa_sub");
+
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [
+          { path: "/Folder A/**", policy: "allow" },
+          { path: "/Folder A/Sub/**", policy: "deny" },
+        ],
+      },
+    });
+    expect(await ac.getPolicy("da_sub", config)).toBe("deny");
+    expect(await ac.getPolicy("fa_sub", config)).toBe("deny");
+  });
+
+  test("overlapping rules: /A/** deny + /A/B exact allow -- exact wins", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [
+          { path: "/Folder A/**", policy: "deny" },
+          { path: "/Folder A/Doc A", policy: "allow" },
+        ],
+      },
+    });
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+    // Other children of Folder A still denied.
+    expect(await ac.getPolicy("db", config)).toBe("deny");
+  });
+
+  test("overlapping rules: /A/* read + /A/B exact allow -- exact wins", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [
+          { path: "/Folder A/*", policy: "read" },
+          { path: "/Folder A/Doc A", policy: "allow" },
+        ],
+      },
+    });
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+    expect(await ac.getPolicy("db", config)).toBe("read");
+  });
+
+  test("deeper recursive glob beats shallower for nested files", async () => {
+    const ac = new AccessController(client);
+    server.addFolder("fa_sub", "Sub", "fa");
+    server.addFolder("fa_sub_deep", "Deep", "fa_sub");
+    server.addDocument("da_deep", "Deep Doc", "fa_sub_deep");
+
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [
+          { path: "/Folder A/**", policy: "deny" },
+          { path: "/Folder A/Sub/**", policy: "allow" },
+        ],
+      },
+    });
+    // /Folder A/Sub/Deep/Deep Doc should match /Folder A/Sub/** (longer prefix).
+    expect(await ac.getPolicy("da_deep", config)).toBe("allow");
+  });
+
+  // Skipped: root-level globs like /** and /* fail validation because
+  // the base path "/" does not match any file in the path map. The
+  // validateRules function strips the glob suffix and checks if the
+  // remaining base path exists in allPaths, but "/" is never in the
+  // path map (root has no path entry). This causes fail-closed behavior.
+  // See ~/sav/dynalist-mcp/testing-bug-report-acl-unit.md for details.
+  test("root-level /** deny makes everything denied", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/**", policy: "deny" }],
+      },
+    });
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+    expect(await ac.getPolicy("dc", config)).toBe("deny");
+    expect(await ac.getPolicy("fa", config)).toBe("deny");
+  });
+
+  test("root-level /* read makes only top-level items read-only", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/*", policy: "read" }],
+      },
+    });
+    // Top-level folders are direct children of root.
+    expect(await ac.getPolicy("fa", config)).toBe("read");
+    expect(await ac.getPolicy("fb", config)).toBe("read");
+    // Nested documents should not be matched by /*.
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+  });
+
+  test("multiple rules at same specificity: last-wins or first-wins", async () => {
+    const ac = new AccessController(client);
+    // Both rules are recursive globs with same prefix length.
+    // The implementation iterates rules and keeps the highest score.
+    // Same score means the first one wins (> not >=).
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [
+          { path: "/Folder A/**", policy: "deny" },
+          { path: "/Folder A/**", policy: "read" },
+        ],
+      },
+    });
+    // Duplicate paths are rejected by schema, so this config is actually
+    // invalid. We test the raw evaluateRules behavior by using the same
+    // path twice. Since the schema rejects duplicates, this test verifies
+    // that the first match wins when scores are equal.
+    //
+    // NOTE: This config will fail schema validation, but makeConfig
+    // bypasses the schema. The result depends on implementation: first
+    // rule wins because the loop uses > (strict greater than).
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("path with no matching rule and default allow returns allow", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny" }],
+      },
+    });
+    expect(await ac.getPolicy("dc", config)).toBe("allow");
+  });
+
+  test("path with no matching rule and default deny returns deny", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Private/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("dc", config)).toBe("deny");
+  });
 });
 
 // ─── AccessController.getPolicies (batch) ────────────────────────────
 
 describe("AccessController.getPolicies", () => {
+  let server: DummyDynalistServer;
+  let client: MockDynalistClient;
+
+  beforeEach(() => {
+    ({ server, client } = setupServer());
+  });
+
   test("batch evaluation returns correct policies", async () => {
-    const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
       access: {
@@ -226,6 +469,65 @@ describe("AccessController.getPolicies", () => {
     expect(policies.get("da")).toBe("allow");
     expect(policies.get("ds")).toBe("deny");
     expect(policies.get("dc")).toBe("allow");
+  });
+
+  test("mixed batch: some allow, some read, some deny", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [
+          { path: "/Private/**", policy: "deny" },
+          { path: "/Folder B/**", policy: "read" },
+        ],
+      },
+    });
+
+    const policies = await ac.getPolicies(["da", "dc", "ds"], config);
+    expect(policies.get("da")).toBe("allow");
+    expect(policies.get("dc")).toBe("read");
+    expect(policies.get("ds")).toBe("deny");
+  });
+
+  test("batch with duplicate file IDs returns correct policies", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny" }],
+      },
+    });
+
+    const policies = await ac.getPolicies(["da", "da", "ds", "ds"], config);
+    expect(policies.get("da")).toBe("allow");
+    expect(policies.get("ds")).toBe("deny");
+  });
+
+  test("batch with unknown file IDs uses default policy", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Folder A/**", policy: "allow" }],
+      },
+    });
+
+    const policies = await ac.getPolicies(["da", "nonexistent"], config);
+    expect(policies.get("da")).toBe("allow");
+    expect(policies.get("nonexistent")).toBe("deny");
+  });
+
+  test("empty batch returns empty map", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [],
+      },
+    });
+
+    const policies = await ac.getPolicies([], config);
+    expect(policies.size).toBe(0);
   });
 });
 
@@ -248,6 +550,258 @@ describe("ID-anchored rules", () => {
 
     // The rule's path says /Private/** but the folder is now /Renamed Private.
     // ID anchoring resolves to the actual path.
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+  });
+
+  test("id-anchored rule where file was moved to a different folder", async () => {
+    const { server, client } = setupServer();
+
+    // Move /Private folder under /Folder B.
+    const rootFolder = server.files.get("root_folder")!;
+    rootFolder.children = rootFolder.children!.filter((id) => id !== "fp");
+    const folderB = server.files.get("fb")!;
+    folderB.children!.push("fp");
+
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
+      },
+    });
+
+    // ID resolution should find fp at /Folder B/Private, and apply the
+    // glob suffix. Secret is at /Folder B/Private/Secret.
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+  });
+
+  test("id-anchored rule with glob suffix preserves suffix on resolved path", async () => {
+    const { server, client } = setupServer();
+
+    // Rename the folder. The rule uses /** suffix.
+    const folder = server.files.get("fp")!;
+    folder.title = "Moved Private";
+
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
+      },
+    });
+
+    // The rule should resolve to /Moved Private/** and still deny descendants.
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    // The folder itself should also match (/Moved Private matches /Moved Private/**).
+    expect(await ac.getPolicy("fp", config)).toBe("deny");
+  });
+
+  test("id-anchored rule where ID does not exist causes validation error (fail-closed)", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Nonexistent/**", policy: "deny", id: "does_not_exist" }],
+      },
+    });
+
+    // Validation should fail because the ID is not in the tree.
+    // Fail-closed means all access is denied.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("id-anchored rule path drift: rule still works using id-resolved path", async () => {
+    const { server, client } = setupServer();
+
+    // Rename Private to "Secure" so the path drifts.
+    const folder = server.files.get("fp")!;
+    folder.title = "Secure";
+
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        // Path says /Private/** but folder is now /Secure.
+        rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
+      },
+    });
+
+    // Despite path drift, the ID-resolved path /Secure/** should be used.
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    // Other files should be unaffected.
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+  });
+});
+
+// ─── Path building (buildPathMap) ─────────────────────────────────────
+
+describe("buildPathMap (via getPolicy)", () => {
+  test("simple tree: root > folder > document produces correct paths", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+
+    // If /Folder A/Doc A is the correct path, an exact rule should match.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Folder A/Doc A", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+  });
+
+  test("root direct children have paths like /Title", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+
+    // Folder A is a direct child of root, so its path should be /Folder A.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Folder A", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("fa", config)).toBe("allow");
+  });
+
+  test("deeply nested tree produces correct paths", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("l1", "Level1", "root_folder");
+    server.addFolder("l2", "Level2", "l1");
+    server.addFolder("l3", "Level3", "l2");
+    server.addDocument("deep_doc", "DeepDoc", "l3");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Level1/Level2/Level3/DeepDoc", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("deep_doc", config)).toBe("allow");
+  });
+
+  test("root file itself has no path entry", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+
+    // The root folder should not have a path entry, so it uses the default.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Root", policy: "allow" }],
+      },
+    });
+    // Root file should get default deny since it has no path.
+    expect(await ac.getPolicy("root_folder", config)).toBe("deny");
+  });
+
+  test("files with special characters in titles", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("sp_folder", "My Folder (2024)", "root_folder");
+    server.addDocument("sp_doc", "Notes & Ideas!", "sp_folder");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/My Folder (2024)/Notes & Ideas!", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("sp_doc", config)).toBe("allow");
+  });
+});
+
+// ─── Rule validation (validateRules) ─────────────────────────────────
+
+describe("validateRules (via getPolicy)", () => {
+  test("rule path matches a file: no error", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny" }],
+      },
+    });
+    // Should succeed without fail-closed behavior.
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+  });
+
+  test("rule path that does not match any file causes fail-closed", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Typo Folder/**", policy: "deny" }],
+      },
+    });
+    // Validation fails because /Typo Folder does not exist. Fail-closed.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("id-anchored rule with valid ID: no error", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
+      },
+    });
+    // Valid ID should not cause validation error.
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+  });
+
+  test("id-anchored rule with non-existent ID causes fail-closed", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Whatever/**", policy: "deny", id: "bad_id" }],
+      },
+    });
+    // Non-existent ID triggers validation error. Fail-closed denies all.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("id-anchored rule with path drift: rule still works", async () => {
+    const { server, client } = setupServer();
+    // Rename Private to something else to cause path drift.
+    server.files.get("fp")!.title = "Renamed";
+
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        // Path says /Private/** but actual path is /Renamed.
+        rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
+      },
+    });
+    // Rule still works using ID-resolved path, not the stale path in config.
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+  });
+
+  test("validation errors cause fail-closed: all access denied", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Does Not Exist/**", policy: "read" }],
+      },
+    });
+    // The path does not match any file. Validation fails, fail-closed.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
     expect(await ac.getPolicy("ds", config)).toBe("deny");
   });
 });
@@ -276,6 +830,55 @@ describe("cache invalidation", () => {
     // Without invalidation, stale cache still returns deny.
     // With invalidation, it should re-resolve.
     ac.invalidateCache();
+    expect(await ac.getPolicy("ds", config)).toBe("allow");
+  });
+
+  test("cache TTL: after TTL expires, next call refetches", async () => {
+    const { server, client } = setupServer();
+    const ac = new AccessController(client);
+    // Use a very short TTL so we can test expiration.
+    const config = makeConfig({
+      cache: { ttlSeconds: 0 },
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny" }],
+      },
+    });
+
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+
+    // Move the document out of Private.
+    const privateFolder = server.files.get("fp")!;
+    privateFolder.children = [];
+    const folderA = server.files.get("fa")!;
+    folderA.children!.push("ds");
+
+    // With TTL of 0, cache should be expired and refetched automatically.
+    expect(await ac.getPolicy("ds", config)).toBe("allow");
+  });
+
+  test("stale cache after rename: denial retry invalidates cache", async () => {
+    const { server, client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny" }],
+      },
+    });
+
+    // Initial call caches the path map.
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+
+    // Now move ds out of Private without explicitly invalidating.
+    const privateFolder = server.files.get("fp")!;
+    privateFolder.children = [];
+    const folderA = server.files.get("fa")!;
+    folderA.children!.push("ds");
+
+    // getPolicy should auto-retry on denial with fresh cache.
+    // The first evaluation uses stale cache and gets "deny".
+    // The retry invalidates cache, refetches, and gets "allow".
     expect(await ac.getPolicy("ds", config)).toBe("allow");
   });
 });
