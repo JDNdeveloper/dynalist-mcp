@@ -6,9 +6,9 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 
 ### Features
 
-- **17 tools** for reading, writing, searching, and organizing documents. See [docs/tools.md](docs/tools.md).
-- **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring. See [docs/access-control.md](docs/access-control.md).
-- **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more. See [docs/configuration.md](docs/configuration.md).
+- **17 tools** for reading, writing, searching, and organizing documents.
+- **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
+- **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more.
 - **Read-only mode** to prevent all write operations.
 - **Structured responses** with both JSON (`structuredContent`) and plain text for backwards compatibility.
 
@@ -62,31 +62,13 @@ Add the same JSON to your Claude Desktop config file:
 
 - **Windows (legacy)**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-## Configuration
+## Documentation
 
-See [docs/configuration.md](docs/configuration.md) for the full config file reference, environment variables, field table, and logging options.
-
-Quick start: set `DYNALIST_API_TOKEN` to your token from [dynalist.io/developer](https://dynalist.io/developer). Optionally create `~/.dynalist-mcp.json` for access control rules, read defaults, and other settings.
-
-## Access control
-
-See [docs/access-control.md](docs/access-control.md) for path-based ACL rules, glob syntax, specificity precedence, ID anchoring, and examples.
-
-## Tools reference
-
-See [docs/tools.md](docs/tools.md) for full parameter tables, response shapes, and usage notes for all 17 tools.
-
-**Read tools:** `list_documents`, `search_documents`, `read_document`, `search_in_document`, `get_recent_changes`, `check_document_versions`
-
-**Write tools:** `send_to_inbox`, `edit_node`, `insert_node`, `insert_nodes`
-
-**Structure tools:** `delete_node`, `move_node`
-
-**File management tools:** `create_document`, `create_folder`, `rename_document`, `rename_folder`, `move_file`
-
-## Dynalist API coverage
-
-See [docs/api-coverage.md](docs/api-coverage.md) for the full mapping between Dynalist API endpoints and MCP tools.
+- [**Tools reference**](docs/tools.md): Parameter tables, response shapes, and usage notes for all 17 tools.
+- [**Configuration**](docs/configuration.md): Config file reference, environment variables, field table, and logging.
+- [**Access control**](docs/access-control.md): Path-based ACL rules, glob syntax, specificity precedence, ID anchoring, and examples.
+- [**Client setup**](docs/client-setup.md): Troubleshooting, environment isolation, and additional MCP client details.
+- [**API coverage**](docs/api-coverage.md): Mapping between Dynalist API endpoints and MCP tools.
 
 ## Development
 
