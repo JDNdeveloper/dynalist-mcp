@@ -54,7 +54,13 @@ Add to `.mcp.json` in your project root (or `~/.claude.json` globally):
 
 #### Claude Desktop
 
-Add the same JSON to your Claude Desktop config file:
+**Option A: `.mcpb` bundle**
+
+Download the latest `.mcpb` file from the [releases page](https://github.com/JDNdeveloper/dynalist-mcp/releases). Go to **Settings -> Extensions -> Advanced settings -> Install Extension** and select the downloaded file. You will be prompted for your API token during setup.
+
+**Option B: Manual config**
+
+Add the same JSON as above to your Claude Desktop config file:
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
@@ -83,6 +89,8 @@ bun run inspector    # Debug with MCP Inspector
 **Typecheck is required after making changes** to catch type errors before committing.
 
 ### Testing with MCP Inspector
+
+> **Warning:** MCP Inspector and MCP clients (e.g. Claude Code) connect to a live Dynalist account and can modify and delete data. Make sure your `DYNALIST_API_TOKEN` points to a **test account**, not your real one.
 
 ```bash
 DYNALIST_API_TOKEN=your_token bun run inspector

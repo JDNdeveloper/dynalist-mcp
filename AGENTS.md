@@ -20,6 +20,8 @@ bun test --watch     # Watch mode for development
 
 Tests run against a dummy Dynalist server (in-memory) via the real MCP protocol. Test files are in `src/tests/tools/`.
 
+> **Warning:** MCP Inspector and MCP clients (e.g. Claude Code) connect to a live Dynalist account and can modify and delete data. Make sure your `DYNALIST_API_TOKEN` points to a **test account**, not your real one. If you are unsure, list all documents and confirm they look like a test account's documents, not real ones.
+
 ## Typecheck
 
 ```bash
