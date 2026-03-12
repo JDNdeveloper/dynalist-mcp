@@ -171,9 +171,11 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "- include_collapsed_children: includes children of collapsed nodes (default false).\n" +
         "These are orthogonal. Setting max_depth high does NOT expand collapsed nodes. Setting " +
         "include_collapsed_children: true does NOT bypass the depth limit.\n\n" +
-        "When children are hidden, the response signals the cause:\n" +
-        "- depth_limited: true. Call read_document with that node's node_id to zoom in.\n" +
-        "- collapsed: true with children_count > 0. Re-request with include_collapsed_children: true.",
+        "When children are hidden, the response signals the cause (these are distinct):\n" +
+        "- depth_limited: true means the max_depth limit cut off traversal. The node is NOT collapsed. " +
+        "Fix: call read_document with that node's node_id to zoom in.\n" +
+        "- collapsed: true with children_count > 0 means the user collapsed this node in the Dynalist UI. " +
+        "Fix: re-request with include_collapsed_children: true.",
       inputSchema: {
         file_id: z.string().describe("Document file ID"),
         node_id: z.string().optional().describe(
@@ -207,7 +209,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           "note (string, omitted when empty), checked (boolean), checkbox (boolean), " +
           "heading (number, 0=none, 1=H1, 2=H2, 3=H3, omitted when 0), " +
           "color (number, 0=none, 1=red, 2=orange, 3=yellow, 4=green, 5=blue, 6=purple, omitted when 0), " +
-          "collapsed (boolean), depth_limited (true when depth limit hid children), " +
+          "collapsed (boolean, user-collapsed in UI, not the same as depth_limited), " +
+          "depth_limited (true when max_depth cut off traversal, not the same as collapsed), " +
           "children_count (total direct children regardless of visibility), " +
           "children (array of child nodes, empty when hidden by depth/collapsed filtering)."
         ),

@@ -71,12 +71,12 @@ These are independent and both apply simultaneously. Setting a high max_depth do
 expand collapsed nodes. Setting include_collapsed_children: true does NOT bypass the depth \
 limit.
 
-When children are hidden, two distinct signals indicate the cause:
-- collapsed: true with children_count > 0 but empty children: collapsed filtering hid the \
-children. Re-request with include_collapsed_children: true.
-- depth_limited: true: the depth limit hid the children. Call read_document with this \
-node's node_id as the starting point to zoom into the subtree without re-fetching the \
-entire document.
+When children are hidden, two distinct signals indicate the cause (do not confuse these):
+- depth_limited: true means the max_depth limit cut off traversal. The node is NOT \
+collapsed. Fix: call read_document with this node's node_id as the starting point to zoom \
+into the subtree without re-fetching the entire document.
+- collapsed: true with children_count > 0 but empty children means the user collapsed this \
+node in the Dynalist UI. Fix: re-request with include_collapsed_children: true.
 
 ## Size warnings
 
