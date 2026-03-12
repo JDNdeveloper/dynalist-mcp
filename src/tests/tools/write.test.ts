@@ -5,6 +5,7 @@ import { tmpdir } from "os";
 import { getConfig } from "../../config";
 import {
   createTestContext,
+  callTool,
   callToolOk,
   callToolError,
   standardSetup,
@@ -868,9 +869,59 @@ describe("insert_nodes", () => {
 
   // ─── 12e: partial failure ──────────────────────────────────────────
 
-  // Partial failure is hard to trigger with the in-memory dummy server
-  // because it never fails mid-batch. Skipping until a fault-injection
-  // mechanism is added to the dummy server.
+  test("partial failure returns PartialInsert error with context", async () => {
+    // Insert a 4-level deep hierarchy. Fail after 2 successful editDocument
+    // calls, so levels 0 and 1 succeed but level 2 fails.
+    const content = "- A\n  - B\n    - C\n      - D";
+
+    ctx.server.failEditAfterNCalls(2);
+
+    const result = await callTool(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      content,
+    });
+
+    expect(result.isError).toBe(true);
+    const structured = result.structuredContent as Record<string, unknown>;
+    expect(structured.error).toBe("PartialInsert");
+    expect(structured.inserted_count).toBe(2);
+    expect(structured.total_count).toBe(4);
+    expect(structured.first_node_id).toBeDefined();
+    expect(typeof structured.url).toBe("string");
+
+    // NOTE: failed_at_depth is stored on PartialInsertError but not
+    // serialized into toStructuredResponse(). See testing-bug-report.
+  });
+
+  test("partial failure persists nodes inserted before the fault", async () => {
+    // Same 4-level hierarchy, fail after 2 levels.
+    const content = "- PersistA\n  - PersistB\n    - PersistC\n      - PersistD";
+
+    ctx.server.failEditAfterNCalls(2);
+
+    await callTool(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      content,
+    });
+
+    // Levels 0 and 1 should have been committed to the document.
+    const doc = ctx.server.documents.get("doc1")!;
+    const nodeA = doc.nodes.find((n) => n.content === "PersistA");
+    const nodeB = doc.nodes.find((n) => n.content === "PersistB");
+    const nodeC = doc.nodes.find((n) => n.content === "PersistC");
+    const nodeD = doc.nodes.find((n) => n.content === "PersistD");
+
+    expect(nodeA).toBeDefined();
+    expect(nodeB).toBeDefined();
+    expect(nodeC).toBeUndefined();
+    expect(nodeD).toBeUndefined();
+
+    // Verify the parent-child relationship was established.
+    expect(nodeA!.children.length).toBe(1);
+    expect(nodeA!.children[0]).toBe(nodeB!.id);
+  });
 
   // ─── 12f: response shape ───────────────────────────────────────────
 
@@ -1060,9 +1111,50 @@ describe("send_to_inbox", () => {
 
   // ─── 13d: partial failure ──────────────────────────────────────────
 
-  // Partial failure is hard to trigger with the in-memory dummy server
-  // because it never fails mid-batch. Skipping until a fault-injection
-  // mechanism is added to the dummy server.
+  test("partial failure returns PartialInsert error with context", async () => {
+    // Send a hierarchy to inbox. The first item is added via sendToInbox,
+    // then children are inserted via editDocument. Fail the first
+    // editDocument call so only the root inbox item persists.
+    const content = "- Inbox parent\n  - Inbox child\n    - Inbox grandchild";
+
+    // The handler calls sendToInbox for the first item (not affected by
+    // this fault), then calls insertTreeUnderParent for children which
+    // uses editDocument. Fail after 1 successful editDocument call so
+    // "Inbox child" is inserted but "Inbox grandchild" fails.
+    ctx.server.failEditAfterNCalls(1);
+
+    const result = await callTool(ctx.mcpClient, "send_to_inbox", {
+      content,
+    });
+
+    expect(result.isError).toBe(true);
+    const structured = result.structuredContent as Record<string, unknown>;
+    expect(structured.error).toBe("PartialInsert");
+    expect(structured.inserted_count).toBeDefined();
+    expect(structured.total_count).toBeDefined();
+    expect(typeof structured.url).toBe("string");
+  });
+
+  test("partial failure persists nodes inserted before the fault", async () => {
+    // Same hierarchy. Fail after 1 editDocument call.
+    const content = "- Persist inbox parent\n  - Persist inbox child\n    - Persist inbox grandchild";
+
+    ctx.server.failEditAfterNCalls(1);
+
+    await callTool(ctx.mcpClient, "send_to_inbox", { content });
+
+    // The first item was created via sendToInbox (unaffected by fault).
+    // The first editDocument call (level 0 children) succeeded.
+    // The second editDocument call (level 1 children) failed.
+    const doc = ctx.server.documents.get("inbox_doc")!;
+    const parent = doc.nodes.find((n) => n.content === "Persist inbox parent");
+    const child = doc.nodes.find((n) => n.content === "Persist inbox child");
+    const grandchild = doc.nodes.find((n) => n.content === "Persist inbox grandchild");
+
+    expect(parent).toBeDefined();
+    expect(child).toBeDefined();
+    expect(grandchild).toBeUndefined();
+  });
 
   // ─── 13e: response shape ───────────────────────────────────────────
 

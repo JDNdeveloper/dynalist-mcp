@@ -63,6 +63,12 @@ function aclSetup(server: DummyDynalistServer): void {
     server.makeNode("dn1a", "Denied child", []),
   ]);
 
+  // Document inside the denied folder that has an explicit allow override.
+  server.addDocument("allowed_in_denied_doc", "Allowed In Denied Doc", "denied_folder", [
+    server.makeNode("root", "Allowed In Denied Doc", ["aidn1"]),
+    server.makeNode("aidn1", "Override content", []),
+  ]);
+
   server.addDocument("readonly_doc", "ReadOnly Doc", "readonly_folder", [
     server.makeNode("root", "ReadOnly Doc", ["rn1"]),
     server.makeNode("rn1", "ReadOnly content", ["rn1a"]),
@@ -97,6 +103,7 @@ function writeAclConfig() {
       default: "deny",
       rules: [
         { path: "/Denied Folder/**", policy: "deny" },
+        { path: "/Denied Folder/Allowed In Denied Doc", policy: "allow" },
         { path: "/ReadOnly Folder/**", policy: "read" },
         { path: "/Allowed Folder/**", policy: "allow" },
         { path: "/Inbox", policy: "allow" },
@@ -466,13 +473,26 @@ describe("list_documents with ACL", () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const docs = result.documents as Record<string, unknown>[];
     // denied_doc and unruled_doc (default: deny) should be filtered out.
-    // Remaining: readonly_doc, allowed_doc, inbox_doc.
+    // Remaining: readonly_doc, allowed_doc, allowed_in_denied_doc, inbox_doc.
     expect(result.count).toBe(docs.length);
     // The denied and unruled docs should not be in the list.
     const deniedDoc = docs.find((d) => d.file_id === "denied_doc");
     const unruledDoc = docs.find((d) => d.file_id === "unruled_doc");
     expect(deniedDoc).toBeUndefined();
     expect(unruledDoc).toBeUndefined();
+  });
+
+  test("allow-override inside deny-parent: document appears despite parent being denied", async () => {
+    // The "Allowed In Denied Doc" has an explicit allow rule even though
+    // its parent "Denied Folder" matches /Denied Folder/** with deny policy.
+    // The more specific exact-match rule should win.
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const docs = result.documents as Record<string, unknown>[];
+    const overrideDoc = docs.find((d) => d.file_id === "allowed_in_denied_doc");
+    expect(overrideDoc).toBeDefined();
+    expect(overrideDoc!.title).toBe("Allowed In Denied Doc");
+    // The allow policy should not produce an access_policy field.
+    expect(overrideDoc!.access_policy).toBeUndefined();
   });
 });
 

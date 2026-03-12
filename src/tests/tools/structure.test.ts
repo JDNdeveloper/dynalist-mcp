@@ -449,6 +449,17 @@ describe("move_node", () => {
     expect(err.error).toBe("InvalidInput");
   });
 
+  test("cannot move node to be child of its own direct child", async () => {
+    // n1 -> [n1a, n1b]. Moving n1 into n1a should fail.
+    const err = await callToolError(ctx.mcpClient, "move_node", {
+      file_id: "doc1",
+      node_id: "n1",
+      reference_node_id: "n1a",
+      position: "first_child",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
   test("self-reference with after position is rejected", async () => {
     const err = await callToolError(ctx.mcpClient, "move_node", {
       file_id: "doc1",

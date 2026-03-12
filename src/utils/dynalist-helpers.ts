@@ -265,6 +265,7 @@ export class PartialInsertError extends Error {
         inserted_count: this.insertedCount,
         total_count: this.totalCount,
         first_node_id: this.firstNodeId ?? null,
+        failed_at_depth: this.failedAtDepth,
         url,
       },
       content: [{
@@ -276,6 +277,7 @@ export class PartialInsertError extends Error {
           inserted_count: this.insertedCount,
           total_count: this.totalCount,
           first_node_id: this.firstNodeId ?? null,
+          failed_at_depth: this.failedAtDepth,
           url,
         }),
       }],

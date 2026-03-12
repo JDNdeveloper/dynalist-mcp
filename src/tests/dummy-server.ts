@@ -34,6 +34,7 @@ export class DummyDynalistServer {
   inboxRootNodeId: string | null = null;
   private nodeCounter = 0;
   private fileCounter = 0;
+  private editDocFailAfter: number | null = null;
 
   // ─── Setup helpers ───────────────────────────────────────────────
 
@@ -102,6 +103,21 @@ export class DummyDynalistServer {
   }
 
   /**
+   * Configure fault injection: editDocument will throw after N successful
+   * calls. The counter resets after the fault triggers.
+   */
+  failEditAfterNCalls(n: number): void {
+    this.editDocFailAfter = n;
+  }
+
+  /**
+   * Clear any pending fault injection.
+   */
+  clearEditFault(): void {
+    this.editDocFailAfter = null;
+  }
+
+  /**
    * Create a DynalistNode with sensible defaults.
    */
   makeNode(
@@ -156,6 +172,15 @@ export class DummyDynalistServer {
     const doc = this.documents.get(fileId);
     if (!doc) {
       throw new DynalistApiError("NotFound", "Document not found.");
+    }
+
+    // Fault injection: decrement counter and throw when it reaches zero.
+    if (this.editDocFailAfter !== null) {
+      if (this.editDocFailAfter <= 0) {
+        this.editDocFailAfter = null;
+        throw new DynalistApiError("ServerError", "Injected fault: editDocument failed.");
+      }
+      this.editDocFailAfter--;
     }
 
     const newNodeIds: string[] = [];

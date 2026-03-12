@@ -1,6 +1,9 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 import { AccessController, requireAccess, type Policy } from "../access-control";
-import type { Config } from "../config";
+import { getConfig, getConfigVersion, type Config } from "../config";
 import { DummyDynalistServer, MockDynalistClient } from "./dummy-server";
 
 // ─── Test helpers ────────────────────────────────────────────────────
@@ -880,5 +883,168 @@ describe("cache invalidation", () => {
     // The first evaluation uses stale cache and gets "deny".
     // The retry invalidates cache, refetches, and gets "allow".
     expect(await ac.getPolicy("ds", config)).toBe("allow");
+  });
+
+  test("config version change triggers cache invalidation", async () => {
+    const { server, client } = setupServer();
+    const ac = new AccessController(client);
+
+    // Set up a temp config file so we can bump the config version.
+    const configPath = join(tmpdir(), `dynalist-mcp-acl-test-${process.pid}.json`);
+    process.env.DYNALIST_MCP_CONFIG = configPath;
+    let fakeMtime = Date.now();
+
+    function writeAndLoad(data: unknown) {
+      writeFileSync(configPath, JSON.stringify(data));
+      fakeMtime += 2000;
+      const secs = fakeMtime / 1000;
+      utimesSync(configPath, secs, secs);
+      getConfig();
+    }
+
+    try {
+      // Write an initial config to establish a baseline version.
+      writeAndLoad({ readOnly: false });
+
+      const config = makeConfig({
+        access: {
+          default: "allow",
+          rules: [{ path: "/Private/**", policy: "deny" }],
+        },
+      });
+
+      // Populate the cache.
+      expect(await ac.getPolicy("ds", config)).toBe("deny");
+
+      // Move the document out of Private.
+      const privateFolder = server.files.get("fp")!;
+      privateFolder.children = [];
+      const folderA = server.files.get("fa")!;
+      folderA.children!.push("ds");
+
+      // Bump the config version by writing and loading a new config.
+      writeAndLoad({ readOnly: true });
+
+      // The AccessController should detect the version change, invalidate
+      // its cache, and refetch the file tree with the updated paths.
+      expect(await ac.getPolicy("ds", config)).toBe("allow");
+    } finally {
+      if (existsSync(configPath)) {
+        unlinkSync(configPath);
+      }
+      delete process.env.DYNALIST_MCP_CONFIG;
+      // Reset the config module so it detects the file was removed.
+      try { getConfig(); } catch { /* Ignore errors from stale state. */ }
+    }
+  });
+});
+
+// ─── Rule validation: duplicate paths ────────────────────────────────
+
+describe("rule validation: duplicates", () => {
+  test("duplicate paths in rules rejected by config schema", () => {
+    const configPath = join(tmpdir(), `dynalist-mcp-acl-dup-test-${process.pid}.json`);
+    process.env.DYNALIST_MCP_CONFIG = configPath;
+    let fakeMtime = Date.now();
+
+    try {
+      const configData = {
+        access: {
+          default: "allow",
+          rules: [
+            { path: "/Folder A/**", policy: "deny" },
+            { path: "/Folder A/**", policy: "allow" },
+          ],
+        },
+      };
+      writeFileSync(configPath, JSON.stringify(configData));
+      fakeMtime += 2000;
+      const secs = fakeMtime / 1000;
+      utimesSync(configPath, secs, secs);
+
+      // The schema should reject duplicate path entries.
+      expect(() => getConfig()).toThrow("Duplicate path entries in access rules.");
+    } finally {
+      if (existsSync(configPath)) {
+        unlinkSync(configPath);
+      }
+      delete process.env.DYNALIST_MCP_CONFIG;
+      try { getConfig(); } catch { /* Ignore errors from stale state. */ }
+    }
+  });
+
+  test("duplicate titles in tree: warning logged, rule applies to all files at that path", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Create two folders with different names.
+    server.addFolder("f1", "FolderX", "root_folder");
+    server.addFolder("f2", "FolderY", "root_folder");
+    // Create two documents with the same name in different folders,
+    // but give the folders the same name so paths collide.
+    server.addDocument("d1", "SameName", "f1");
+    server.addDocument("d2", "SameName", "f2");
+    // Rename FolderY to FolderX so both folders share the same path.
+    server.files.get("f2")!.title = "FolderX";
+
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Both documents now live at /FolderX/SameName.
+    // A path-only rule should apply to both of them.
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/FolderX/SameName", policy: "deny" }],
+      },
+    });
+
+    // The rule matches the path for both d1 and d2.
+    expect(await ac.getPolicy("d1", config)).toBe("deny");
+    expect(await ac.getPolicy("d2", config)).toBe("deny");
+  });
+
+  test("duplicate titles with ID disambiguation: no validation error", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Create two folders with different names, then rename to collide.
+    server.addFolder("f1", "FolderX", "root_folder");
+    server.addFolder("f2", "FolderY", "root_folder");
+    server.addDocument("d1", "SameName", "f1");
+    server.addDocument("d2", "SameName", "f2");
+    // Rename FolderY to FolderX so both folders share the same path.
+    server.files.get("f2")!.title = "FolderX";
+
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Use an ID-anchored rule targeting d1. Because the rule has an
+    // ID, validateRules skips the duplicate-title warning check.
+    // This means no validation error and no fail-closed behavior.
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/FolderX/SameName", policy: "deny", id: "d1" }],
+      },
+    });
+
+    // The rule should work normally without fail-closed behavior.
+    // The ID resolves to d1's path, which matches both d1 and d2
+    // since they share the same literal path. The key point is that
+    // validation passes (no fail-closed) because ID-anchored rules
+    // are exempt from the duplicate-title warning.
+    expect(await ac.getPolicy("d1", config)).toBe("deny");
+
+    // Other unrelated files remain unaffected.
+    const configWithFolder = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/FolderX/**", policy: "deny", id: "f1" }],
+      },
+    });
+    // The ID-anchored glob rule targets f1's subtree.
+    expect(await ac.getPolicy("d1", configWithFolder)).toBe("deny");
+    // d2 is under f2 (also at /FolderX), so its path also matches.
+    // No fail-closed behavior occurs since the ID is valid.
+    expect(await ac.getPolicy("d2", configWithFolder)).toBe("deny");
   });
 });

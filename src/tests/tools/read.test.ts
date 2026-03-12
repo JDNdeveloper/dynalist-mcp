@@ -1,4 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 import {
   createTestContext,
   callToolOk,
@@ -7,6 +10,8 @@ import {
   standardSetup,
   type TestContext,
 } from "./test-helpers";
+import { DummyDynalistServer } from "../dummy-server";
+import { getConfig } from "../../config";
 
 let ctx: TestContext;
 
@@ -1585,5 +1590,570 @@ describe("check_document_versions", () => {
       expect(typeof key).toBe("string");
       expect(typeof value).toBe("number");
     }
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Config-dependent tests
+//
+// These tests use custom config files to verify that readDefaults and
+// sizeWarning settings from config are applied correctly.
+// ═════════════════════════════════════════════════════════════════════════
+
+const CONFIG_PATH = join(tmpdir(), `dynalist-mcp-read-test-${process.pid}.json`);
+
+// Monotonically increasing fake mtime so the config module always
+// detects a change when we rewrite the file.
+let configFakeMtime = Date.now();
+
+function writeConfigFile(data: unknown) {
+  writeFileSync(CONFIG_PATH, JSON.stringify(data));
+  configFakeMtime += 2000;
+  const secs = configFakeMtime / 1000;
+  utimesSync(CONFIG_PATH, secs, secs);
+}
+
+function removeConfigFile() {
+  if (existsSync(CONFIG_PATH)) {
+    unlinkSync(CONFIG_PATH);
+  }
+  // Let the config module detect deletion and reset internal state.
+  try {
+    getConfig();
+  } catch {
+    // Ignore errors from stale state.
+  }
+}
+
+// ─── 4b. max_depth config defaults ────────────────────────────────────
+
+describe("read_document config defaults: max_depth", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+    removeConfigFile();
+    delete process.env.DYNALIST_MCP_CONFIG;
+  });
+
+  test("default max_depth (omitted) uses config default of 5", async () => {
+    // Build a document with nodes at depth 0 through 6.
+    function deepSetup(server: DummyDynalistServer): void {
+      const nodes = [server.makeNode("root", "Deep Doc", ["d1"])];
+      let parentId = "d1";
+      for (let i = 1; i <= 6; i++) {
+        const childId = `d${i + 1}`;
+        const children = i < 6 ? [childId] : [];
+        nodes.push(server.makeNode(parentId, `Level ${i}`, children));
+        parentId = childId;
+      }
+      // The leaf at depth 7.
+      nodes.push(server.makeNode(parentId, "Level 7", []));
+      server.addDocument("deep_doc", "Deep Doc", "root_folder", nodes);
+    }
+
+    // No custom config means default readDefaults.maxDepth = 5.
+    cfgCtx = await createTestContext(deepSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "deep_doc",
+    });
+
+    // Walk down the tree to depth 5. Node at depth 5 with children
+    // should be depth_limited.
+    let node = result.node as Record<string, unknown>;
+    for (let i = 0; i < 5; i++) {
+      const children = node.children as Record<string, unknown>[];
+      expect(children.length).toBeGreaterThan(0);
+      node = children[0];
+    }
+    // At depth 5, the node should have its children omitted.
+    expect(node.children).toEqual([]);
+    expect(node.depth_limited).toBe(true);
+  });
+
+  test("custom readDefaults.maxDepth in config overrides hardcoded default", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ readDefaults: { maxDepth: 2 } });
+
+    function treeSetup(server: DummyDynalistServer): void {
+      server.addDocument("cfg_doc", "Config Doc", "root_folder", [
+        server.makeNode("root", "Config Doc", ["a1"]),
+        server.makeNode("a1", "Level 1", ["a2"]),
+        server.makeNode("a2", "Level 2", ["a3"]),
+        server.makeNode("a3", "Level 3", []),
+      ]);
+    }
+
+    cfgCtx = await createTestContext(treeSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "cfg_doc",
+    });
+
+    // With maxDepth: 2, node at depth 2 (a2) should be depth_limited.
+    const rootNode = result.node as Record<string, unknown>;
+    const a1 = (rootNode.children as Record<string, unknown>[])[0];
+    const a2 = (a1.children as Record<string, unknown>[])[0];
+    expect(a2.children).toEqual([]);
+    expect(a2.depth_limited).toBe(true);
+  });
+
+  test("explicit max_depth parameter overrides config default", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    // Set config maxDepth to 1.
+    writeConfigFile({ readDefaults: { maxDepth: 1 } });
+
+    function treeSetup(server: DummyDynalistServer): void {
+      server.addDocument("cfg_doc2", "Config Doc 2", "root_folder", [
+        server.makeNode("root", "Config Doc 2", ["b1"]),
+        server.makeNode("b1", "Level 1", ["b2"]),
+        server.makeNode("b2", "Level 2", []),
+      ]);
+    }
+
+    cfgCtx = await createTestContext(treeSetup);
+
+    // Explicit max_depth: 10 should override the config's maxDepth: 1.
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "cfg_doc2",
+      max_depth: 10,
+    });
+    const rootNode = result.node as Record<string, unknown>;
+    const b1 = (rootNode.children as Record<string, unknown>[])[0];
+    // b2 should be visible at depth 2 since explicit max_depth is 10.
+    expect((b1.children as unknown[]).length).toBe(1);
+    const b2 = (b1.children as Record<string, unknown>[])[0];
+    expect(b2.node_id).toBe("b2");
+  });
+});
+
+// ─── 4e. include_notes config default ─────────────────────────────────
+
+describe("read_document config defaults: include_notes", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+    removeConfigFile();
+    delete process.env.DYNALIST_MCP_CONFIG;
+  });
+
+  test("config default readDefaults.includeNotes: false omits notes when parameter not specified", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ readDefaults: { includeNotes: false } });
+
+    cfgCtx = await createTestContext(standardSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+
+    // Walk the tree to confirm no node has a note field.
+    function checkNoNotes(node: Record<string, unknown>) {
+      expect(node.note).toBeUndefined();
+      for (const child of node.children as Record<string, unknown>[]) {
+        checkNoNotes(child);
+      }
+    }
+    checkNoNotes(result.node as Record<string, unknown>);
+  });
+});
+
+// ─── 4f. include_checked edge cases ───────────────────────────────────
+
+describe("read_document config defaults: include_checked", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+    removeConfigFile();
+    delete process.env.DYNALIST_MCP_CONFIG;
+  });
+
+  test("include_checked false: children_count on parent reflects original count, not filtered count", async () => {
+    // This documents actual behavior: children_count uses the raw
+    // children array length (3) even though the checked node n3 is
+    // filtered out of the rendered children.
+    cfgCtx = await createTestContext(standardSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+      include_checked: false,
+    });
+    const root = result.node as Record<string, unknown>;
+    // Root has 3 children in source (n1, n2, n3).
+    expect(root.children_count).toBe(3);
+    // But only 2 are rendered (n3 is checked and excluded).
+    expect((root.children as unknown[]).length).toBe(2);
+  });
+
+  test("config default readDefaults.includeChecked: false omits checked nodes when parameter not specified", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ readDefaults: { includeChecked: false } });
+
+    cfgCtx = await createTestContext(standardSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
+    // n3 is checked and should be excluded via config default.
+    const n3 = rootChildren.find((c) => c.node_id === "n3");
+    expect(n3).toBeUndefined();
+  });
+});
+
+// ─── 4g. Size warning content ─────────────────────────────────────────
+
+describe("read_document size warning content", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+    removeConfigFile();
+    delete process.env.DYNALIST_MCP_CONFIG;
+  });
+
+  test("warning includes suggestions for max_depth and node_id", async () => {
+    // Use a low warning threshold so we do not need massive test data.
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
+
+    function bigSetup(server: DummyDynalistServer): void {
+      const childIds: string[] = [];
+      const nodes = [server.makeNode("root", "Big Doc", [] as string[])];
+      for (let i = 0; i < 20; i++) {
+        const id = `w_${i}`;
+        childIds.push(id);
+        nodes.push(server.makeNode(id, "x".repeat(50), []));
+      }
+      nodes[0].children = childIds;
+      server.addDocument("warn_doc", "Big Doc", "root_folder", nodes);
+    }
+
+    cfgCtx = await createTestContext(bigSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "warn_doc",
+      max_depth: 10,
+    });
+    expect(result.warning).toBeDefined();
+    const warning = result.warning as string;
+    expect(warning).toContain("max_depth");
+    expect(warning).toContain("node_id");
+  });
+});
+
+// ─── 5d. search_in_document size warnings ─────────────────────────────
+
+describe("search_in_document size warnings", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+    removeConfigFile();
+    delete process.env.DYNALIST_MCP_CONFIG;
+  });
+
+  // Setup function that creates many searchable nodes.
+  function manyNodesSetup(server: DummyDynalistServer): void {
+    const childIds: string[] = [];
+    const nodes = [server.makeNode("root", "Search Doc", [] as string[])];
+    for (let i = 0; i < 50; i++) {
+      const id = `s_${i}`;
+      childIds.push(id);
+      nodes.push(server.makeNode(id, `searchable item ${i} ${"y".repeat(50)}`, []));
+    }
+    nodes[0].children = childIds;
+    server.addDocument("search_warn_doc", "Search Doc", "root_folder", nodes);
+  }
+
+  test("large result set triggers size warning", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
+
+    cfgCtx = await createTestContext(manyNodesSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
+      file_id: "search_warn_doc",
+      query: "searchable",
+    });
+    expect(result.warning).toBeDefined();
+  });
+
+  test("warning suggests narrowing query, parent_levels 0, include_children false", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
+
+    cfgCtx = await createTestContext(manyNodesSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
+      file_id: "search_warn_doc",
+      query: "searchable",
+    });
+    const warning = result.warning as string;
+    expect(warning).toContain("query");
+    expect(warning).toContain("parent_levels: 0");
+    expect(warning).toContain("include_children: false");
+  });
+
+  test("bypass_warning true on large result under max threshold succeeds", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    // Set warning low but max high so result is between thresholds.
+    writeConfigFile({
+      sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 100000 },
+    });
+
+    cfgCtx = await createTestContext(manyNodesSetup);
+
+    // First call should trigger warning.
+    const first = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
+      file_id: "search_warn_doc",
+      query: "searchable",
+    });
+    expect(first.warning).toBeDefined();
+
+    // Second call with bypass_warning should succeed.
+    const second = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
+      file_id: "search_warn_doc",
+      query: "searchable",
+      bypass_warning: true,
+    });
+    expect(second.warning).toBeUndefined();
+    expect(second.matches).toBeDefined();
+    expect(second.count).toBeGreaterThan(0);
+  });
+});
+
+// ─── 6b. get_recent_changes date parsing ──────────────────────────────
+
+describe("get_recent_changes date parsing", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+  });
+
+  function timedSetup(server: DummyDynalistServer): void {
+    // Create a node with a known timestamp: 2025-03-11T12:00:00.000Z.
+    const ts = new Date("2025-03-11T12:00:00.000Z").getTime();
+    server.addDocument("timed_doc", "Timed Doc", "root_folder", [
+      server.makeNode("root", "Timed Doc", ["t1"]),
+      server.makeNode("t1", "Timed node", [], { created: ts, modified: ts }),
+    ]);
+  }
+
+  test("since as ISO date string treated as start of day", async () => {
+    cfgCtx = await createTestContext(timedSetup);
+
+    // "2025-03-11" should be treated as start of day (midnight UTC).
+    // The node at 12:00 UTC on that day should be included.
+    const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "2025-03-11",
+      until: "2025-03-11",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+  });
+
+  test("until as ISO date string treated as end of day", async () => {
+    cfgCtx = await createTestContext(timedSetup);
+
+    // "2025-03-11" for until should cover end of that day (23:59:59.999).
+    // The node at 12:00 UTC should be included.
+    const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: 0,
+      until: "2025-03-11",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+
+    // But "2025-03-10" as until should NOT include the node.
+    const result2 = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: 0,
+      until: "2025-03-10",
+    });
+    const matches2 = result2.matches as Record<string, unknown>[];
+    expect(matches2.some((m) => m.node_id === "t1")).toBe(false);
+  });
+
+  test("until as millisecond timestamp: exact match", async () => {
+    cfgCtx = await createTestContext(timedSetup);
+
+    const ts = new Date("2025-03-11T12:00:00.000Z").getTime();
+    // Using the exact timestamp as until should include the node.
+    const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: 0,
+      until: ts,
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+
+    // One millisecond before should exclude it.
+    const result2 = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: 0,
+      until: ts - 1,
+    });
+    const matches2 = result2.matches as Record<string, unknown>[];
+    expect(matches2.some((m) => m.node_id === "t1")).toBe(false);
+  });
+});
+
+// ─── 6c. Sorting edge case ────────────────────────────────────────────
+
+describe("get_recent_changes sorting by change_type", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+  });
+
+  test("sort key depends on change_type: created uses created ts, modified uses modified ts", async () => {
+    const now = Date.now();
+    const sinceTs = now - 5000;
+
+    function sortSetup(server: DummyDynalistServer): void {
+      // Node A: created within the since range (change_type = created).
+      //         Sort key is its created timestamp.
+      // Node B: created BEFORE the since range, modified within range
+      //         (change_type = modified). Sort key is its modified timestamp.
+      server.addDocument("sort_doc", "Sort Doc", "root_folder", [
+        server.makeNode("root", "Sort Doc", ["sa", "sb"], {
+          created: now - 100000,
+          modified: now - 100000,
+        }),
+        server.makeNode("sa", "Node A", [], {
+          created: sinceTs + 1000,
+          modified: sinceTs + 1000,
+        }),
+        server.makeNode("sb", "Node B", [], {
+          created: sinceTs - 100000,
+          modified: sinceTs + 3000,
+        }),
+      ]);
+    }
+
+    cfgCtx = await createTestContext(sortSetup);
+
+    // Node A: change_type=created, sort key = sinceTs+1000.
+    // Node B: change_type=modified, sort key = sinceTs+3000.
+    // With newest_first, B should come before A.
+    const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "sort_doc",
+      since: sinceTs,
+      sort: "newest_first",
+      type: "both",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    const filtered = matches.filter(
+      (m) => m.node_id === "sa" || m.node_id === "sb"
+    );
+    expect(filtered.length).toBe(2);
+
+    const sbIdx = filtered.findIndex((m) => m.node_id === "sb");
+    const saIdx = filtered.findIndex((m) => m.node_id === "sa");
+    // sb (modified more recently) should come before sa (created earlier).
+    expect(sbIdx).toBeLessThan(saIdx);
+
+    // Verify the change_types are as expected.
+    const sb = filtered.find((m) => m.node_id === "sb")!;
+    const sa = filtered.find((m) => m.node_id === "sa")!;
+    expect(sb.change_type).toBe("modified");
+    expect(sa.change_type).toBe("created");
+  });
+});
+
+// ─── 6e. get_recent_changes size warnings ─────────────────────────────
+
+describe("get_recent_changes size warnings", () => {
+  let cfgCtx: TestContext;
+
+  afterEach(async () => {
+    await cfgCtx.cleanup();
+    removeConfigFile();
+    delete process.env.DYNALIST_MCP_CONFIG;
+  });
+
+  function manyChangesSetup(server: DummyDynalistServer): void {
+    const childIds: string[] = [];
+    const nodes = [server.makeNode("root", "Changes Doc", [] as string[])];
+    for (let i = 0; i < 50; i++) {
+      const id = `c_${i}`;
+      childIds.push(id);
+      nodes.push(server.makeNode(id, `changed item ${i} ${"z".repeat(50)}`, []));
+    }
+    nodes[0].children = childIds;
+    server.addDocument("changes_doc", "Changes Doc", "root_folder", nodes);
+  }
+
+  test("large result triggers size warning", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
+
+    cfgCtx = await createTestContext(manyChangesSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "changes_doc",
+      since: 0,
+    });
+    expect(result.warning).toBeDefined();
+  });
+
+  test("warning suggests narrowing time period, filtering by type, parent_levels 0", async () => {
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
+
+    cfgCtx = await createTestContext(manyChangesSetup);
+
+    const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "changes_doc",
+      since: 0,
+    });
+    const warning = result.warning as string;
+    expect(warning).toContain("time period");
+    expect(warning).toContain("parent_levels: 0");
+    expect(warning).toContain("type");
+  });
+});
+
+// ─── 7b. list_documents edge case ─────────────────────────────────────
+
+describe("list_documents empty account", () => {
+  let emptyCtx: TestContext;
+
+  afterEach(async () => {
+    await emptyCtx.cleanup();
+  });
+
+  test("empty account (no documents): returns empty arrays, count 0", async () => {
+    // Create a context with no setup function. The DummyDynalistServer
+    // init() only creates a root folder, no documents.
+    emptyCtx = await createTestContext();
+
+    const result = await callToolOk(emptyCtx.mcpClient, "list_documents");
+    expect(result.count).toBe(0);
+    expect(result.documents).toEqual([]);
+    // There is still the root folder.
+    expect(result.folders).toBeDefined();
+  });
+});
+
+// ─── 8a. search_documents edge case ───────────────────────────────────
+
+describe("search_documents query echo", () => {
+  test("query is echoed back in response", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_documents", {
+      query: "My Unique Search Query 123",
+    });
+    expect(result.query).toBe("My Unique Search Query 123");
   });
 });
