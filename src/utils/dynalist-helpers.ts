@@ -37,7 +37,7 @@ export function checkContentSize(
       warning: `INCORRECT USAGE: You used bypass_warning: true preemptively.\n\n` +
         `The bypass_warning option should ONLY be used AFTER receiving a size warning, ` +
         `not on the first request. Please repeat the request WITHOUT bypass_warning to get the result.\n\n` +
-        `This ensures you're aware of large results before they fill your context.`,
+        `This way you see the size warning before large results fill your context.`,
       canBypass: false,
     };
   }

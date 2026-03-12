@@ -2,7 +2,7 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) server for [Dynalist.io](https://dynalist.io/) -- the infinite document outliner.
 
-Enables Claude and other AI assistants to read, write, search, and organize Dynalist documents programmatically via 17 MCP tools.
+Claude and other AI assistants can read, write, search, and organize Dynalist documents programmatically via 17 MCP tools.
 
 ### Features
 
@@ -98,7 +98,7 @@ bun test --watch     # Run tests in watch mode
 bun run inspector    # Debug with MCP Inspector
 ```
 
-**Typecheck is required after making changes** to ensure no type errors are introduced.
+**Typecheck is required after making changes** to catch type errors before committing.
 
 ### Testing with MCP Inspector
 
@@ -137,7 +137,7 @@ This server uses MCP stdio transport: it runs as a local subprocess of the MCP c
 
 ### LLM access risks
 
-While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). This means the LLM could potentially read sensitive content, modify or delete nodes, or exfiltrate data by including it in responses. Use the access control system and `readOnly` mode to limit exposure.
+While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). The LLM could read sensitive content, modify or delete nodes, or exfiltrate data by including it in responses. Use the access control system and `readOnly` mode to limit exposure.
 
 ### Access control limitations
 
@@ -155,7 +155,7 @@ Rule precedence is based on path specificity, **not** policy severity. Unlike AW
 
 For example, if `/Private/**` is `deny` but `/Private/Shopping List` is `allow`, the Shopping List is accessible because the exact match is more specific. Deny rules are not absolute ceilings -- they can be overridden by more specific rules underneath them.
 
-Audit your rules to ensure no more-specific allow/read rules punch holes through broader deny rules.
+Audit your rules so that no more-specific allow/read rules punch holes through broader deny rules.
 
 ## Acknowledgments
 
