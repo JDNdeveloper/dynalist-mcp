@@ -3,6 +3,8 @@
  * API Docs: https://apidocs.dynalist.io/
  */
 
+import type { DynalistApiResponse } from "./types";
+
 const API_BASE = "https://dynalist.io/api/v1";
 
 const MAX_RETRIES = 3;
@@ -34,7 +36,7 @@ export class DynalistApiError extends Error {
   }
 }
 
-// Types based on Dynalist API
+// Types based on Dynalist API.
 export interface DynalistFile {
   id: string;
   title: string;
@@ -59,15 +61,11 @@ export interface DynalistNode {
 }
 
 export interface ListFilesResponse {
-  _code: string;
-  _msg: string;
   root_file_id: string;
   files: DynalistFile[];
 }
 
 export interface ReadDocumentResponse {
-  _code: string;
-  _msg: string;
   file_id: string;
   title: string;
   version: number;
@@ -89,17 +87,31 @@ export interface EditDocumentChange {
 }
 
 export interface EditDocumentResponse {
-  _code: string;
-  _msg: string;
   new_node_ids?: string[];
 }
 
 export interface InboxAddResponse {
-  _code: string;
-  _msg: string;
   file_id: string;
   node_id: string;
   index: number;
+}
+
+export interface FileEditChange {
+  action: "create" | "edit" | "move";
+  type: "document" | "folder";
+  file_id?: string;
+  parent_id?: string;
+  title?: string;
+  index?: number;
+}
+
+export interface FileEditResponse {
+  results: unknown[];
+  created_file_ids?: string[];
+}
+
+export interface CheckForUpdatesResponse {
+  versions: number[];
 }
 
 export class DynalistClient {
@@ -117,7 +129,7 @@ export class DynalistClient {
         body: JSON.stringify({ token: this.token, ...body }),
       });
 
-      const data = await response.json() as T & { _code: string; _msg: string };
+      const data = await response.json() as DynalistApiResponse<T>;
 
       if (data._code.toLowerCase() === "ok") {
         return data;
@@ -138,31 +150,31 @@ export class DynalistClient {
   }
 
   /**
-   * Get all documents and folders
+   * Get all documents and folders.
    */
   async listFiles(): Promise<ListFilesResponse> {
     return this.request<ListFilesResponse>("/file/list");
   }
 
   /**
-   * Read content of a document
+   * Read content of a document.
    */
   async readDocument(fileId: string): Promise<ReadDocumentResponse> {
     return this.request<ReadDocumentResponse>("/doc/read", { file_id: fileId });
   }
 
   /**
-   * Make changes to document content
+   * Make changes to document content (insert, edit, move, delete nodes).
    */
   async editDocument(fileId: string, changes: EditDocumentChange[]): Promise<EditDocumentResponse> {
     return this.request<EditDocumentResponse>("/doc/edit", {
       file_id: fileId,
-      changes
+      changes,
     });
   }
 
   /**
-   * Send item to inbox
+   * Send item to inbox.
    */
   async sendToInbox(options: {
     content: string;
@@ -175,10 +187,26 @@ export class DynalistClient {
   }): Promise<InboxAddResponse> {
     return this.request<InboxAddResponse>("/inbox/add", options);
   }
+
+  /**
+   * Make changes to files/folders (create, rename, move).
+   */
+  async editFiles(changes: FileEditChange[]): Promise<FileEditResponse> {
+    return this.request<FileEditResponse>("/file/edit", { changes });
+  }
+
+  /**
+   * Check version numbers for a list of documents without fetching content.
+   */
+  async checkForUpdates(fileIds: string[]): Promise<CheckForUpdatesResponse> {
+    return this.request<CheckForUpdatesResponse>("/doc/check_for_updates", {
+      file_ids: fileIds,
+    });
+  }
 }
 
 /**
- * Build a node map for quick lookup by ID
+ * Build a node map for quick lookup by ID.
  */
 export function buildNodeMap(nodes: DynalistNode[]): Map<string, DynalistNode> {
   const map = new Map<string, DynalistNode>();
@@ -204,7 +232,7 @@ export function buildParentMap(nodes: DynalistNode[]): Map<string, { parentId: s
 }
 
 /**
- * Find the root node (the one not referenced as a child by any other node)
+ * Find the root node (the one not referenced as a child by any other node).
  */
 export function findRootNodeId(nodes: DynalistNode[]): string {
   const childIds = new Set<string>();
@@ -220,23 +248,6 @@ export function findRootNodeId(nodes: DynalistNode[]): string {
     }
   }
 
-  // Fallback to first node
+  // Fallback to first node.
   return nodes[0]?.id ?? "";
-}
-
-/**
- * Find the parent of a node and its index in the parent's children array
- */
-export function findNodeParent(
-  nodes: DynalistNode[],
-  nodeId: string
-): { parentId: string; index: number } | null {
-  for (const node of nodes) {
-    const children = node.children || [];
-    const index = children.indexOf(nodeId);
-    if (index !== -1) {
-      return { parentId: node.id, index };
-    }
-  }
-  return null;
 }
