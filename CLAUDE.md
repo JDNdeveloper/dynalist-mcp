@@ -16,7 +16,8 @@ Allows Claude to read, write, and manipulate Dynalist documents programmatically
 ```
 src/
 ├── index.ts                      # Entry point - bootstrap MCP server
-├── config.ts                     # Load ~/.dynalist-mcp.json user config
+├── config.ts                     # Zod-validated config with mtime-based reloading
+├── access-control.ts             # Path-based ACL (deny/read/allow policies)
 ├── types.ts                      # Shared types (OutputNode, NodeSummary, etc.)
 ├── dynalist-client.ts            # Wrapper for the Dynalist API
 ├── tools/
@@ -49,14 +50,28 @@ bun run inspector  # Debug with MCP Inspector
 
 Requires `DYNALIST_API_TOKEN` in the environment. See `.env.example`.
 
-Optional: `~/.dynalist-mcp.json` for user-configurable defaults:
+Optional: `~/.dynalist-mcp.json` (or `DYNALIST_MCP_CONFIG` env var) for configuration.
+All fields are optional with sensible defaults. Zod-validated, reloaded on mtime change.
 ```json
 {
+  "access": {
+    "default": "allow",
+    "rules": [
+      { "path": "/Private/**", "policy": "deny" },
+      { "path": "/Archive/**", "policy": "read" }
+    ]
+  },
   "readDefaults": {
     "maxDepth": 5,
+    "includeCollapsedChildren": false,
     "includeNotes": true,
     "includeChecked": true
-  }
+  },
+  "sizeWarning": { "warningTokenThreshold": 5000, "maxTokenThreshold": 24500 },
+  "inbox": { "defaultCheckbox": false },
+  "readOnly": false,
+  "cache": { "ttlSeconds": 300 },
+  "logLevel": "warn"
 }
 ```
 
@@ -74,3 +89,7 @@ Claude Desktop → MCP stdio → index.ts → tools/*.ts → DynalistClient → 
 - `move_node` uses relative positioning (after/before/first_child/last_child).
 - `read_document` returns a structured JSON tree with depth limiting and collapsed-node filtering.
 - All tools use Zod for strict input and output schema validation.
+- Every tool handler checks access control (deny/read/allow) before making API calls.
+- File tree cache is invalidated after create/rename/move operations and on denial retries.
+- Config is checked for mtime changes on every tool invocation (stat only, no read unless changed).
+- Invalid config fails closed (all tools error until config is fixed or removed).

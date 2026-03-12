@@ -4,6 +4,7 @@
 
 import type { DynalistNode } from "../dynalist-client";
 import { DynalistClient, DynalistApiError } from "../dynalist-client";
+import { ConfigError } from "../config";
 import type { EditDocumentChange } from "../dynalist-client";
 import { buildDynalistUrl } from "./url-parser";
 import type { ParsedNode } from "./markdown-parser";
@@ -24,12 +25,14 @@ export function estimateTokens(text: string): number {
 export function checkContentSize(
   content: string,
   bypassWarning: boolean,
-  recommendations: string[]
+  recommendations: string[],
+  warningThreshold: number = 5000,
+  maxThreshold: number = 24500,
 ): { warning: string; canBypass: boolean } | null {
   const tokenCount = estimateTokens(content);
 
   // If bypass was used preemptively (result is small), warn against this practice.
-  if (bypassWarning && tokenCount <= 5000) {
+  if (bypassWarning && tokenCount <= warningThreshold) {
     return {
       warning: `INCORRECT USAGE: You used bypass_warning: true preemptively.\n\n` +
         `The bypass_warning option should ONLY be used AFTER receiving a size warning, ` +
@@ -39,11 +42,11 @@ export function checkContentSize(
     };
   }
 
-  if (tokenCount <= 5000 || bypassWarning) {
+  if (tokenCount <= warningThreshold || bypassWarning) {
     return null;
   }
 
-  const canBypass = tokenCount <= 24500;
+  const canBypass = tokenCount <= maxThreshold;
 
   let warning = `LARGE RESULT WARNING\n`;
   warning += `This query would return ~${tokenCount.toLocaleString()} tokens which may fill your context.\n\n`;
@@ -55,7 +58,7 @@ export function checkContentSize(
   if (canBypass) {
     warning += `\nTo receive the full result anyway (~${tokenCount.toLocaleString()} tokens), repeat the SAME request with bypass_warning: true`;
   } else {
-    warning += `\nResult too large (>${(24500).toLocaleString()} tokens). Please reduce the scope using the recommendations above.`;
+    warning += `\nResult too large (>${maxThreshold.toLocaleString()} tokens). Please reduce the scope using the recommendations above.`;
   }
 
   return { warning, canBypass };
@@ -95,6 +98,9 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
     } catch (error) {
       if (error instanceof PartialInsertError) {
         return error.toStructuredResponse();
+      }
+      if (error instanceof ConfigError) {
+        return makeErrorResponse("ConfigError", error.message);
       }
       const message = error instanceof Error ? error.message : String(error);
       const code = error instanceof DynalistApiError ? error.code : "Unknown";

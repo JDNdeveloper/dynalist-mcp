@@ -6,13 +6,15 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, buildParentMap } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
+import { getConfig } from "../config";
+import { AccessController, requireAccess } from "../access-control";
 import {
   makeResponse,
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
 
-export function registerStructureTools(server: McpServer, client: DynalistClient): void {
+export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: delete_node
   // ═════════════════════════════════════════════════════════════════════
@@ -44,6 +46,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       node_id: string;
       include_children: boolean;
     }) => {
+      const config = getConfig();
+
+      // Access check: requires write (allow) policy.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       let deletedCount = 1;
 
       if (include_children) {
@@ -118,6 +127,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       reference_node_id: string;
       position: string;
     }) => {
+      const config = getConfig();
+
+      // Access check: only document-level policy is checked for within-document moves.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       let targetParentId: string;
       let targetIndex: number;
 

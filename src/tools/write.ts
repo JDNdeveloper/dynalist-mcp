@@ -7,6 +7,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, EditDocumentChange, findRootNodeId } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { parseMarkdownBullets } from "../utils/markdown-parser";
+import { getConfig } from "../config";
+import { AccessController, requireAccess } from "../access-control";
 import {
   makeResponse,
   makeErrorResponse,
@@ -14,7 +16,7 @@ import {
   insertTreeUnderParent,
 } from "../utils/dynalist-helpers";
 
-export function registerWriteTools(server: McpServer, client: DynalistClient): void {
+export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: send_to_inbox
   // ═════════════════════════════════════════════════════════════════════
@@ -25,7 +27,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
       inputSchema: {
         content: z.string().describe("The text content - can be single line or indented markdown with '- bullets'"),
         note: z.string().optional().describe("Optional note for the first/root item"),
-        checkbox: z.boolean().optional().default(false).describe("Whether to add checkboxes to items"),
+        checkbox: z.boolean().optional().describe("Whether to add checkboxes to items (default from config)"),
       },
       outputSchema: {
         file_id: z.string().describe("Inbox document ID"),
@@ -34,7 +36,15 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
         total_created: z.number().describe("Total number of nodes created"),
       },
     },
-    wrapToolHandler(async ({ content, note, checkbox }: { content: string; note?: string; checkbox: boolean }) => {
+    wrapToolHandler(async ({ content, note, checkbox }: { content: string; note?: string; checkbox?: boolean }) => {
+      const config = getConfig();
+
+      // send_to_inbox always allowed, but respect global readOnly.
+      if (config.readOnly) {
+        return makeErrorResponse("ReadOnly", "Server is in read-only mode.");
+      }
+
+      const effectiveCheckbox = checkbox ?? config.inbox.defaultCheckbox;
       const tree = parseMarkdownBullets(content);
 
       if (tree.length === 0) {
@@ -45,7 +55,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
       const firstResponse = await client.sendToInbox({
         content: tree[0].content,
         note,
-        checkbox,
+        checkbox: effectiveCheckbox,
       });
 
       const inboxFileId = firstResponse.file_id;
@@ -54,7 +64,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
 
       // Step 2: Insert children of first node (if any).
       if (tree[0].children.length > 0) {
-        const result = await insertTreeUnderParent(client, inboxFileId, firstNodeId, tree[0].children, { checkbox });
+        const result = await insertTreeUnderParent(client, inboxFileId, firstNodeId, tree[0].children, { checkbox: effectiveCheckbox });
         totalCreated += result.totalCreated;
       }
 
@@ -68,7 +78,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
         const remainingTopLevel = tree.slice(1).map(n => ({ content: n.content, children: [] }));
         const topResult = await insertTreeUnderParent(client, inboxFileId, inboxRootId, remainingTopLevel, {
           startIndex: firstNodeIndex + 1,
-          checkbox,
+          checkbox: effectiveCheckbox,
         });
         totalCreated += topResult.totalCreated;
 
@@ -76,7 +86,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
           const parentId = topResult.rootNodeIds[i];
           const children = tree[i + 1].children;
           if (children.length > 0) {
-            const childResult = await insertTreeUnderParent(client, inboxFileId, parentId, children, { checkbox });
+            const childResult = await insertTreeUnderParent(client, inboxFileId, parentId, children, { checkbox: effectiveCheckbox });
             totalCreated += childResult.totalCreated;
           }
         }
@@ -136,6 +146,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
       color?: number;
       collapsed?: boolean;
     }) => {
+      const config = getConfig();
+
+      // Access check: requires write (allow) policy.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       const change: EditDocumentChange = {
         action: "edit",
         node_id,
@@ -205,6 +222,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
       color?: number;
       checked?: boolean;
     }) => {
+      const config = getConfig();
+
+      // Access check: requires write (allow) policy.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       const change: EditDocumentChange = {
         action: "insert",
         parent_id,
@@ -263,6 +287,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient): v
       content: string;
       position: string;
     }) => {
+      const config = getConfig();
+
+      // Access check: requires write (allow) policy.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       let parentNodeId = node_id;
 
       // If no node specified, get root node.

@@ -8,6 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
+import { AccessController, requireAccess } from "../access-control";
 import {
   checkContentSize,
   makeResponse,
@@ -18,7 +19,7 @@ import {
   buildNodeTree,
 } from "../utils/dynalist-helpers";
 
-export function registerReadTools(server: McpServer, client: DynalistClient): void {
+export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: list_documents
   // ═════════════════════════════════════════════════════════════════════
@@ -33,6 +34,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
           title: z.string().describe("Document title"),
           url: z.string().describe("Dynalist URL for the document"),
           permission: z.string().describe("Permission level: none, read, edit, manage, or owner"),
+          access_policy: z.string().optional().describe("Access policy if restricted: 'read' means read-only"),
         })).describe("All documents in the account"),
         folders: z.array(z.object({
           id: z.string().describe("Folder ID"),
@@ -43,23 +45,35 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
       },
     },
     wrapToolHandler(async () => {
+      const config = getConfig();
       const response = await client.listFiles();
 
+      // Build policies for all files to filter denied ones.
+      const allIds = response.files.map((f) => f.id);
+      const policies = await ac.getPolicies(allIds, config);
+
       const documents = response.files
-        .filter((f) => f.type === "document")
-        .map((f) => ({
-          id: f.id,
-          title: f.title,
-          url: buildDynalistUrl(f.id),
-          permission: getPermissionLabel(f.permission),
-        }));
+        .filter((f) => f.type === "document" && policies.get(f.id) !== "deny")
+        .map((f) => {
+          const policy = policies.get(f.id)!;
+          const doc: Record<string, unknown> = {
+            id: f.id,
+            title: f.title,
+            url: buildDynalistUrl(f.id),
+            permission: getPermissionLabel(f.permission),
+          };
+          if (policy === "read") {
+            doc.access_policy = "read";
+          }
+          return doc;
+        });
 
       const folders = response.files
-        .filter((f) => f.type === "folder")
+        .filter((f) => f.type === "folder" && policies.get(f.id) !== "deny")
         .map((f) => ({
           id: f.id,
           title: f.title,
-          children: f.children ?? [],
+          children: (f.children ?? []).filter((childId) => policies.get(childId) !== "deny"),
         }));
 
       return makeResponse({
@@ -92,27 +106,41 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
           url: z.string().optional().describe("Dynalist URL (documents only)"),
           permission: z.string().optional().describe("Permission level (documents only)"),
           children: z.array(z.string()).optional().describe("Child file IDs (folders only)"),
+          access_policy: z.string().optional().describe("Access policy if restricted"),
         })).describe("Matching documents and/or folders"),
       },
     },
     wrapToolHandler(async ({ query, type }: { query: string; type: string }) => {
+      const config = getConfig();
       const response = await client.listFiles();
       const queryLower = query.toLowerCase();
 
+      // Build policies for all files to filter denied ones.
+      const allIds = response.files.map((f) => f.id);
+      const policies = await ac.getPolicies(allIds, config);
+
       const matches = response.files
         .filter((f) => {
+          if (policies.get(f.id) === "deny") return false;
           const nameMatch = f.title?.toLowerCase().includes(queryLower);
           const typeMatch = type === "all" || f.type === type;
           return nameMatch && typeMatch;
         })
-        .map((f) => ({
-          id: f.id,
-          title: f.title,
-          type: f.type,
-          url: f.type === "document" ? buildDynalistUrl(f.id) : undefined,
-          permission: f.type === "document" ? getPermissionLabel(f.permission) : undefined,
-          children: f.type === "folder" ? (f.children ?? []) : undefined,
-        }));
+        .map((f) => {
+          const policy = policies.get(f.id)!;
+          const match: Record<string, unknown> = {
+            id: f.id,
+            title: f.title,
+            type: f.type,
+            url: f.type === "document" ? buildDynalistUrl(f.id) : undefined,
+            permission: f.type === "document" ? getPermissionLabel(f.permission) : undefined,
+            children: f.type === "folder" ? (f.children ?? []) : undefined,
+          };
+          if (policy === "read") {
+            match.access_policy = "read";
+          }
+          return match;
+        });
 
       return makeResponse({
         count: matches.length,
@@ -139,7 +167,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
           "Maximum depth to traverse. 0 = only the target node, 1 = target + immediate children, etc. " +
           "Default: 5 (configurable via readDefaults.maxDepth in ~/.dynalist-mcp.json, set to null for unlimited)"
         ),
-        include_collapsed_children: z.boolean().optional().default(false).describe(
+        include_collapsed_children: z.boolean().optional().describe(
           "Whether to include children of collapsed nodes. When false (default), collapsed nodes appear " +
           "but their children are omitted. The collapsed node includes children_count so you know " +
           "hidden content exists. Set true to expand collapsed nodes."
@@ -179,14 +207,20 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
       file_id: string;
       node_id?: string;
       max_depth?: number;
-      include_collapsed_children: boolean;
+      include_collapsed_children?: boolean;
       include_notes?: boolean;
       include_checked?: boolean;
       bypass_warning: boolean;
     }) => {
       const config = getConfig();
 
+      // Access check.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "read", false);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       const effectiveMaxDepth = max_depth ?? config.readDefaults.maxDepth;
+      const effectiveIncludeCollapsedChildren = include_collapsed_children ?? config.readDefaults.includeCollapsedChildren;
       const effectiveIncludeNotes = include_notes ?? config.readDefaults.includeNotes;
       const effectiveIncludeChecked = include_checked ?? config.readDefaults.includeChecked;
 
@@ -202,7 +236,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
 
       const tree = buildNodeTree(nodeMap, startNodeId, {
         maxDepth: effectiveMaxDepth,
-        includeCollapsedChildren: include_collapsed_children,
+        includeCollapsedChildren: effectiveIncludeCollapsedChildren,
         includeNotes: effectiveIncludeNotes,
         includeChecked: effectiveIncludeChecked,
       });
@@ -213,10 +247,16 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
 
       // Check content size on serialized output.
       const serialized = JSON.stringify(tree, null, 2);
-      const sizeCheck = checkContentSize(serialized, bypass_warning, [
-        "Use max_depth to limit traversal depth (e.g., max_depth: 2)",
-        "Target a specific node_id instead of entire document",
-      ]);
+      const sizeCheck = checkContentSize(
+        serialized,
+        bypass_warning,
+        [
+          "Use max_depth to limit traversal depth (e.g., max_depth: 2)",
+          "Target a specific node_id instead of entire document",
+        ],
+        config.sizeWarning.warningTokenThreshold,
+        config.sizeWarning.maxTokenThreshold,
+      );
 
       if (sizeCheck) {
         return makeResponse({ warning: sizeCheck.warning });
@@ -278,6 +318,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
       include_children: boolean;
       bypass_warning: boolean;
     }) => {
+      const config = getConfig();
+
+      // Access check.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "read", false);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       const doc = await client.readDocument(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
       const parentMap = buildParentMap(doc.nodes);
@@ -326,11 +373,17 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
       };
 
       const serialized = JSON.stringify(result, null, 2);
-      const sizeCheck = checkContentSize(serialized, bypass_warning, [
-        "Use a more specific query to reduce matches",
-        "Use parent_levels: 0 to exclude parent context",
-        "Use include_children: false to exclude children",
-      ]);
+      const sizeCheck = checkContentSize(
+        serialized,
+        bypass_warning,
+        [
+          "Use a more specific query to reduce matches",
+          "Use parent_levels: 0 to exclude parent context",
+          "Use include_children: false to exclude children",
+        ],
+        config.sizeWarning.warningTokenThreshold,
+        config.sizeWarning.maxTokenThreshold,
+      );
 
       if (sizeCheck) {
         return makeResponse({ warning: sizeCheck.warning });
@@ -385,6 +438,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
       sort: string;
       bypass_warning: boolean;
     }) => {
+      const config = getConfig();
+
+      // Access check.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "read", false);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       const parseTimestamp = (val: string | number, endOfDay: boolean = false): number => {
         if (typeof val === "number") return val;
         const date = new Date(val);
@@ -453,11 +513,17 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
       };
 
       const serialized = JSON.stringify(result, null, 2);
-      const sizeCheck = checkContentSize(serialized, bypass_warning, [
-        "Use a shorter time period (narrower since/until range)",
-        "Use parent_levels: 0 to exclude parent context",
-        "Filter by type: 'created' or 'modified' instead of 'both'",
-      ]);
+      const sizeCheck = checkContentSize(
+        serialized,
+        bypass_warning,
+        [
+          "Use a shorter time period (narrower since/until range)",
+          "Use parent_levels: 0 to exclude parent context",
+          "Filter by type: 'created' or 'modified' instead of 'both'",
+        ],
+        config.sizeWarning.warningTokenThreshold,
+        config.sizeWarning.maxTokenThreshold,
+      );
 
       if (sizeCheck) {
         return makeResponse({ warning: sizeCheck.warning });
@@ -483,18 +549,41 @@ export function registerReadTools(server: McpServer, client: DynalistClient): vo
         versions: z.record(z.string(), z.number()).describe(
           "Map of document ID to version number. -1 means the document was not found."
         ),
+        denied: z.array(z.string()).optional().describe(
+          "Document IDs that were denied by access policy (no metadata leaked)"
+        ),
       },
     },
     wrapToolHandler(async ({ file_ids }: { file_ids: string[] }) => {
-      const response = await client.checkForUpdates(file_ids);
+      const config = getConfig();
+      const policies = await ac.getPolicies(file_ids, config);
 
-      // Build a map from file_id to version number.
-      const versions: Record<string, number> = {};
-      for (let i = 0; i < file_ids.length; i++) {
-        versions[file_ids[i]] = response.versions[i] ?? -1;
+      // Split into allowed and denied.
+      const allowedIds: string[] = [];
+      const deniedIds: string[] = [];
+      for (const id of file_ids) {
+        if (policies.get(id) === "deny") {
+          deniedIds.push(id);
+        } else {
+          allowedIds.push(id);
+        }
       }
 
-      return makeResponse({ versions });
+      const versions: Record<string, number> = {};
+
+      if (allowedIds.length > 0) {
+        const response = await client.checkForUpdates(allowedIds);
+        for (let i = 0; i < allowedIds.length; i++) {
+          versions[allowedIds[i]] = response.versions[i] ?? -1;
+        }
+      }
+
+      const result: Record<string, unknown> = { versions };
+      if (deniedIds.length > 0) {
+        result.denied = deniedIds;
+      }
+
+      return makeResponse(result);
     })
   );
 }

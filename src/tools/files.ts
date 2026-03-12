@@ -7,13 +7,15 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
+import { getConfig } from "../config";
+import { AccessController, requireAccess } from "../access-control";
 import {
   makeResponse,
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
 
-export function registerFileTools(server: McpServer, client: DynalistClient): void {
+export function registerFileTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: create_document
   // ═════════════════════════════════════════════════════════════════════
@@ -41,6 +43,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
       title: string;
       index: number;
     }) => {
+      const config = getConfig();
+
+      // Access check: creating requires allow on the parent folder.
+      const parentPolicy = await ac.getPolicy(parent_folder_id, config);
+      const accessError = requireAccess(parentPolicy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       const response = await client.editFiles([{
         action: "create",
         type: "document",
@@ -53,6 +62,9 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
       if (!fileId) {
         return makeErrorResponse("Unknown", "Document created but no file ID was returned");
       }
+
+      // Invalidate path cache since the file tree changed.
+      ac.invalidateCache();
 
       return makeResponse({
         file_id: fileId,
@@ -88,6 +100,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
       title: string;
       index: number;
     }) => {
+      const config = getConfig();
+
+      // Access check: creating requires allow on the parent folder.
+      const parentPolicy = await ac.getPolicy(parent_folder_id, config);
+      const accessError = requireAccess(parentPolicy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       const response = await client.editFiles([{
         action: "create",
         type: "folder",
@@ -100,6 +119,9 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
       if (!fileId) {
         return makeErrorResponse("Unknown", "Folder created but no file ID was returned");
       }
+
+      // Invalidate path cache since the file tree changed.
+      ac.invalidateCache();
 
       return makeResponse({
         file_id: fileId,
@@ -125,12 +147,22 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
       },
     },
     wrapToolHandler(async ({ file_id, title }: { file_id: string; title: string }) => {
+      const config = getConfig();
+
+      // Access check: renaming requires allow policy on the file.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       await client.editFiles([{
         action: "edit",
         type: "document",
         file_id,
         title,
       }]);
+
+      // Invalidate path cache since the file tree paths changed.
+      ac.invalidateCache();
 
       return makeResponse({
         file_id,
@@ -156,12 +188,22 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
       },
     },
     wrapToolHandler(async ({ file_id, title }: { file_id: string; title: string }) => {
+      const config = getConfig();
+
+      // Access check: renaming requires allow policy on the folder.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write", config.readOnly);
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
       await client.editFiles([{
         action: "edit",
         type: "folder",
         file_id,
         title,
       }]);
+
+      // Invalidate path cache since the file tree paths changed.
+      ac.invalidateCache();
 
       return makeResponse({
         file_id,
@@ -196,6 +238,17 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
       parent_folder_id: string;
       index: number;
     }) => {
+      const config = getConfig();
+
+      // Access check: moving requires allow on both source and destination.
+      const sourcePolicy = await ac.getPolicy(file_id, config);
+      const sourceError = requireAccess(sourcePolicy, "write", config.readOnly);
+      if (sourceError) return makeErrorResponse(sourceError.error, sourceError.message);
+
+      const destPolicy = await ac.getPolicy(parent_folder_id, config);
+      const destError = requireAccess(destPolicy, "write", config.readOnly);
+      if (destError) return makeErrorResponse(destError.error, destError.message);
+
       // The Dynalist file/edit move action requires a type, but we don't know
       // if the file is a document or folder. Try document first; if it fails,
       // the error will propagate.
@@ -209,6 +262,9 @@ export function registerFileTools(server: McpServer, client: DynalistClient): vo
         parent_id: parent_folder_id,
         index,
       }]);
+
+      // Invalidate path cache since the file tree changed.
+      ac.invalidateCache();
 
       return makeResponse({
         file_id,
