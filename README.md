@@ -4,6 +4,14 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server for [Dynalis
 
 Enables Claude and other AI assistants to read, write, search, and organize Dynalist documents programmatically via 17 MCP tools.
 
+### Features
+
+- **17 tools** for reading, writing, searching, and organizing documents. See [docs/tools.md](docs/tools.md).
+- **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring. See [docs/access-control.md](docs/access-control.md).
+- **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more. See [docs/configuration.md](docs/configuration.md).
+- **Read-only mode** to prevent all write operations.
+- **Structured responses** with both JSON (`structuredContent`) and plain text for backwards compatibility.
+
 For Dynalist API documentation, see [apidocs.dynalist.io](https://apidocs.dynalist.io/).
 
 ## Getting started
@@ -22,7 +30,11 @@ Requires [Bun](https://bun.sh/) v1.0+.
 
 Visit [dynalist.io/developer](https://dynalist.io/developer) and generate an API token.
 
-### 3. Connect to Claude Code
+### 3. Connect
+
+All paths in the config must be absolute. MCP clients do not expand `~` or `$HOME`. See [docs/client-setup.md](docs/client-setup.md) for troubleshooting and environment isolation details.
+
+#### Claude Code
 
 Add to `.mcp.json` in your project root (or `~/.claude.json` globally):
 
@@ -40,43 +52,15 @@ Add to `.mcp.json` in your project root (or `~/.claude.json` globally):
 }
 ```
 
-### 3 (alt). Connect to Claude Desktop
+#### Claude Desktop
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+Add the same JSON to your Claude Desktop config file:
 
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-Use the same JSON format as above.
+- **Windows (Store)**: `%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude_desktop_config.json`
 
-**Important:** All paths must be absolute. MCP clients do not expand `~` or `$HOME`. See [docs/client-setup.md](docs/client-setup.md) for troubleshooting and environment isolation details.
-
-## Security model
-
-### Transport
-
-This server uses MCP stdio transport: it runs as a local subprocess of the MCP client (e.g. Claude Desktop, Claude Code) and communicates via stdin/stdout. There is no network listener, no HTTP server, no port binding. The server is not accessible from outside the machine or from other processes on the same machine.
-
-### LLM access risks
-
-While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). This means the LLM could potentially read sensitive content, modify or delete nodes, or exfiltrate data by including it in responses. Use the access control system and `readOnly` mode to limit exposure.
-
-### Access control limitations
-
-The access control system is best-effort and should not be relied upon as a hard security boundary. Known limitations:
-
-1. **Content leakage**: content within allowed documents may contain links or references to denied documents, exposing their IDs or titles. The ACL system does not scrub content.
-2. **Cache staleness**: the file tree cache (default 5 minutes TTL) means external renames/moves may cause rules to match incorrectly until the cache refreshes.
-3. **Inbox bypass**: the inbox is always writable regardless of deny rules.
-
-Users who need strict isolation should use separate Dynalist accounts rather than relying solely on ACLs.
-
-### Specificity-wins precedence
-
-Rule precedence is based on path specificity, **not** policy severity. Unlike AWS IAM (where explicit deny always wins), a more-specific `allow` overrides a less-specific `deny`.
-
-For example, if `/Private/**` is `deny` but `/Private/Shopping List` is `allow`, the Shopping List is accessible because the exact match is more specific. Deny rules are not absolute ceilings -- they can be overridden by more specific rules underneath them.
-
-Audit your rules to ensure no more-specific allow/read rules punch holes through broader deny rules.
+- **Windows (standalone)**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ## Configuration
 
@@ -87,10 +71,6 @@ Quick start: set `DYNALIST_API_TOKEN` to your token from [dynalist.io/developer]
 ## Access control
 
 See [docs/access-control.md](docs/access-control.md) for path-based ACL rules, glob syntax, specificity precedence, ID anchoring, and examples.
-
-## MCP client integration
-
-See [docs/client-setup.md](docs/client-setup.md) for Claude Desktop, Claude Code, and general MCP client configuration.
 
 ## Tools reference
 
@@ -148,6 +128,34 @@ src/
 └── tests/
     └── tools/                    # Tool integration tests against dummy server
 ```
+
+## Security model
+
+### Transport
+
+This server uses MCP stdio transport: it runs as a local subprocess of the MCP client (e.g. Claude Desktop, Claude Code) and communicates via stdin/stdout. There is no network listener, no HTTP server, no port binding. The server is not accessible from outside the machine or from other processes on the same machine.
+
+### LLM access risks
+
+While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). This means the LLM could potentially read sensitive content, modify or delete nodes, or exfiltrate data by including it in responses. Use the access control system and `readOnly` mode to limit exposure.
+
+### Access control limitations
+
+The access control system is best-effort and should not be relied upon as a hard security boundary. Known limitations:
+
+1. **Content leakage**: content within allowed documents may contain links or references to denied documents, exposing their IDs or titles. The ACL system does not scrub content.
+2. **Cache staleness**: the file tree cache (default 5 minutes TTL) means external renames/moves may cause rules to match incorrectly until the cache refreshes.
+3. **Inbox bypass**: the inbox is always writable regardless of deny rules.
+
+Users who need strict isolation should use separate Dynalist accounts rather than relying solely on ACLs.
+
+### Specificity-wins precedence
+
+Rule precedence is based on path specificity, **not** policy severity. Unlike AWS IAM (where explicit deny always wins), a more-specific `allow` overrides a less-specific `deny`.
+
+For example, if `/Private/**` is `deny` but `/Private/Shopping List` is `allow`, the Shopping List is accessible because the exact match is more specific. Deny rules are not absolute ceilings -- they can be overridden by more specific rules underneath them.
+
+Audit your rules to ensure no more-specific allow/read rules punch holes through broader deny rules.
 
 ## Acknowledgments
 
