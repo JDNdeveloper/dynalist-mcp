@@ -43,6 +43,7 @@ Add to `.mcp.json` in your project root (or `~/.claude.json` globally):
 ### 3 (alt). Connect to Claude Desktop
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 Use the same JSON format as above.
