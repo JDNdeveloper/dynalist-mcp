@@ -124,6 +124,12 @@ doing expensive reads.
 - edit_node: omitted fields are left unchanged, not reset to defaults.
 - Checking items off: to mark an item as completed, set checked: true. ${CHECKED_GUIDANCE}
 - Checkbox usage: ${CHECKBOX_GUIDANCE}
+
+## Confirmation
+
+Before calling any mutating tool (insert, edit, delete, move, rename, create, send_to_inbox), \
+describe the intended changes to the user and wait for confirmation. Do not modify Dynalist \
+data without the user's explicit approval.
 `;
 
 // Create MCP server

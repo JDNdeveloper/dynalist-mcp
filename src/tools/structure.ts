@@ -13,7 +13,7 @@ import {
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
-import { FILE_ID_DESCRIPTION } from "./descriptions";
+import { FILE_ID_DESCRIPTION, CONFIRM_GUIDANCE } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -23,6 +23,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     "delete_node",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Delete a node from a Dynalist document. By default, the node's children are promoted " +
         "up to the deleted node's parent (the node is removed but its children survive in place). " +
         "Set include_children: true to delete the entire subtree instead.\n\n" +
@@ -148,6 +149,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     "move_node",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Move a node and its entire subtree to a new position relative to a reference node.\n\n" +
         "Position examples:\n" +
         "- 'after': place immediately after the reference (same parent).\n" +

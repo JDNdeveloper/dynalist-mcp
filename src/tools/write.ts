@@ -15,7 +15,7 @@ import {
   wrapToolHandler,
   insertTreeUnderParent,
 } from "../utils/dynalist-helpers";
-import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION } from "./descriptions";
+import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE } from "./descriptions";
 
 export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -25,6 +25,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "send_to_inbox",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Send items to your Dynalist inbox. The target document is the user's configured inbox " +
         "in Dynalist settings and cannot be changed via this tool. For inserting into a specific " +
         "document, use insert_node or insert_nodes instead. Supports indented markdown/bullets " +
@@ -115,6 +116,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "edit_node",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Edit an existing node in a Dynalist document. Only specified fields are updated. " +
         "Omitted fields are left unchanged (not reset to defaults). This is a partial update.",
       inputSchema: {
@@ -191,6 +193,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "insert_node",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Insert a single new node into a Dynalist document. For inserting multiple nodes with " +
         "hierarchy, use insert_nodes instead (it is faster and preserves tree structure).",
       inputSchema: {
@@ -275,6 +278,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "insert_nodes",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Insert multiple nodes from indented text, preserving hierarchy. Preferred over calling " +
         "insert_node in a loop. Accepts '- bullet' format or plain indented text.\n\n" +
         "Example input:\n" +

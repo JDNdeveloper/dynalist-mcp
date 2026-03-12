@@ -9,6 +9,8 @@
  */
 
 // Guidance strings (shared policy wording, reused across descriptions and MCP instructions).
+export const CONFIRM_GUIDANCE =
+  "Confirm intended changes with the user before calling this tool.";
 export const CHECKED_GUIDANCE =
   "Items can be checked off with or without a visible checkbox. " +
   "Do not add a checkbox unless the user explicitly asks for one.";

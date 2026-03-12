@@ -14,6 +14,7 @@ import {
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
+import { CONFIRM_GUIDANCE } from "./descriptions";
 
 export function registerFileTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -23,6 +24,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "create_document",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Create a new empty document in a folder. The returned file_id can be used with " +
         "insert_node or insert_nodes to add content to the new document.",
       inputSchema: {
@@ -89,6 +91,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "create_folder",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Create a new empty folder inside another folder. Documents and other folders can be " +
         "created inside it or moved into it afterward.",
       inputSchema: {
@@ -153,6 +156,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "rename_document",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Rename a document. The file_id does not change when renaming.",
       inputSchema: {
         file_id: z.string().describe("Document file ID to rename"),
@@ -199,6 +203,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "rename_folder",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Rename a folder. The file_id does not change when renaming.",
       inputSchema: {
         file_id: z.string().describe("Folder file ID to rename"),
@@ -245,6 +250,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "move_file",
     {
       description:
+        `${CONFIRM_GUIDANCE} ` +
         "Move a document or folder to a different parent folder. If moving a folder, all its " +
         "contents (documents and subfolders) move with it. This operates on the file tree, not " +
         "on nodes within a document. Use move_node for moving nodes.",
