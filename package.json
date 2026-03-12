@@ -1,7 +1,7 @@
 {
   "name": "dynalist-mcp",
-  "version": "1.0.0",
-  "description": "MCP server for Dynalist.io - extract and manage outliner content",
+  "version": "0.1.0",
+  "description": "MCP server for Dynalist.io - read, write, search, and organize outliner content",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -9,16 +9,19 @@
     "inspector": "bunx @modelcontextprotocol/inspector bun src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test:watch": "bun test --watch",
+    "bundle": "bash scripts/bundle.sh",
+    "release": "bash scripts/release.sh"
   },
   "keywords": ["mcp", "dynalist", "outliner", "model-context-protocol"],
-  "author": "",
+  "author": "jayden-navarro",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
     "@types/bun": "^1.3.10",
     "@types/node": "^20.14.0",
     "typescript": "^5.5.0"

@@ -59,6 +59,12 @@ src/
 │   └── dynalist-helpers.ts       # Shared tool helpers (size check, tree builder, etc.)
 └── tests/
     └── tools/                    # Tool integration tests against dummy server
+scripts/
+├── bundle.sh                     # Build the .mcpb distribution artifact
+├── generate-manifest.ts          # Generate dist/manifest.json from package.json
+└── release.sh                    # Tag, release, and upload .mcpb to GitHub
+assets/
+└── icon.png                      # Dynalist icon for the bundle
 ```
 
 ## Key conventions
@@ -85,6 +91,9 @@ The following docs must be kept up to date when the corresponding features chang
 
 ## Bundling and releasing
 
+Anyone can run `bun run bundle` to build the `.mcpb` archive locally. It typechecks, tests, builds `dist/index.js`, generates `dist/manifest.json`, and packs the `.mcpb`. The bundled `dist/index.js` targets Node.js, so end users do not need Bun installed. The `dist/` directory is gitignored and fully regenerated on each build.
+
+Releasing requires maintainer push access. After pushing changes to `main`, regenerate the bundle and publish a release:
+
 1. Bump `version` in `package.json` (single source of truth for both the package and generated `manifest.json`).
-2. Run `bun run bundle` to typecheck, test, build `dist/index.js`, generate `dist/manifest.json`, and pack the `.mcpb` archive.
-3. Run `bun run release` to tag, create a GitHub release, and upload the `.mcpb` as a release asset. Requires a clean working tree on the `main` branch and the tag must not already exist.
+2. Run `bun run release` to bundle, tag, create a GitHub release, and upload the `.mcpb` as a release asset. Requires a clean working tree on the `main` branch and the tag must not already exist.

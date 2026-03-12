@@ -111,6 +111,17 @@ src/
     └── tools/                    # Tool integration tests against dummy server
 ```
 
+## Bundling and releasing
+
+The project can be packaged as a `.mcpb` bundle for single-click installation in MCP clients. The bundled server targets Node.js, so end users do not need Bun installed.
+
+```bash
+bun run bundle       # Typecheck, test, build dist/index.js, generate manifest, pack .mcpb
+bun run release      # Bundle + git tag + GitHub release with .mcpb asset (maintainer only)
+```
+
+`bun run release` requires maintainer push access, a clean working tree on the `main` branch, and a version bump in `package.json` (single source of truth for both the package and the generated `manifest.json`).
+
 ## Security model
 
 ### Transport
