@@ -70,8 +70,6 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
   "node": {
     "node_id": "...",
     "content": "Top-level item",
-    "checked": false,
-    "checkbox": false,
     "collapsed": false,
     "children_count": 2,
     "children": [
@@ -97,6 +95,7 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 - Need everything? Set `max_depth: null` and `include_collapsed_children: true`.
 
 **Node properties:**
+- `checked`, `checkbox`: only present when the node has a checkbox. Omitted for plain nodes.
 - `heading`: 0 = none, 1 = H1, 2 = H2, 3 = H3. Omitted when 0.
 - `color`: 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple. Omitted when 0.
 - `note`: omitted when empty (not present in JSON, saves tokens).

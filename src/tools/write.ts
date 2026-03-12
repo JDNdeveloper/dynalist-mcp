@@ -260,9 +260,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       // Auto-enable checkbox when checked is set.
       const effectiveCheckbox = checkbox || (checked !== undefined);
 
-      if (note) change.note = note;
+      if (note !== undefined) change.note = note;
       if (effectiveCheckbox) change.checkbox = effectiveCheckbox;
-      if (heading) change.heading = heading;
+      if (heading !== undefined && heading > 0) change.heading = heading;
       if (color !== undefined && color > 0) change.color = color;
       if (checked !== undefined) change.checked = checked;
 

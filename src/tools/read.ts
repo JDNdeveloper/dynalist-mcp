@@ -241,7 +241,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const accessError = requireAccess(policy, "read", false);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      const effectiveMaxDepth = max_depth ?? config.readDefaults.maxDepth;
+      const effectiveMaxDepth = max_depth === undefined ? config.readDefaults.maxDepth : max_depth;
       const effectiveIncludeCollapsedChildren = include_collapsed_children ?? config.readDefaults.includeCollapsedChildren;
       const effectiveIncludeNotes = include_notes ?? config.readDefaults.includeNotes;
       const effectiveIncludeChecked = include_checked ?? config.readDefaults.includeChecked;
@@ -502,6 +502,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
       if (isNaN(sinceTs)) {
         return makeErrorResponse("InvalidInput", "Invalid 'since' date format");
+      }
+      if (isNaN(untilTs)) {
+        return makeErrorResponse("InvalidInput", "Invalid 'until' date format");
       }
 
       const doc = await client.readDocument(file_id);

@@ -460,6 +460,28 @@ describe("move_node", () => {
     expect(err.error).toBe("InvalidInput");
   });
 
+  test("cannot move node 'after' one of its own descendants", async () => {
+    // n1 -> [n1a, n1b]. Moving n1 to after n1a would resolve n1a's parent
+    // (which is n1 itself), creating a circular move.
+    const err = await callToolError(ctx.mcpClient, "move_node", {
+      file_id: "doc1",
+      node_id: "n1",
+      reference_node_id: "n1a",
+      position: "after",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("cannot move node 'before' one of its own descendants", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_node", {
+      file_id: "doc1",
+      node_id: "n1",
+      reference_node_id: "n1b",
+      position: "before",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
   test("self-reference with after position is rejected", async () => {
     const err = await callToolError(ctx.mcpClient, "move_node", {
       file_id: "doc1",

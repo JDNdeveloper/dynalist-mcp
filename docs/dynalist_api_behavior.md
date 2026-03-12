@@ -34,7 +34,7 @@ behaves, based on exhaustive testing against a real account.
 
 - Documents do not have `children`.
 - Permission is a number (0-4), but the MCP layer maps it to strings for readability:
-  `"owner"`, `"manage"`, `"edit"`, `"read"`, `"no_access"`.
+  `"owner"`, `"manage"`, `"edit"`, `"read"`, `"none"`.
 - Files with `permission: 0` do not appear in the response at all.
 
 ## `/doc/read` response: node shape
@@ -235,7 +235,7 @@ The API returns numeric permission levels on files:
 
 | Level | Label | Read | Write nodes | Rename file |
 |-------|-------|------|-------------|-------------|
-| 0 | no_access | File hidden from `/file/list` | N/A | N/A |
+| 0 | none | File hidden from `/file/list` | N/A | N/A |
 | 1 | read | Yes | No (`Unauthorized` error) | No (silently ignored) |
 | 2 | edit | Yes | Yes | Yes |
 | 3 | manage | Yes | Yes | Yes |

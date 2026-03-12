@@ -193,20 +193,18 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const doc = await client.readDocument(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
 
-      // Check if the reference node is a descendant of the node being moved.
-      if (position === "first_child" || position === "last_child") {
-        function isDescendant(ancestorId: string, targetId: string): boolean {
-          const node = nodeMap.get(ancestorId);
-          if (!node?.children) return false;
-          for (const childId of node.children) {
-            if (childId === targetId) return true;
-            if (isDescendant(childId, targetId)) return true;
-          }
-          return false;
+      // Check if the target parent is a descendant of the node being moved.
+      // This applies to all positions: for first_child/last_child the target
+      // parent is the reference node itself; for before/after it is the
+      // reference node's parent.
+      function isDescendant(ancestorId: string, targetId: string): boolean {
+        const node = nodeMap.get(ancestorId);
+        if (!node?.children) return false;
+        for (const childId of node.children) {
+          if (childId === targetId) return true;
+          if (isDescendant(childId, targetId)) return true;
         }
-        if (isDescendant(node_id, reference_node_id)) {
-          return makeErrorResponse("InvalidInput", "Cannot move a node into one of its own descendants.");
-        }
+        return false;
       }
 
       let targetParentId: string;
@@ -229,6 +227,10 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
         targetParentId = refParentInfo.parentId;
         targetIndex = position === "after" ? refParentInfo.index + 1 : refParentInfo.index;
+      }
+
+      if (node_id === targetParentId || isDescendant(node_id, targetParentId)) {
+        return makeErrorResponse("InvalidInput", "Cannot move a node into one of its own descendants.");
       }
 
       await client.editDocument(file_id, [

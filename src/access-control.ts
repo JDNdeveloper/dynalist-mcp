@@ -329,16 +329,42 @@ export class AccessController {
     const pathMap = await this.getPathMap(config);
     const access = config.access;
 
+    let hasDenials = false;
     for (const id of fileIds) {
       if (!pathMap) {
         result.set(id, "deny");
+        hasDenials = true;
         continue;
       }
       const filePath = pathMap.get(id);
       if (!filePath) {
-        result.set(id, access.default);
+        const policy = access.default;
+        result.set(id, policy);
+        if (policy === "deny") hasDenials = true;
       } else {
-        result.set(id, evaluateRules(filePath, access.rules, access.default, pathMap));
+        const policy = evaluateRules(filePath, access.rules, access.default, pathMap);
+        result.set(id, policy);
+        if (policy === "deny") hasDenials = true;
+      }
+    }
+
+    // Retry with fresh cache if any files were denied, to handle stale
+    // paths from renames/moves (same logic as getPolicy's denial-retry).
+    if (hasDenials) {
+      this.invalidateCache();
+      const freshPathMap = await this.getPathMap(config);
+      for (const id of fileIds) {
+        if (result.get(id) !== "deny") continue;
+        if (!freshPathMap) {
+          result.set(id, "deny");
+          continue;
+        }
+        const filePath = freshPathMap.get(id);
+        if (!filePath) {
+          result.set(id, access.default);
+        } else {
+          result.set(id, evaluateRules(filePath, access.rules, access.default, freshPathMap));
+        }
       }
     }
 

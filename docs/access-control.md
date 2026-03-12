@@ -44,6 +44,20 @@ Rules can include an `id` field to anchor to a specific file ID:
 
 When an `id` is present, the rule uses the ID-resolved path (authoritative) even if the file has been renamed or moved. If the file's current path no longer matches the rule's path, a warning is logged suggesting a config update.
 
+## Fail-closed behavior
+
+If a rule references a path that does not exist in the file tree (e.g. a typo, or a deleted folder), rule validation fails and all tools are denied until the config is fixed. This prevents accidental exposure from misconfigured rules.
+
+Similarly, if the file tree cannot be fetched (network error, invalid token), all tools are denied until the fetch succeeds.
+
+## Cache staleness
+
+When a tool evaluates access and gets a denial, the file tree cache is automatically refreshed and the evaluation retried. This handles cases where a document was recently renamed or moved and the cached path is stale. This retry applies to both single-file and batch operations.
+
+## Duplicate paths constraint
+
+Each `path` value in `access.rules` must be unique. Duplicate paths are rejected during config validation.
+
 ## Duplicate titles
 
 Multiple files can have the same title, resulting in the same path. Use `id` anchoring to disambiguate. Without `id`, the rule applies to all files with the matching path.

@@ -903,3 +903,30 @@ describe("global readOnly: true overrides", () => {
     expect(policyErr.message).toContain("read-only per access policy");
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// 3p. Batch denial-retry: getPolicies handles stale cache on renames
+// ═══════════════════════════════════════════════════════════════════════
+
+describe("getPolicies denial-retry on stale cache", () => {
+  test("list_documents shows doc after it is moved out of denied folder", async () => {
+    // Step 1: Prime the cache by calling list_documents.
+    const before = await callToolOk(ctx.mcpClient, "list_documents");
+    const docsBefore = before.documents as Record<string, unknown>[];
+    expect(docsBefore.find((d) => d.file_id === "denied_doc")).toBeUndefined();
+
+    // Step 2: Move the denied doc to the allowed folder directly on the
+    // server, bypassing MCP tools (so the AC cache is NOT invalidated).
+    const deniedFolder = ctx.server.files.get("denied_folder")!;
+    const idx = deniedFolder.children!.indexOf("denied_doc");
+    deniedFolder.children!.splice(idx, 1);
+    const allowedFolder = ctx.server.files.get("allowed_folder")!;
+    allowedFolder.children!.push("denied_doc");
+
+    // Step 3: list_documents uses getPolicies (batch). With the fix,
+    // the denial retry should refresh the cache and show the doc.
+    const after = await callToolOk(ctx.mcpClient, "list_documents");
+    const docsAfter = after.documents as Record<string, unknown>[];
+    expect(docsAfter.find((d) => d.file_id === "denied_doc")).toBeDefined();
+  });
+});

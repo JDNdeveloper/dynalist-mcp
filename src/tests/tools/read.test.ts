@@ -409,6 +409,41 @@ describe("read_document", () => {
     expect(n1.depth_limited).toBeUndefined();
   });
 
+  test("max_depth: null bypasses config default on deep trees", async () => {
+    // Build a tree deeper than the config default (5) to verify that
+    // null actually means unlimited rather than falling through to the default.
+    const doc = ctx.server.documents.get("doc1")!;
+    let parentId = "n1a";
+    for (let i = 0; i < 8; i++) {
+      const childId = `deep_${i}`;
+      doc.nodes.push(ctx.server.makeNode(childId, `Deep level ${i}`, []));
+      const parent = doc.nodes.find((n) => n.id === parentId)!;
+      parent.children.push(childId);
+      parentId = childId;
+    }
+
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: null,
+    });
+
+    // Walk down to the deepest node to confirm nothing was depth-limited.
+    let current = result.node as Record<string, unknown>;
+    function findChild(node: Record<string, unknown>, id: string): Record<string, unknown> | null {
+      const children = node.children as Record<string, unknown>[];
+      for (const child of children) {
+        if (child.node_id === id) return child;
+        const found = findChild(child, id);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    const deepest = findChild(current, "deep_7");
+    expect(deepest).not.toBeNull();
+    expect(deepest!.depth_limited).toBeUndefined();
+  });
+
   // ─── Section 4b: additional max_depth tests ──────────────────────
 
   test("max_depth: 2 shows grandchildren but not deeper", async () => {
@@ -1291,6 +1326,16 @@ describe("get_recent_changes", () => {
       since: 0,
     });
     expect(err.error).toBe("NotFound");
+  });
+
+  test("invalid until date returns error instead of silently returning no results", async () => {
+    const err = await callToolError(ctx.mcpClient, "get_recent_changes", {
+      file_id: "doc1",
+      since: 0,
+      until: "not-a-date",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("until");
   });
 
   // ─── Section 6a: additional basic behavior tests ───────────────────

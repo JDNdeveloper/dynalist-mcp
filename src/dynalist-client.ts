@@ -177,7 +177,7 @@ export class DynalistClient {
 
   /**
    * Make changes to document content (insert, edit, move, delete nodes).
-   * Automatically batches in chunks of 500 to stay within the API burst
+   * Automatically batches in chunks of 200 to stay within the API burst
    * limit. Returns merged new_node_ids across all batches.
    */
   async editDocument(fileId: string, changes: EditDocumentChange[]): Promise<EditDocumentResponse> {
