@@ -58,9 +58,9 @@ Add the same JSON to your Claude Desktop config file:
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-- **Windows (Store)**: `%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude_desktop_config.json`
+- **Windows**: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
 
-- **Windows (standalone)**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Windows (legacy)**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ## Configuration
 

@@ -13,8 +13,9 @@ All paths in MCP config files must be absolute. `~` and `$HOME` are not expanded
 
 ## Claude Desktop
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
+- **Windows (legacy)**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
