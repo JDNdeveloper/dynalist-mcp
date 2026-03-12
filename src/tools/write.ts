@@ -15,6 +15,7 @@ import {
   wrapToolHandler,
   insertTreeUnderParent,
 } from "../utils/dynalist-helpers";
+import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION } from "./descriptions";
 
 export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -32,8 +33,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         content: z.string().describe("The text content. Can be single line or indented markdown with '- bullets'."),
         note: z.string().optional().describe("Optional note for the first/root item"),
         checkbox: z.boolean().optional().describe(
-          "Whether to add checkboxes to items. Only set this if surrounding nodes " +
-          "already use checkboxes. Omit when unsure."
+          `Whether to add checkboxes to items. ${CHECKBOX_DESCRIPTION}`
         ),
       },
       outputSchema: {
@@ -118,7 +118,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "Edit an existing node in a Dynalist document. Only specified fields are updated. " +
         "Omitted fields are left unchanged (not reset to defaults). This is a partial update.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().describe("Node ID to edit"),
         content: z.string().optional().describe("New content text"),
         note: z.string().optional().describe("New note text. Supports multiline (use \\n). Set to '' to clear."),
@@ -127,16 +127,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "won't show a checkbox to display the state."
         ),
         checkbox: z.boolean().optional().describe(
-          "Whether to show a checkbox on this node. Only set this if surrounding nodes " +
-          "already use checkboxes. Omit when unsure."
+          `Whether to show a checkbox on this node. ${CHECKBOX_DESCRIPTION}`
         ),
-        heading: z.number().min(0).max(3).optional().describe(
-          "Heading level. 0 = no heading (removes heading), 1 = H1, 2 = H2, 3 = H3."
-        ),
-        color: z.number().min(0).max(6).optional().describe(
-          "Color label. 0 = no color (removes color), 1 = red, 2 = orange, 3 = yellow, " +
-          "4 = green, 5 = blue, 6 = purple."
-        ),
+        heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
+        color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -203,7 +197,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "Insert a single new node into a Dynalist document. For inserting multiple nodes with " +
         "hierarchy, use insert_nodes instead (it is faster and preserves tree structure).",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         parent_id: z.string().describe("Parent node ID to insert under"),
         content: z.string().describe("Content text for the new node"),
         note: z.string().optional().describe("Note text. Supports multiline (use \\n)."),
@@ -211,15 +205,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "Position under parent. 0 = first child, -1 = last child (default)."
         ),
         checkbox: z.boolean().optional().default(false).describe(
-          "Whether to add a checkbox. Only set this if surrounding nodes already use " +
-          "checkboxes. Omit when unsure."
+          `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
         ),
-        heading: z.number().min(0).max(3).optional().describe(
-          "Heading level. 0 = none, 1 = H1, 2 = H2, 3 = H3."
-        ),
-        color: z.number().min(0).max(6).optional().describe(
-          "Color label. 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple."
-        ),
+        heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
+        color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
         checked: z.boolean().optional().describe(
           "Initial checked state. Automatically enables checkbox when set."
         ),
@@ -302,7 +291,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "    - Grandchild\n" +
         "- Another top level item",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().optional().describe("Parent node ID to insert under (omit for document root)"),
         content: z.string().describe("Indented text with bullets. Supports '- text' or plain indented text."),
         position: z.enum(["as_first_child", "as_last_child"]).optional().default("as_last_child")

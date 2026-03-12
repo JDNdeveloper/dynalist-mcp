@@ -13,6 +13,7 @@ import {
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
+import { FILE_ID_DESCRIPTION } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -29,7 +30,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         "- Delete a header but keep its items: include_children: false (default).\n" +
         "- Delete a section and everything under it: include_children: true.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().describe("Node ID to delete"),
         include_children: z.boolean().optional().default(false).describe(
           "If true, delete the node and all its descendants (entire subtree). " +
@@ -154,7 +155,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         "- 'first_child': place as the first child inside the reference.\n" +
         "- 'last_child': place as the last child inside the reference.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().describe("Node to move (its entire subtree moves with it)"),
         reference_node_id: z.string().describe("Reference node for positioning"),
         position: z.enum(["after", "before", "first_child", "last_child"]).describe(

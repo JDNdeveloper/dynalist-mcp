@@ -18,6 +18,7 @@ import {
   getPermissionLabel,
   buildNodeTree,
 } from "../utils/dynalist-helpers";
+import { FILE_ID_DESCRIPTION, BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION } from "./descriptions";
 
 export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -177,7 +178,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "- collapsed: true with children_count > 0 means the user collapsed this node in the Dynalist UI. " +
         "Fix: re-request with include_collapsed_children: true.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().optional().describe(
           "Node to start reading from. Omit to read from the document root."
         ),
@@ -196,9 +197,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           "Include checked/completed nodes. When false, checked nodes are omitted entirely. " +
           "Default: true (configurable via readDefaults.includeChecked)."
         ),
-        bypass_warning: z.boolean().optional().default(false).describe(
-          "ONLY set true AFTER receiving a size warning. Do NOT set true on the first request."
-        ),
+        bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().optional().describe("Document file ID"),
@@ -308,12 +307,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "Use parent_levels to include ancestor breadcrumbs, the most efficient way to " +
         "understand where matches live in the hierarchy without a separate read_document call.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         query: z.string().describe("Text to search for (case-insensitive)"),
         search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
-        parent_levels: z.number().optional().default(1).describe("How many parent levels to include for context (0 = none)"),
+        parent_levels: z.number().optional().default(1).describe(PARENT_LEVELS_DESCRIPTION),
         include_children: z.boolean().optional().default(false).describe("Include direct children of each match"),
-        bypass_warning: z.boolean().optional().default(false).describe("ONLY set true AFTER receiving a size warning. Do NOT set true on first request."),
+        bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().optional().describe("Document file ID"),
@@ -441,16 +440,16 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "epoch. Date-only strings like '2025-03-11' are treated as start-of-day for 'since' and " +
         "end-of-day for 'until'.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         since: z.union([z.string(), z.number()]).describe("Start date: ISO string (e.g. '2024-01-15') or timestamp in milliseconds"),
         until: z.union([z.string(), z.number()]).optional().describe("End date: ISO string or timestamp in milliseconds (default: now)"),
         type: z.enum(["created", "modified", "both"]).optional().default("both").describe(
           "Filter by change type. 'created' = only new nodes, 'modified' = only edited (not newly created) nodes, " +
           "'both' = all changes (default)."
         ),
-        parent_levels: z.number().optional().default(1).describe("How many parent levels to include for context (0 = none)"),
+        parent_levels: z.number().optional().default(1).describe(PARENT_LEVELS_DESCRIPTION),
         sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
-        bypass_warning: z.boolean().optional().default(false).describe("ONLY set true AFTER receiving a size warning. Do NOT set true on first request."),
+        bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().optional().describe("Document file ID"),
