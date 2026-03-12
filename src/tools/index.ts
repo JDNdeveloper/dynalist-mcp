@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
+import { DynalistClient, DynalistApiError, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { parseDynalistUrl, buildDynalistUrl } from "../utils/url-parser";
 import { nodeToMarkdown, documentToMarkdown } from "../utils/node-to-markdown";
 import { parseMarkdownBullets, groupByLevel, ParsedNode } from "../utils/markdown-parser";
@@ -61,6 +61,30 @@ function checkContentSize(
 }
 
 /**
+ * Wrap a tool handler in try/catch so that unhandled exceptions are returned
+ * as structured MCP error responses instead of crashing the server.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
+  return async (...args: any[]) => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      if (error instanceof PartialInsertError) {
+        return error.toStructuredResponse();
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      const code = error instanceof DynalistApiError ? error.code : "Unknown";
+      return {
+        structuredContent: { error: code, message },
+        content: [{ type: "text" as const, text: JSON.stringify({ error: code, message }) }],
+        isError: true,
+      };
+    }
+  };
+}
+
+/**
  * Helper: Get ancestor nodes (parents) up to N levels.
  * Returns array with nearest parent first.
  */
@@ -90,8 +114,71 @@ function getAncestors(
 }
 
 /**
- * Helper: Insert a tree of nodes under a parent, level by level
- * Returns total nodes created and array of created node IDs for level 0
+ * Error thrown on partial insert failure. Contains enough context for the
+ * caller to report what was created before the failure occurred.
+ */
+class PartialInsertError extends Error {
+  readonly fileId: string;
+  readonly insertedCount: number;
+  readonly totalCount: number;
+  readonly firstNodeId: string | undefined;
+  readonly failedAtDepth: number;
+
+  constructor(opts: {
+    fileId: string;
+    insertedCount: number;
+    totalCount: number;
+    firstNodeId: string | undefined;
+    failedAtDepth: number;
+    cause: unknown;
+  }) {
+    const msg = `Inserted ${opts.insertedCount} of ${opts.totalCount} nodes before failure at depth ${opts.failedAtDepth}. You may need to clean up partial results.`;
+    super(msg, { cause: opts.cause });
+    this.name = "PartialInsertError";
+    this.fileId = opts.fileId;
+    this.insertedCount = opts.insertedCount;
+    this.totalCount = opts.totalCount;
+    this.firstNodeId = opts.firstNodeId;
+    this.failedAtDepth = opts.failedAtDepth;
+  }
+
+  toStructuredResponse() {
+    const url = this.firstNodeId
+      ? buildDynalistUrl(this.fileId, this.firstNodeId)
+      : buildDynalistUrl(this.fileId);
+    return {
+      structuredContent: {
+        error: "PartialInsert",
+        message: this.message,
+        file_id: this.fileId,
+        inserted_count: this.insertedCount,
+        total_count: this.totalCount,
+        first_node_id: this.firstNodeId ?? null,
+        url,
+      },
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({
+          error: "PartialInsert",
+          message: this.message,
+          file_id: this.fileId,
+          inserted_count: this.insertedCount,
+          total_count: this.totalCount,
+          first_node_id: this.firstNodeId ?? null,
+          url,
+        }),
+      }],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * Helper: Insert a tree of nodes under a parent, level by level.
+ * Returns total nodes created and array of created node IDs for level 0.
+ *
+ * On partial failure (e.g. network error mid-insert), throws a
+ * PartialInsertError with context about what was created.
  */
 async function insertTreeUnderParent(
   client: DynalistClient,
@@ -105,6 +192,7 @@ async function insertTreeUnderParent(
   }
 
   const levels = groupByLevel(tree);
+  const totalCount = levels.reduce((sum, level) => sum + level.length, 0);
   let totalCreated = 0;
   let rootNodeIds: string[] = [];
   let previousLevelIds: string[] = [];
@@ -134,15 +222,26 @@ async function insertTreeUnderParent(
       childCountPerParent.set(nodeParentId, count + 1);
     }
 
-    const response = await client.editDocument(fileId, changes);
-    const newIds = response.new_node_ids || [];
+    try {
+      const response = await client.editDocument(fileId, changes);
+      const newIds = response.new_node_ids || [];
 
-    if (levelIdx === 0) {
-      rootNodeIds = newIds;
+      if (levelIdx === 0) {
+        rootNodeIds = newIds;
+      }
+
+      totalCreated += newIds.length;
+      previousLevelIds = newIds;
+    } catch (error) {
+      throw new PartialInsertError({
+        fileId,
+        insertedCount: totalCreated,
+        totalCount,
+        firstNodeId: rootNodeIds[0],
+        failedAtDepth: levelIdx,
+        cause: error,
+      });
     }
-
-    totalCreated += newIds.length;
-    previousLevelIds = newIds;
   }
 
   return { totalCreated, rootNodeIds };
@@ -159,7 +258,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
     "list_documents",
     "List all documents and folders in your Dynalist account",
     {},
-    async () => {
+    wrapToolHandler(async () => {
       const response = await client.listFiles();
 
       const documents = response.files
@@ -187,7 +286,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -200,7 +299,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       query: z.string().describe("Text to search for in document/folder names (case-insensitive)"),
       type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
     },
-    async ({ query, type }) => {
+    wrapToolHandler(async ({ query, type }) => {
       const response = await client.listFiles();
       const queryLower = query.toLowerCase();
 
@@ -229,7 +328,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -247,7 +346,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       include_checked: z.boolean().optional().default(true).describe("Include checked/completed items"),
       bypass_warning: z.boolean().optional().default(false).describe("ONLY use after receiving a size warning. Do NOT set true on first request."),
     },
-    async ({ url, file_id, node_id, max_depth, include_notes, include_checked, bypass_warning }) => {
+    wrapToolHandler(async ({ url, file_id, node_id, max_depth, include_notes, include_checked, bypass_warning }) => {
       // Parse URL if provided
       let documentId = file_id;
       let nodeId = node_id;
@@ -311,7 +410,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -325,7 +424,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       note: z.string().optional().describe("Optional note for the first/root item"),
       checkbox: z.boolean().optional().default(false).describe("Whether to add checkboxes to items"),
     },
-    async ({ content, note, checkbox }) => {
+    wrapToolHandler(async ({ content, note, checkbox }) => {
       // Parse content as markdown to detect hierarchy
       const tree = parseMarkdownBullets(content);
 
@@ -387,7 +486,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -408,7 +507,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       color: z.number().min(0).max(6).optional().describe("Color label (0-6)"),
       collapsed: z.boolean().optional().describe("Whether the node is collapsed"),
     },
-    async ({ url, file_id, node_id, content, note, checked, checkbox, heading, color, collapsed }) => {
+    wrapToolHandler(async ({ url, file_id, node_id, content, note, checked, checkbox, heading, color, collapsed }) => {
       let documentId = file_id;
 
       if (url) {
@@ -447,7 +546,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -466,7 +565,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       checkbox: z.boolean().optional().default(false).describe("Whether to add a checkbox"),
       heading: z.number().min(0).max(3).optional().describe("Heading level (0-3)"),
     },
-    async ({ url, file_id, parent_id, content, note, index, checkbox, heading }) => {
+    wrapToolHandler(async ({ url, file_id, parent_id, content, note, index, checkbox, heading }) => {
       let documentId = file_id;
 
       if (url) {
@@ -504,7 +603,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -522,7 +621,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       include_children: z.boolean().optional().default(false).describe("Include direct children (level 1) of each match"),
       bypass_warning: z.boolean().optional().default(false).describe("ONLY use after receiving a size warning. Do NOT set true on first request."),
     },
-    async ({ url, file_id, query, search_notes, parent_levels, include_children, bypass_warning }) => {
+    wrapToolHandler(async ({ url, file_id, query, search_notes, parent_levels, include_children, bypass_warning }) => {
       let documentId = file_id;
 
       if (url) {
@@ -609,7 +708,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -628,7 +727,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
       bypass_warning: z.boolean().optional().default(false).describe("ONLY use after receiving a size warning. Do NOT set true on first request."),
     },
-    async ({ url, file_id, since, until, type, parent_levels, sort, bypass_warning }) => {
+    wrapToolHandler(async ({ url, file_id, since, until, type, parent_levels, sort, bypass_warning }) => {
       let documentId = file_id;
 
       if (url) {
@@ -742,7 +841,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -757,7 +856,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       node_id: z.string().describe("Node ID to delete"),
       include_children: z.boolean().optional().default(false).describe("If true, delete the node AND all its children/descendants. If false (default), only delete the node (children move up to parent)."),
     },
-    async ({ url, file_id, node_id, include_children }) => {
+    wrapToolHandler(async ({ url, file_id, node_id, include_children }) => {
       let documentId = file_id;
 
       if (url) {
@@ -811,7 +910,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -827,7 +926,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       parent_id: z.string().describe("New parent node ID"),
       index: z.number().optional().default(-1).describe("Position under new parent (-1 = end, 0 = top)"),
     },
-    async ({ url, file_id, node_id, parent_id, index }) => {
+    wrapToolHandler(async ({ url, file_id, node_id, parent_id, index }) => {
       let documentId = file_id;
 
       if (url) {
@@ -854,7 +953,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -874,7 +973,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
         "'as_last_child' = as the last child inside the reference node"
       ),
     },
-    async ({ source_url, reference_url, position }) => {
+    wrapToolHandler(async ({ source_url, reference_url, position }) => {
       // Parse URLs
       const sourceParsed = parseDynalistUrl(source_url);
       const refParsed = parseDynalistUrl(reference_url);
@@ -944,7 +1043,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 
   // ═══════════════════════════════════════════════════════════════════
@@ -959,7 +1058,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
       position: z.enum(["as_first_child", "as_last_child"]).optional().default("as_last_child")
         .describe("Where to insert under the parent node"),
     },
-    async ({ url, content, position }) => {
+    wrapToolHandler(async ({ url, content, position }) => {
       const parsed = parseDynalistUrl(url);
       const documentId = parsed.documentId;
       let parentNodeId = parsed.nodeId;
@@ -996,7 +1095,7 @@ export function registerTools(server: McpServer, client: DynalistClient): void {
           },
         ],
       };
-    }
+    })
   );
 }
 

@@ -5,6 +5,35 @@
 
 const API_BASE = "https://dynalist.io/api/v1";
 
+const MAX_RETRIES = 3;
+const BASE_RETRY_DELAY_MS = 1000;
+
+const ERROR_GUIDANCE: Record<string, string> = {
+  InvalidToken: "Check your DYNALIST_API_TOKEN environment variable.",
+  NodeNotFound: "The specified node ID doesn't exist.",
+  NotFound: "The specified document or file was not found.",
+  NoInbox: "No inbox location is configured in your Dynalist settings.",
+  Unauthorized: "You don't have permission to access this resource.",
+  LockFail: "The document is locked by another operation. Try again shortly.",
+  Invalid: "The request was malformed or contained invalid parameters.",
+};
+
+/**
+ * Error class for Dynalist API errors. Preserves the API error code
+ * (e.g. "InvalidToken", "NodeNotFound") for programmatic handling.
+ */
+export class DynalistApiError extends Error {
+  readonly code: string;
+
+  constructor(code: string, msg: string) {
+    const guidance = ERROR_GUIDANCE[code];
+    const fullMessage = guidance ? `${msg} -- ${guidance}` : msg;
+    super(fullMessage);
+    this.name = "DynalistApiError";
+    this.code = code;
+  }
+}
+
 // Types based on Dynalist API
 export interface DynalistFile {
   id: string;
@@ -81,19 +110,31 @@ export class DynalistClient {
   }
 
   private async request<T>(endpoint: string, body: Record<string, unknown> = {}): Promise<T> {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: this.token, ...body }),
-    });
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: this.token, ...body }),
+      });
 
-    const data = await response.json() as T & { _code: string; _msg: string };
+      const data = await response.json() as T & { _code: string; _msg: string };
 
-    if (data._code.toLowerCase() !== "ok") {
-      throw new Error(`Dynalist API error: ${data._code} - ${data._msg}`);
+      if (data._code.toLowerCase() === "ok") {
+        return data;
+      }
+
+      // Retry on rate limit with exponential backoff.
+      if (data._code === "TooManyRequests" && attempt < MAX_RETRIES) {
+        const delay = BASE_RETRY_DELAY_MS * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      throw new DynalistApiError(data._code, data._msg);
     }
 
-    return data;
+    // Unreachable, but TypeScript needs it.
+    throw new DynalistApiError("TooManyRequests", "Rate limit exceeded after retries.");
   }
 
   /**
