@@ -743,6 +743,10 @@ src/
     └── tools/                    # Tool integration tests against dummy server
 ```
 
+## Acknowledgments
+
+Originally forked from [cristip73/dynalist-mcp](https://github.com/cristip73/dynalist-mcp).
+
 ## License
 
 MIT
