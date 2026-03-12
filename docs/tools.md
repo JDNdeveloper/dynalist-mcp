@@ -129,7 +129,6 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
     {
       "node_id": "...",
       "content": "...",
-      "note": "...",
       "url": "...",
       "collapsed": false,
       "parents": [{ "node_id": "...", "content": "..." }],
@@ -166,7 +165,6 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
     {
       "node_id": "...",
       "content": "...",
-      "note": "...",
       "url": "...",
       "change_type": "created",
       "created": 1710000000000,
@@ -177,6 +175,8 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
   ]
 }
 ```
+
+`checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist.
 
 ### `check_document_versions`
 

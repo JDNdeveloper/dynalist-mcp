@@ -126,7 +126,7 @@ function buildPathMap(files: DynalistFile[], rootFileId: string): Map<string, st
 
     if (file.children) {
       for (const childId of file.children) {
-        walk(childId, path === "" ? "" : path);
+        walk(childId, path);
       }
     }
   }

@@ -238,6 +238,15 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
         targetParentId = refParentInfo.parentId;
         targetIndex = position === "after" ? refParentInfo.index + 1 : refParentInfo.index;
+
+        // The API uses post-removal indexing: it removes the node first,
+        // then inserts at the given index. When moving within the same
+        // parent and the node is earlier than the reference, the removal
+        // shifts the reference's index down by 1, so we must compensate.
+        const movedNodeInfo = parentMap.get(node_id);
+        if (movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < refParentInfo.index) {
+          targetIndex--;
+        }
       }
 
       if (node_id === targetParentId || isDescendant(node_id, targetParentId)) {

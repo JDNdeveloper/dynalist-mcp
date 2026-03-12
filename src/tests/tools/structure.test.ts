@@ -521,6 +521,20 @@ describe("move_node", () => {
     expect(n3Idx).toBeLessThan(n1Idx);
   });
 
+  test("move earlier sibling before later sibling: exact position", async () => {
+    // Root children are [n1, n2, n3]. Move n1 before n3.
+    // Expected result: [n2, n1, n3].
+    await callToolOk(ctx.mcpClient, "move_node", {
+      file_id: "doc1",
+      node_id: "n1",
+      reference_node_id: "n3",
+      position: "before",
+    });
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n2", "n1", "n3"]);
+  });
+
   test("reorder sibling: move node after its own sibling", async () => {
     // Root children are [n1, n2, n3]. Move n1 after n3.
     await callToolOk(ctx.mcpClient, "move_node", {

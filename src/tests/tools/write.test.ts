@@ -904,8 +904,8 @@ describe("insert_nodes", () => {
     expect(structured.first_node_id).toBeDefined();
     expect(typeof structured.url).toBe("string");
 
-    // NOTE: failed_at_depth is stored on PartialInsertError but not
-    // serialized into toStructuredResponse(). See testing-bug-report.
+    // Verify failed_at_depth is included in the structured response.
+    expect(structured.failed_at_depth).toBeDefined();
   });
 
   test("partial failure persists nodes inserted before the fault", async () => {

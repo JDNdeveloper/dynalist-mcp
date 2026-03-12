@@ -109,6 +109,11 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
 
 - Moves the node and all its descendants.
 - `index: -1` = last child of new parent.
+- The API uses **post-removal indexing**: it removes the node from its current
+  position first, then inserts at the given index. For same-parent moves where
+  the node is earlier than the target index, the removal shifts all subsequent
+  siblings down by 1. The caller must subtract 1 from the target index to
+  compensate, or the node will land one position too late.
 - Moving a node to be a child of itself: API silently accepts but the node becomes
   orphaned (unreachable from the root tree). Our tool validates and rejects this.
 
