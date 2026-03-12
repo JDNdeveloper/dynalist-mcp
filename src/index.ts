@@ -126,11 +126,38 @@ doing expensive reads.
 ${CHECKED_CHILDREN_GUIDANCE}
 - Checkbox usage: ${CHECKBOX_GUIDANCE}
 
-## Confirmation
+## Presenting document content
+
+When showing document content to the user, render nodes as indented bullet points to mirror \
+Dynalist's visual structure. Each nesting level should increase indentation by one level. \
+Example:
+
+- Project plan
+  - Phase 1
+    - Design mockups
+    - User research
+  - Phase 2
+    - Implementation
+
+This applies when summarizing a document, showing what was read, previewing changes before a \
+mutation, or confirming what was changed after a mutation. When presenting a mutation preview \
+or confirmation, prefix affected items with [NEW], [EDIT], or [DEL] so the user can see exactly \
+what is changing. For [EDIT], show the old and new values as "old" -> "new". Example:
+
+- Grocery list
+  - [EDIT] "Milk 2%" -> "Milk"
+  - [NEW] Eggs
+  - [DEL] Butter
+  - Bread
+
+## Confirmation and verification
 
 Before calling any mutating tool (insert, edit, delete, move, rename, create, send_to_inbox), \
 describe the intended changes to the user and wait for confirmation. Do not modify Dynalist \
 data without the user's explicit approval.
+
+After a mutation, read back the affected document or node to verify the changes were applied \
+correctly. Report any discrepancies to the user.
 `;
 
 // Create MCP server
