@@ -16,7 +16,10 @@ export const CHECKED_GUIDANCE =
   "Do not add a checkbox unless the user explicitly asks for one.";
 export const CHECKBOX_GUIDANCE =
   "Only set if the user explicitly asks for a checkbox or surrounding nodes already use " +
-  "checkboxes. Omit when unsure. Do not add checkboxes just because an item is being checked off.";
+  "checkboxes. Omit when unsure.";
+export const CHECKED_CHILDREN_GUIDANCE =
+  "Do not check off children when checking a parent unless explicitly asked. " +
+  "Dynalist already greys out descendants of checked nodes visually.";
 
 // Shared input parameter descriptions.
 export const FILE_ID_DESCRIPTION = "Document file ID";
@@ -25,7 +28,7 @@ export const BYPASS_WARNING_DESCRIPTION =
 export const PARENT_LEVELS_DESCRIPTION =
   "How many parent levels to include for context (0 = none)";
 export const CHECKED_DESCRIPTION =
-  `Checked (completed) state. ${CHECKED_GUIDANCE} To check an item off, just set checked: true.`;
+  `Checked (completed) state. ${CHECKED_GUIDANCE} To check an item off, just set checked: true. ${CHECKED_CHILDREN_GUIDANCE}`;
 export const CHECKBOX_DESCRIPTION = CHECKBOX_GUIDANCE;
 export const HEADING_DESCRIPTION =
   "Heading level. 0 = no heading (removes heading), 1 = H1, 2 = H2, 3 = H3.";

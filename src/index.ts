@@ -15,7 +15,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DynalistClient } from "./dynalist-client";
 import { registerTools } from "./tools/index";
-import { CHECKED_GUIDANCE, CHECKBOX_GUIDANCE } from "./tools/descriptions";
+import { CHECKED_GUIDANCE, CHECKBOX_GUIDANCE, CHECKED_CHILDREN_GUIDANCE } from "./tools/descriptions";
 import pkg from "../package.json";
 
 // Get API token from environment
@@ -122,7 +122,8 @@ nodes within a single document. Do not confuse file IDs with node IDs.
 - Version checking: use check_document_versions to check if documents have changed before \
 doing expensive reads.
 - edit_node: omitted fields are left unchanged, not reset to defaults.
-- Checking items off: to mark an item as completed, set checked: true. ${CHECKED_GUIDANCE}
+- Checking items off: to mark an item as completed, set checked: true. ${CHECKED_GUIDANCE} \
+${CHECKED_CHILDREN_GUIDANCE}
 - Checkbox usage: ${CHECKBOX_GUIDANCE}
 
 ## Confirmation
