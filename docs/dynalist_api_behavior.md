@@ -1,8 +1,7 @@
 # Dynalist API Behavior Reference
 
 Canonical reference for how the Dynalist API (https://apidocs.dynalist.io/) actually
-behaves, based on exhaustive testing against a real account. This document drives the
-dummy test server (Phase 7) and tool definition improvements (Phase 8).
+behaves, based on exhaustive testing against a real account.
 
 ## Endpoints
 
