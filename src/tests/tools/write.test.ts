@@ -443,6 +443,20 @@ describe("insert_node", () => {
 
   // ─── 11b: auto-checkbox behavior ───────────────────────────────────
 
+  test("checked: false without checkbox does not auto-enable checkbox", async () => {
+    await callToolOk(ctx.mcpClient, "insert_node", {
+      file_id: "doc1",
+      parent_id: "root",
+      content: "No auto checkbox",
+      checked: false,
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "No auto checkbox")!;
+    // Explicitly setting checked: false should not force a checkbox to appear.
+    expect(newNode.checkbox).toBeUndefined();
+  });
+
   test("checked: true without checkbox auto-enables checkbox", async () => {
     const result = await callToolOk(ctx.mcpClient, "insert_node", {
       file_id: "doc1",

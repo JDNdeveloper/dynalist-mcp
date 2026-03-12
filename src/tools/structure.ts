@@ -73,7 +73,11 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const parentMap = buildParentMap(doc.nodes);
       const targetNode = nodeMap.get(node_id);
 
-      if (!include_children && targetNode?.children && targetNode.children.length > 0) {
+      if (!targetNode) {
+        return makeErrorResponse("NodeNotFound", `Node '${node_id}' not found in document.`);
+      }
+
+      if (!include_children && targetNode.children && targetNode.children.length > 0) {
         // Promote children: move them to the deleted node's parent at the same position.
         const parentInfo = parentMap.get(node_id);
         if (!parentInfo) {
@@ -192,6 +196,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       // Read the document to validate the move and resolve positions.
       const doc = await client.readDocument(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
+
+      if (!nodeMap.has(node_id)) {
+        return makeErrorResponse("NodeNotFound", `Node '${node_id}' not found in document.`);
+      }
+      if (!nodeMap.has(reference_node_id)) {
+        return makeErrorResponse("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
+      }
 
       // Check if the target parent is a descendant of the node being moved.
       // This applies to all positions: for first_child/last_child the target

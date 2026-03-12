@@ -257,8 +257,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         content,
       };
 
-      // Auto-enable checkbox when checked is set.
-      const effectiveCheckbox = checkbox || (checked !== undefined);
+      // Auto-enable checkbox when checked is set to true.
+      const effectiveCheckbox = checkbox || (checked === true);
 
       if (note !== undefined) change.note = note;
       if (effectiveCheckbox) change.checkbox = effectiveCheckbox;

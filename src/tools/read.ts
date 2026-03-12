@@ -367,12 +367,14 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             node_id: node.id,
             content: node.content,
             url: buildDynalistUrl(file_id, node.id),
-            checked: node.checked ?? false,
-            checkbox: node.checkbox ?? false,
-            heading: node.heading ?? 0,
-            color: node.color ?? 0,
             collapsed: node.collapsed ?? false,
           };
+
+          // Include optional fields only when present, consistent with read_document.
+          if (node.checked !== undefined) match.checked = node.checked;
+          if (node.checkbox !== undefined) match.checkbox = node.checkbox;
+          if (node.heading !== undefined && node.heading > 0) match.heading = node.heading;
+          if (node.color !== undefined && node.color > 0) match.color = node.color;
 
           // Include note only when non-empty.
           if (node.note && node.note.trim()) {
@@ -530,12 +532,14 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             modified: node.modified,
             url: buildDynalistUrl(file_id, node.id),
             change_type: createdInRange ? "created" : "modified",
-            checked: node.checked ?? false,
-            checkbox: node.checkbox ?? false,
-            heading: node.heading ?? 0,
-            color: node.color ?? 0,
             collapsed: node.collapsed ?? false,
           };
+
+          // Include optional fields only when present, consistent with read_document.
+          if (node.checked !== undefined) match.checked = node.checked;
+          if (node.checkbox !== undefined) match.checkbox = node.checkbox;
+          if (node.heading !== undefined && node.heading > 0) match.heading = node.heading;
+          if (node.color !== undefined && node.color > 0) match.color = node.color;
 
           // Include note only when non-empty.
           if (node.note && node.note.trim()) {

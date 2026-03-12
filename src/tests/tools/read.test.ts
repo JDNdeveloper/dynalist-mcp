@@ -1254,6 +1254,22 @@ describe("search_in_document", () => {
     expect(Array.isArray(result.matches)).toBe(true);
   });
 
+  test("plain node omits checked, checkbox, heading, color from match", async () => {
+    // n1a is a plain node with no checkbox, heading, or color.
+    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "Child A",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    const n1a = matches.find((m) => m.node_id === "n1a")!;
+    expect(n1a).toBeDefined();
+    // These should be omitted for plain nodes, consistent with read_document.
+    expect(n1a.checked).toBeUndefined();
+    expect(n1a.checkbox).toBeUndefined();
+    expect(n1a.heading).toBeUndefined();
+    expect(n1a.color).toBeUndefined();
+  });
+
   test("each match includes node_id, content, url", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
@@ -1546,6 +1562,22 @@ describe("get_recent_changes", () => {
       expect(typeof match.change_type).toBe("string");
       expect(typeof match.url).toBe("string");
     }
+  });
+
+  test("plain node omits checked, checkbox, heading, color from match", async () => {
+    // n1a is a plain node with no checkbox, heading, or color.
+    const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
+      file_id: "doc1",
+      since: 0,
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    const n1a = matches.find((m) => m.node_id === "n1a")!;
+    expect(n1a).toBeDefined();
+    // These should be omitted for plain nodes, consistent with read_document.
+    expect(n1a.checked).toBeUndefined();
+    expect(n1a.checkbox).toBeUndefined();
+    expect(n1a.heading).toBeUndefined();
+    expect(n1a.color).toBeUndefined();
   });
 
   test("note included only when non-empty", async () => {

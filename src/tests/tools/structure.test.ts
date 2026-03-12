@@ -555,4 +555,57 @@ describe("move_node", () => {
     expect(result.url).toContain("doc1");
     expect(result.url).toContain("n3");
   });
+
+  // ─── 15f: Nonexistent node validation ──────────────────────────────
+
+  test("nonexistent node_id returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_node", {
+      file_id: "doc1",
+      node_id: "nonexistent",
+      reference_node_id: "n1",
+      position: "after",
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
+
+  test("nonexistent reference_node_id with first_child returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_node", {
+      file_id: "doc1",
+      node_id: "n1",
+      reference_node_id: "nonexistent",
+      position: "first_child",
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
+
+  test("nonexistent reference_node_id with after returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_node", {
+      file_id: "doc1",
+      node_id: "n1",
+      reference_node_id: "nonexistent",
+      position: "after",
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
+});
+
+// ─── delete_node: nonexistent node validation ────────────────────────
+
+describe("delete_node nonexistent node", () => {
+  test("nonexistent node_id returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_node", {
+      file_id: "doc1",
+      node_id: "nonexistent",
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
+
+  test("nonexistent node_id with include_children returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_node", {
+      file_id: "doc1",
+      node_id: "nonexistent",
+      include_children: true,
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
 });

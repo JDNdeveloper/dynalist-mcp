@@ -22,6 +22,8 @@ List all documents and folders in your Dynalist account. Returns the folder hier
 }
 ```
 
+Documents with a `read` access policy include `"access_policy": "read"`. Same applies to `search_documents` matches.
+
 ### `search_documents`
 
 Search for documents and folders by name. Client-side filter on the file tree.
@@ -129,10 +131,6 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
       "content": "...",
       "note": "...",
       "url": "...",
-      "checked": false,
-      "checkbox": false,
-      "heading": 0,
-      "color": 0,
       "collapsed": false,
       "parents": [{ "node_id": "...", "content": "..." }],
       "children": [{ "node_id": "...", "content": "..." }]
@@ -140,6 +138,8 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
   ]
 }
 ```
+
+`checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist. `children` is present only when `include_children: true` and the node has children.
 
 ### `get_recent_changes`
 
@@ -171,10 +171,6 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
       "change_type": "created",
       "created": 1710000000000,
       "modified": 1710000000000,
-      "checked": false,
-      "checkbox": false,
-      "heading": 0,
-      "color": 0,
       "collapsed": false,
       "parents": [{ "node_id": "...", "content": "..." }]
     }
@@ -198,7 +194,7 @@ Check version numbers for documents without fetching content. Useful for detecti
 }
 ```
 
-`denied` lists file IDs rejected by access control (IDs only, no metadata leaked).
+A version of `-1` means the document was not found. `denied` lists file IDs rejected by access control (IDs only, no metadata leaked).
 
 ## Write tools
 
