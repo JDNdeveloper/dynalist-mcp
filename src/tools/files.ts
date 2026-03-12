@@ -22,14 +22,18 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
   server.registerTool(
     "create_document",
     {
-      description: "Create a new document in a folder.",
+      description:
+        "Create a new empty document in a folder. The returned file_id can be used with " +
+        "insert_node or insert_nodes to add content to the new document.",
       inputSchema: {
-        parent_folder_id: z.string().describe("Folder to create the document in"),
+        parent_folder_id: z.string().describe("Folder file ID to create the document in"),
         title: z.string().optional().default("").describe("Document title"),
-        index: z.number().optional().default(-1).describe("Position in folder (-1 = end, 0 = top)"),
+        index: z.number().optional().default(-1).describe(
+          "Position in folder. 0 = first, -1 = last (default)."
+        ),
       },
       outputSchema: {
-        file_id: z.string().describe("ID of the new document"),
+        file_id: z.string().describe("File ID of the new document"),
         title: z.string().describe("Document title"),
         url: z.string().describe("Dynalist URL for the new document"),
       },
@@ -84,14 +88,18 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
   server.registerTool(
     "create_folder",
     {
-      description: "Create a new folder inside another folder.",
+      description:
+        "Create a new empty folder inside another folder. Documents and other folders can be " +
+        "created inside it or moved into it afterward.",
       inputSchema: {
-        parent_folder_id: z.string().describe("Folder to create in"),
+        parent_folder_id: z.string().describe("Parent folder file ID to create in"),
         title: z.string().optional().default("").describe("Folder title"),
-        index: z.number().optional().default(-1).describe("Position in parent (-1 = end, 0 = top)"),
+        index: z.number().optional().default(-1).describe(
+          "Position in parent. 0 = first, -1 = last (default)."
+        ),
       },
       outputSchema: {
-        file_id: z.string().describe("ID of the new folder"),
+        file_id: z.string().describe("File ID of the new folder"),
         title: z.string().describe("Folder title"),
       },
     },
@@ -144,13 +152,14 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
   server.registerTool(
     "rename_document",
     {
-      description: "Rename a document.",
+      description:
+        "Rename a document. The file_id does not change when renaming.",
       inputSchema: {
-        file_id: z.string().describe("Document to rename"),
+        file_id: z.string().describe("Document file ID to rename"),
         title: z.string().describe("New title"),
       },
       outputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID (unchanged)"),
         title: z.string().describe("The new title"),
       },
     },
@@ -189,13 +198,14 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
   server.registerTool(
     "rename_folder",
     {
-      description: "Rename a folder.",
+      description:
+        "Rename a folder. The file_id does not change when renaming.",
       inputSchema: {
-        file_id: z.string().describe("Folder to rename"),
+        file_id: z.string().describe("Folder file ID to rename"),
         title: z.string().describe("New title"),
       },
       outputSchema: {
-        file_id: z.string().describe("Folder ID"),
+        file_id: z.string().describe("Folder file ID (unchanged)"),
         title: z.string().describe("The new title"),
       },
     },
@@ -234,15 +244,20 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
   server.registerTool(
     "move_file",
     {
-      description: "Move a document or folder to a different parent folder.",
+      description:
+        "Move a document or folder to a different parent folder. If moving a folder, all its " +
+        "contents (documents and subfolders) move with it. This operates on the file tree, not " +
+        "on nodes within a document -- use move_node for moving nodes.",
       inputSchema: {
-        file_id: z.string().describe("Document or folder to move"),
-        parent_folder_id: z.string().describe("Destination folder"),
-        index: z.number().optional().default(-1).describe("Position in destination (-1 = end, 0 = top)"),
+        file_id: z.string().describe("File ID of the document or folder to move"),
+        parent_folder_id: z.string().describe("Destination folder file ID"),
+        index: z.number().optional().default(-1).describe(
+          "Position in destination. 0 = first, -1 = last (default)."
+        ),
       },
       outputSchema: {
         file_id: z.string().describe("Moved file ID"),
-        parent_folder_id: z.string().describe("Destination folder ID"),
+        parent_folder_id: z.string().describe("Destination folder file ID"),
       },
     },
     wrapToolHandler(async ({

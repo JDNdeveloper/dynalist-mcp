@@ -202,7 +202,8 @@ describe("insert_nodes", () => {
     });
     expect(result.file_id).toBe("doc1");
     expect(result.total_created).toBe(3);
-    expect(result.first_node_id).toBeDefined();
+    expect(result.root_node_ids).toBeDefined();
+    expect((result.root_node_ids as string[]).length).toBe(3);
   });
 
   test("inserts nested hierarchy", async () => {
@@ -260,7 +261,7 @@ describe("send_to_inbox", () => {
       content: "Inbox item",
     });
     expect(result.file_id).toBe("inbox_doc");
-    expect(result.node_id).toBeDefined();
+    expect(result.first_node_id).toBeDefined();
     expect(result.url).toContain("inbox_doc");
     expect(result.total_created).toBe(1);
   });

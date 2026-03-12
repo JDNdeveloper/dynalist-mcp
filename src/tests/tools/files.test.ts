@@ -38,7 +38,7 @@ describe("create_document", () => {
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const docs = listResult.documents as Record<string, unknown>[];
-    const found = docs.find((d) => d.id === createResult.file_id);
+    const found = docs.find((d) => d.file_id === createResult.file_id);
     expect(found).toBeDefined();
     expect(found!.title).toBe("Created Doc");
   });
@@ -83,7 +83,7 @@ describe("create_folder", () => {
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const folders = listResult.folders as Record<string, unknown>[];
-    const found = folders.find((f) => f.id === createResult.file_id);
+    const found = folders.find((f) => f.file_id === createResult.file_id);
     expect(found).toBeDefined();
     expect(found!.title).toBe("Visible Folder");
   });
@@ -117,7 +117,7 @@ describe("rename_document", () => {
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const docs = listResult.documents as Record<string, unknown>[];
-    const doc = docs.find((d) => d.id === "doc1")!;
+    const doc = docs.find((d) => d.file_id === "doc1")!;
     expect(doc.title).toBe("Fresh Title");
   });
 
@@ -150,7 +150,7 @@ describe("rename_folder", () => {
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const folders = listResult.folders as Record<string, unknown>[];
-    const folder = folders.find((f) => f.id === "folder_a")!;
+    const folder = folders.find((f) => f.file_id === "folder_a")!;
     expect(folder.title).toBe("New Folder Name");
   });
 });

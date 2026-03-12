@@ -32,7 +32,7 @@ describe("list_documents", () => {
   test("documents have id, title, url, permission", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const docs = result.documents as Record<string, unknown>[];
-    const doc1 = docs.find((d) => d.id === "doc1");
+    const doc1 = docs.find((d) => d.file_id === "doc1");
     expect(doc1).toBeDefined();
     expect(doc1!.title).toBe("Test Document");
     expect(doc1!.url).toContain("dynalist.io/d/doc1");
@@ -42,7 +42,7 @@ describe("list_documents", () => {
   test("folders have id, title, children", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const folders = result.folders as Record<string, unknown>[];
-    const folderA = folders.find((f) => f.id === "folder_a");
+    const folderA = folders.find((f) => f.file_id === "folder_a");
     expect(folderA).toBeDefined();
     expect(folderA!.title).toBe("Folder A");
     expect(folderA!.children).toContain("doc1");
@@ -419,7 +419,7 @@ describe("search_in_document", () => {
     const match = matches.find((m) => m.node_id === "n1a")!;
     expect(match.parents).toBeDefined();
     const parents = match.parents as Record<string, unknown>[];
-    expect(parents[0].id).toBe("n1");
+    expect(parents[0].node_id).toBe("n1");
   });
 
   test("include_children returns direct children", async () => {

@@ -33,25 +33,11 @@ describe("delete_node", () => {
     expect(doc.nodes.find((n) => n.id === "n1a")).toBeUndefined();
   });
 
-  test("deletes a node and all descendants (recursive)", async () => {
-    // n1 has children n1a, n1b.
+  test("default behavior promotes children up to parent", async () => {
+    // n1 has children n1a, n1b. Default (include_children: false) promotes them.
     const result = await callToolOk(ctx.mcpClient, "delete_node", {
       file_id: "doc1",
       node_id: "n1",
-    });
-    expect(result.deleted_count).toBe(3); // n1, n1a, n1b
-
-    const doc = ctx.server.documents.get("doc1")!;
-    expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
-    expect(doc.nodes.find((n) => n.id === "n1a")).toBeUndefined();
-    expect(doc.nodes.find((n) => n.id === "n1b")).toBeUndefined();
-  });
-
-  test("promote_children moves children to parent then deletes node", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
-      file_id: "doc1",
-      node_id: "n1",
-      promote_children: true,
     });
     expect(result.deleted_count).toBe(1);
 
@@ -65,6 +51,21 @@ describe("delete_node", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
     expect(root.children).toContain("n1a");
     expect(root.children).toContain("n1b");
+  });
+
+  test("include_children: true deletes entire subtree", async () => {
+    // n1 has children n1a, n1b.
+    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+      file_id: "doc1",
+      node_id: "n1",
+      include_children: true,
+    });
+    expect(result.deleted_count).toBe(3); // n1, n1a, n1b
+
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n1a")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n1b")).toBeUndefined();
   });
 
   test("cannot delete root node", async () => {

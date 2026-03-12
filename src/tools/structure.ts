@@ -22,29 +22,34 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     "delete_node",
     {
       description:
-        "Delete a node and all its descendants from a Dynalist document. " +
-        "Use promote_children=true to move children up to the deleted node's parent before deleting.",
+        "Delete a node from a Dynalist document. By default, the node's children are promoted " +
+        "up to the deleted node's parent (the node is removed but its children survive in place). " +
+        "Set include_children: true to delete the entire subtree instead.\n\n" +
+        "Examples:\n" +
+        "- Delete a header but keep its items: include_children: false (default).\n" +
+        "- Delete a section and everything under it: include_children: true.",
       inputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("Node ID to delete"),
-        promote_children: z.boolean().optional().default(false).describe(
-          "If true, move the node's children to its parent (preserving order) before deleting. " +
-          "If false (default), delete the node and all its descendants."
+        include_children: z.boolean().optional().default(false).describe(
+          "If true, delete the node and all its descendants (entire subtree). " +
+          "If false (default), promote children up to the deleted node's parent."
         ),
       },
       outputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         deleted_count: z.number().describe("Number of nodes deleted"),
+        promoted_children: z.number().optional().describe("Number of children promoted to parent (only when include_children is false)"),
       },
     },
     wrapToolHandler(async ({
       file_id,
       node_id,
-      promote_children,
+      include_children,
     }: {
       file_id: string;
       node_id: string;
-      promote_children: boolean;
+      include_children: boolean;
     }) => {
       const config = getConfig();
 
@@ -68,8 +73,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const parentMap = buildParentMap(doc.nodes);
       const targetNode = nodeMap.get(node_id);
 
-      if (promote_children && targetNode?.children && targetNode.children.length > 0) {
-        // Move children to the deleted node's parent at the same position.
+      if (!include_children && targetNode?.children && targetNode.children.length > 0) {
+        // Promote children: move them to the deleted node's parent at the same position.
         const parentInfo = parentMap.get(node_id);
         if (!parentInfo) {
           return makeErrorResponse("NodeNotFound", "Could not find parent of node to delete.");
@@ -135,22 +140,25 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     "move_node",
     {
       description:
-        "Move a node (and all its children) to a new position relative to a reference node. " +
-        "Use 'after'/'before' to place as a sibling of the reference, or " +
-        "'first_child'/'last_child' to place inside the reference node.",
+        "Move a node and its entire subtree to a new position relative to a reference node.\n\n" +
+        "Position examples:\n" +
+        "- 'after': place immediately after the reference (same parent).\n" +
+        "- 'before': place immediately before the reference (same parent).\n" +
+        "- 'first_child': place as the first child inside the reference.\n" +
+        "- 'last_child': place as the last child inside the reference.",
       inputSchema: {
-        file_id: z.string().describe("Document ID"),
-        node_id: z.string().describe("Node to move"),
+        file_id: z.string().describe("Document file ID"),
+        node_id: z.string().describe("Node to move (its entire subtree moves with it)"),
         reference_node_id: z.string().describe("Reference node for positioning"),
         position: z.enum(["after", "before", "first_child", "last_child"]).describe(
           "'after' = immediately after reference (same parent), " +
           "'before' = immediately before reference (same parent), " +
           "'first_child' = as first child of reference, " +
-          "'last_child' = as last child of reference"
+          "'last_child' = as last child of reference."
         ),
       },
       outputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("Moved node ID"),
         url: z.string().describe("Dynalist URL for the moved node"),
       },

@@ -23,15 +23,19 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
   server.registerTool(
     "send_to_inbox",
     {
-      description: "Send items to your Dynalist inbox. Supports indented markdown/bullets for hierarchical content.",
+      description:
+        "Send items to your Dynalist inbox. The target document is the user's configured inbox " +
+        "in Dynalist settings -- it cannot be changed via this tool. For inserting into a specific " +
+        "document, use insert_node or insert_nodes instead. Supports indented markdown/bullets " +
+        "for hierarchical content.",
       inputSchema: {
-        content: z.string().describe("The text content - can be single line or indented markdown with '- bullets'"),
+        content: z.string().describe("The text content -- can be single line or indented markdown with '- bullets'"),
         note: z.string().optional().describe("Optional note for the first/root item"),
         checkbox: z.boolean().optional().describe("Whether to add checkboxes to items (default from config)"),
       },
       outputSchema: {
-        file_id: z.string().describe("Inbox document ID"),
-        node_id: z.string().describe("ID of the first created node"),
+        file_id: z.string().describe("Inbox document file ID"),
+        first_node_id: z.string().describe("ID of the first created node"),
         url: z.string().describe("Dynalist URL for the first created node"),
         total_created: z.number().describe("Total number of nodes created"),
       },
@@ -94,7 +98,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
       return makeResponse({
         file_id: inboxFileId,
-        node_id: firstNodeId,
+        first_node_id: firstNodeId,
         url: buildDynalistUrl(inboxFileId, firstNodeId),
         total_created: totalCreated,
       });
@@ -107,19 +111,29 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
   server.registerTool(
     "edit_node",
     {
-      description: "Edit an existing node in a Dynalist document. Only specified fields are updated.",
+      description:
+        "Edit an existing node in a Dynalist document. Only specified fields are updated -- " +
+        "omitted fields are left unchanged (not reset to defaults). This is a partial update.",
       inputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("Node ID to edit"),
         content: z.string().optional().describe("New content text"),
-        note: z.string().optional().describe("New note text"),
-        checked: z.boolean().optional().describe("Checked status"),
-        checkbox: z.boolean().optional().describe("Whether to show checkbox"),
-        heading: z.number().min(0).max(3).optional().describe("Heading level (0-3)"),
-        color: z.number().min(0).max(6).optional().describe("Color label (0-6)"),
+        note: z.string().optional().describe("New note text. Supports multiline (use \\n). Set to '' to clear."),
+        checked: z.boolean().optional().describe(
+          "Checked state. Setting checked: true without checkbox: true is accepted but the UI " +
+          "won't show a checkbox to display the state."
+        ),
+        checkbox: z.boolean().optional().describe("Whether to show a checkbox on this node"),
+        heading: z.number().min(0).max(3).optional().describe(
+          "Heading level. 0 = no heading (removes heading), 1 = H1, 2 = H2, 3 = H3."
+        ),
+        color: z.number().min(0).max(6).optional().describe(
+          "Color label. 0 = no color (removes color), 1 = red, 2 = orange, 3 = yellow, " +
+          "4 = green, 5 = blue, 6 = purple."
+        ),
       },
       outputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("Edited node ID"),
         url: z.string().describe("Dynalist URL for the edited node"),
       },
@@ -179,21 +193,32 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
   server.registerTool(
     "insert_node",
     {
-      description: "Insert a single new node into a Dynalist document.",
+      description:
+        "Insert a single new node into a Dynalist document. For inserting multiple nodes with " +
+        "hierarchy, use insert_nodes instead (it is faster and preserves tree structure).",
       inputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         parent_id: z.string().describe("Parent node ID to insert under"),
         content: z.string().describe("Content text for the new node"),
-        note: z.string().optional().describe("Note text for the new node"),
-        index: z.number().optional().default(-1).describe("Position under parent (-1 = end, 0 = top)"),
+        note: z.string().optional().describe("Note text. Supports multiline (use \\n)."),
+        index: z.number().optional().default(-1).describe(
+          "Position under parent. 0 = first child, -1 = last child (default)."
+        ),
         checkbox: z.boolean().optional().default(false).describe("Whether to add a checkbox"),
-        heading: z.number().min(0).max(3).optional().describe("Heading level (0-3)"),
-        color: z.number().min(0).max(6).optional().describe("Color label (0-6)"),
-        checked: z.boolean().optional().describe("Initial checked state (only meaningful with checkbox: true)"),
+        heading: z.number().min(0).max(3).optional().describe(
+          "Heading level. 0 = none, 1 = H1, 2 = H2, 3 = H3."
+        ),
+        color: z.number().min(0).max(6).optional().describe(
+          "Color label. 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple."
+        ),
+        checked: z.boolean().optional().describe(
+          "Initial checked state. Automatically enables checkbox when set."
+        ),
       },
       outputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("ID of the newly created node"),
+        parent_id: z.string().describe("Parent node ID"),
         url: z.string().describe("Dynalist URL for the new node"),
       },
     },
@@ -247,6 +272,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       return makeResponse({
         file_id,
         node_id: newNodeId ?? "unknown",
+        parent_id,
         url: buildDynalistUrl(file_id, newNodeId),
       });
     })
@@ -259,19 +285,24 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "insert_nodes",
     {
       description:
-        "Insert multiple nodes from indented markdown/text. Supports both '- bullet' format and " +
-        "plain indented text. Preserves hierarchy.",
+        "Insert multiple nodes from indented text, preserving hierarchy. Preferred over calling " +
+        "insert_node in a loop. Accepts '- bullet' format or plain indented text.\n\n" +
+        "Example input:\n" +
+        "- Top level item\n" +
+        "  - Child item\n" +
+        "    - Grandchild\n" +
+        "- Another top level item",
       inputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         node_id: z.string().optional().describe("Parent node ID to insert under (omit for document root)"),
         content: z.string().describe("Indented text with bullets. Supports '- text' or plain indented text."),
         position: z.enum(["as_first_child", "as_last_child"]).optional().default("as_last_child")
           .describe("Where to insert under the parent node"),
       },
       outputSchema: {
-        file_id: z.string().describe("Document ID"),
+        file_id: z.string().describe("Document file ID"),
         total_created: z.number().describe("Total number of nodes created"),
-        first_node_id: z.string().nullable().describe("ID of the first created node, or null if none"),
+        root_node_ids: z.array(z.string()).describe("IDs of all top-level inserted nodes"),
         url: z.string().describe("Dynalist URL for the first created node"),
       },
     },
@@ -318,7 +349,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       return makeResponse({
         file_id,
         total_created: result.totalCreated,
-        first_node_id: firstNodeId,
+        root_node_ids: result.rootNodeIds,
         url,
       });
     })
