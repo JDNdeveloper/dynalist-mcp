@@ -121,6 +121,9 @@ nodes within a single document. Do not confuse file IDs with node IDs.
 - Version checking: use check_document_versions to check if documents have changed before \
 doing expensive reads.
 - edit_node: omitted fields are left unchanged, not reset to defaults.
+- Checkbox usage: only set the checkbox parameter if surrounding nodes in the same document \
+already use checkboxes. When unsure, omit the checkbox parameter to fall back to the user's \
+configured default. Do not add checkboxes speculatively.
 `;
 
 // Create MCP server

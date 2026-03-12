@@ -31,7 +31,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       inputSchema: {
         content: z.string().describe("The text content. Can be single line or indented markdown with '- bullets'."),
         note: z.string().optional().describe("Optional note for the first/root item"),
-        checkbox: z.boolean().optional().describe("Whether to add checkboxes to items (default from config)"),
+        checkbox: z.boolean().optional().describe(
+          "Whether to add checkboxes to items. Only set this if surrounding nodes " +
+          "already use checkboxes. Omit when unsure."
+        ),
       },
       outputSchema: {
         file_id: z.string().describe("Inbox document file ID"),
@@ -123,7 +126,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "Checked state. Setting checked: true without checkbox: true is accepted but the UI " +
           "won't show a checkbox to display the state."
         ),
-        checkbox: z.boolean().optional().describe("Whether to show a checkbox on this node"),
+        checkbox: z.boolean().optional().describe(
+          "Whether to show a checkbox on this node. Only set this if surrounding nodes " +
+          "already use checkboxes. Omit when unsure."
+        ),
         heading: z.number().min(0).max(3).optional().describe(
           "Heading level. 0 = no heading (removes heading), 1 = H1, 2 = H2, 3 = H3."
         ),
@@ -204,7 +210,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         index: z.number().optional().default(-1).describe(
           "Position under parent. 0 = first child, -1 = last child (default)."
         ),
-        checkbox: z.boolean().optional().default(false).describe("Whether to add a checkbox"),
+        checkbox: z.boolean().optional().default(false).describe(
+          "Whether to add a checkbox. Only set this if surrounding nodes already use " +
+          "checkboxes. Omit when unsure."
+        ),
         heading: z.number().min(0).max(3).optional().describe(
           "Heading level. 0 = none, 1 = H1, 2 = H2, 3 = H3."
         ),
