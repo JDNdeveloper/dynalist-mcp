@@ -100,8 +100,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "search_documents",
     {
       description:
-        "Search for documents and folders by name. Client-side filter on the file tree. " +
-        "Useful when you need a specific document without parsing the full list_documents tree.",
+        "Search for documents and folders by title. Filters the file tree only; does not search " +
+        "node content. Use search_in_document to search inside a document.",
       inputSchema: {
         query: z.string().describe("Text to search for in document/folder names (case-insensitive)"),
         type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
