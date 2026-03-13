@@ -95,26 +95,35 @@ nodes within a single document. Do not confuse file IDs with node IDs.
 ## Presenting document content
 
 When showing document content to the user, render nodes as indented bullet points to mirror \
-Dynalist's visual structure. Each nesting level should increase indentation by one level. \
-Example:
+Dynalist's visual structure. Use exactly 4 spaces per indentation level. Show checked/completed \
+items with strikethrough (e.g. ~~Buy groceries~~). Example:
 
 - Project plan
-  - Phase 1
-    - Design mockups
-    - User research
-  - Phase 2
-    - Implementation
+    - Phase 1
+        - Design mockups
+        - ~~User research~~
+    - Phase 2
+        - Implementation
 
 This applies when summarizing a document, showing what was read, previewing changes before a \
-mutation, or confirming what was changed after a mutation. When presenting a mutation preview \
-or confirmation, prefix affected items with [NEW], [EDIT], or [DEL] so the user can see exactly \
-what is changing. For [EDIT], show the old and new values as "old" -> "new". Example:
+mutation, or confirming what was changed after a mutation.
 
-- Grocery list
-  - [EDIT] "Milk 2%" -> "Milk"
-  - [NEW] Eggs
-  - [DEL] Butter
-  - Bread
+When presenting a mutation preview or confirmation, use a diff-style format: prefix each line \
+with \`+\` for additions, \`-\` for deletions, or a space for unchanged context. Show edits as a \
+\`-\`/\`+\` pair (delete the old value, add the new one). Only include enough unchanged nodes to \
+show where the changes sit (typically the immediate parent and siblings). Use \`...\` at the same \
+indentation level to indicate omitted siblings before or after the shown nodes. Indentation is \
+relative to the topmost node shown, so the first node always starts at the root indent level. \
+Example:
+
+  - Grocery list
+      ...
+-     - Milk 2%
++     - Milk
++     - Eggs
+-     - Butter
+      - Bread
+      ...
 
 ## Confirmation and verification
 
