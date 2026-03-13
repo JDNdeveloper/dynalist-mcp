@@ -111,8 +111,9 @@ the file tree.
 
 - Bulk insert: insert_nodes should be preferred over insert_node for anything beyond a \
 single flat node. It parses indented markdown and creates the full hierarchy in batch.
-- Delete behavior: delete_node promotes children up to the parent by default (the node is \
-removed but its children survive). Use include_children: true to delete the entire subtree.
+- Delete behavior: delete_node deletes the entire subtree by default (the node and all its \
+descendants are removed). Use include_children: false to promote children up to the parent \
+instead (the node is removed but its children survive).
 - Move: move_node uses relative positioning. Specify a reference node and a position \
 (after, before, first_child, last_child).
 - Inbox target: send_to_inbox sends to whatever document the user configured as their \

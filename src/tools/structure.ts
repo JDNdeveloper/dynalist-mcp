@@ -24,18 +24,18 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Delete a node from a Dynalist document. By default, the node's children are promoted " +
-        "up to the deleted node's parent (the node is removed but its children survive in place). " +
-        "Set include_children: true to delete the entire subtree instead.\n\n" +
+        "Delete a node from a Dynalist document. By default, the node and its entire subtree " +
+        "are deleted. Set include_children: false to promote children up to the deleted node's " +
+        "parent instead (the node is removed but its children survive in place).\n\n" +
         "Examples:\n" +
-        "- Delete a header but keep its items: include_children: false (default).\n" +
-        "- Delete a section and everything under it: include_children: true.",
+        "- Delete a section and everything under it: include_children: true (default).\n" +
+        "- Delete a header but keep its items: include_children: false.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().describe("Node ID to delete"),
-        include_children: z.boolean().optional().default(false).describe(
-          "If true, delete the node and all its descendants (entire subtree). " +
-          "If false (default), promote children up to the deleted node's parent."
+        include_children: z.boolean().optional().default(true).describe(
+          "If true (default), delete the node and all its descendants (entire subtree). " +
+          "If false, promote children up to the deleted node's parent."
         ),
       },
       outputSchema: {

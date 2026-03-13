@@ -301,13 +301,13 @@ Example input:
 
 ### `delete_node`
 
-Delete a node from a document. By default, children are promoted up to the deleted node's parent (the node is removed but its children survive in place). Set `include_children: true` to delete the entire subtree.
+Delete a node from a document. By default, the node and its entire subtree are deleted. Set `include_children: false` to promote children up to the deleted node's parent instead (the node is removed but its children survive in place).
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
 | `node_id` | string | yes | | Node ID to delete |
-| `include_children` | boolean | no | `false` | Delete entire subtree if true; promote children if false |
+| `include_children` | boolean | no | `true` | Delete entire subtree if true; promote children if false |
 
 **Response**:
 ```json
@@ -318,7 +318,7 @@ Delete a node from a document. By default, children are promoted up to the delet
 }
 ```
 
-`promoted_children` is present only when children were promoted (i.e. `include_children` is false and the node had children).
+`promoted_children` is present only when children were promoted (i.e. `include_children` was set to false and the node had children).
 
 ### `move_node`
 
