@@ -32,7 +32,7 @@ function createClientWithMockedRequest() {
 
     return {
       _code: "ok",
-      new_node_ids: ids.length > 0 ? ids : undefined,
+      new_node_ids: ids,
     } as unknown as EditDocumentResponse;
   };
 
