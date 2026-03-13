@@ -1,8 +1,4 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
-import { getConfig } from "../../config";
 import {
   createTestContext,
   callToolOk,
@@ -325,182 +321,94 @@ describe("cache invalidation after file operations", () => {
   // AccessController path cache so that ACL resolves correctly for
   // newly created, renamed, or moved files.
 
-  const CONFIG_PATH = join(tmpdir(), `dynalist-mcp-files-test-config-${process.pid}.json`);
-  let fakeMtime = Date.now();
-
-  function writeConfig(data: unknown) {
-    writeFileSync(CONFIG_PATH, JSON.stringify(data));
-    fakeMtime += 2000;
-    const secs = fakeMtime / 1000;
-    utimesSync(CONFIG_PATH, secs, secs);
-  }
-
-  function cleanupConfig() {
-    if (existsSync(CONFIG_PATH)) {
-      unlinkSync(CONFIG_PATH);
-    }
-    try {
-      getConfig();
-    } catch {
-      // Ignore errors from stale state.
-    }
-  }
-
   // These tests need their own context with ACL config active.
-  // We override the shared beforeEach/afterEach by using a nested setup.
 
   test("create_document invalidates path cache for new document", async () => {
-    // Clean up the shared context first.
     await ctx.cleanup();
-
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfig({
-      access: {
-        default: "deny",
-        rules: [{ path: "/Folder A/**", policy: "allow" }],
-      },
+    ctx = await createTestContext(standardSetup, {
+      access: { default: "deny", rules: [{ path: "/Folder A/**", policy: "allow" }] },
     });
 
-    ctx = await createTestContext(standardSetup);
-    try {
-      // Create a new doc inside Folder A.
-      const createResult = await callToolOk(ctx.mcpClient, "create_document", {
-        parent_folder_id: "folder_a",
-        title: "Cache Test Doc",
-      });
+    // Create a new doc inside Folder A.
+    const createResult = await callToolOk(ctx.mcpClient, "create_document", {
+      parent_folder_id: "folder_a",
+      title: "Cache Test Doc",
+    });
 
-      // If cache was invalidated, reading the new doc should succeed
-      // because it is under /Folder A/ which has allow policy.
-      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-        file_id: createResult.file_id as string,
-      });
-      expect(readResult.title).toBe("Cache Test Doc");
-    } finally {
-      cleanupConfig();
-      delete process.env.DYNALIST_MCP_CONFIG;
-    }
+    // If cache was invalidated, reading the new doc should succeed
+    // because it is under /Folder A/ which has allow policy.
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: createResult.file_id as string,
+    });
+    expect(readResult.title).toBe("Cache Test Doc");
   });
 
   test("rename_document invalidates path cache for renamed document", async () => {
     await ctx.cleanup();
-
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfig({
-      access: {
-        default: "allow",
-        rules: [],
-      },
+    ctx = await createTestContext(standardSetup, {
+      access: { default: "allow", rules: [] },
     });
 
-    ctx = await createTestContext(standardSetup);
-    try {
-      // Rename doc1 and verify it is still accessible.
-      await callToolOk(ctx.mcpClient, "rename_document", {
-        file_id: "doc1",
-        title: "Renamed Cache Doc",
-      });
+    await callToolOk(ctx.mcpClient, "rename_document", {
+      file_id: "doc1",
+      title: "Renamed Cache Doc",
+    });
 
-      // The document should still be readable after rename.
-      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-        file_id: "doc1",
-      });
-      expect(readResult.title).toBe("Renamed Cache Doc");
-    } finally {
-      cleanupConfig();
-      delete process.env.DYNALIST_MCP_CONFIG;
-    }
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    expect(readResult.title).toBe("Renamed Cache Doc");
   });
 
   test("rename_folder invalidates path cache for documents under folder", async () => {
     await ctx.cleanup();
-
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfig({
-      access: {
-        default: "allow",
-        rules: [],
-      },
+    ctx = await createTestContext(standardSetup, {
+      access: { default: "allow", rules: [] },
     });
 
-    ctx = await createTestContext(standardSetup);
-    try {
-      // Rename the folder containing doc1.
-      await callToolOk(ctx.mcpClient, "rename_folder", {
-        file_id: "folder_a",
-        title: "Renamed Folder Cache",
-      });
+    await callToolOk(ctx.mcpClient, "rename_folder", {
+      file_id: "folder_a",
+      title: "Renamed Folder Cache",
+    });
 
-      // doc1 should still be readable under the renamed folder.
-      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-        file_id: "doc1",
-      });
-      expect(readResult.title).toBe("Test Document");
-    } finally {
-      cleanupConfig();
-      delete process.env.DYNALIST_MCP_CONFIG;
-    }
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    expect(readResult.title).toBe("Test Document");
   });
 
   test("move_document invalidates path cache for moved document", async () => {
     await ctx.cleanup();
-
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    // Both folders are allowed so the move can proceed.
-    writeConfig({
-      access: {
-        default: "allow",
-        rules: [],
-      },
+    ctx = await createTestContext(standardSetup, {
+      access: { default: "allow", rules: [] },
     });
 
-    ctx = await createTestContext(standardSetup);
-    try {
-      // Move doc1 from Folder A to Folder B.
-      await callToolOk(ctx.mcpClient, "move_document", {
-        file_id: "doc1",
-        parent_folder_id: "folder_b",
-      });
+    await callToolOk(ctx.mcpClient, "move_document", {
+      file_id: "doc1",
+      parent_folder_id: "folder_b",
+    });
 
-      // After the move, the path cache should be invalidated.
-      // doc1 should still be readable at its new location.
-      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-        file_id: "doc1",
-      });
-      expect(readResult.title).toBe("Test Document");
-    } finally {
-      cleanupConfig();
-      delete process.env.DYNALIST_MCP_CONFIG;
-    }
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    expect(readResult.title).toBe("Test Document");
   });
 
   test("move_folder invalidates path cache for moved folder", async () => {
     await ctx.cleanup();
-
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfig({
-      access: {
-        default: "allow",
-        rules: [],
-      },
+    ctx = await createTestContext(standardSetup, {
+      access: { default: "allow", rules: [] },
     });
 
-    ctx = await createTestContext(standardSetup);
-    try {
-      // Move folder_a (containing doc1) into folder_b.
-      await callToolOk(ctx.mcpClient, "move_folder", {
-        file_id: "folder_a",
-        parent_folder_id: "folder_b",
-      });
+    await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+      parent_folder_id: "folder_b",
+    });
 
-      // doc1 should still be readable under its moved parent.
-      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-        file_id: "doc1",
-      });
-      expect(readResult.title).toBe("Test Document");
-    } finally {
-      cleanupConfig();
-      delete process.env.DYNALIST_MCP_CONFIG;
-    }
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    expect(readResult.title).toBe("Test Document");
   });
 });
 

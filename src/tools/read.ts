@@ -614,27 +614,23 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         versions: z.record(z.string(), z.number()).describe(
           "Map of file ID to version number. -1 means the document was not found."
         ),
-        denied: z.array(z.string()).optional().describe(
-          "File IDs that were denied by access policy (IDs only, no metadata leaked)"
-        ),
       },
     },
     wrapToolHandler(async ({ file_ids }: { file_ids: string[] }) => {
       const config = getConfig();
       const policies = await ac.getPolicies(file_ids, config);
 
-      // Split into allowed and denied.
+      // Separate allowed from denied. Denied IDs get version -1
+      // (indistinguishable from not-found) to avoid confirming existence.
       const allowedIds: string[] = [];
-      const deniedIds: string[] = [];
+      const versions: Record<string, number> = {};
       for (const id of file_ids) {
         if (policies.get(id) === "deny") {
-          deniedIds.push(id);
+          versions[id] = -1;
         } else {
           allowedIds.push(id);
         }
       }
-
-      const versions: Record<string, number> = {};
 
       if (allowedIds.length > 0) {
         const response = await client.checkForUpdates(allowedIds);
@@ -643,12 +639,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         }
       }
 
-      const result: Record<string, unknown> = { versions };
-      if (deniedIds.length > 0) {
-        result.denied = deniedIds;
-      }
-
-      return makeResponse(result);
+      return makeResponse({ versions });
     })
   );
 }

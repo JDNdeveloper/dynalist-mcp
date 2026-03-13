@@ -3,7 +3,7 @@ import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { AccessController, requireAccess, type Policy } from "../access-control";
-import { getConfig, getConfigVersion, type Config } from "../config";
+import { getConfig, getConfigVersion, ConfigError, type Config } from "../config";
 import { DummyDynalistServer, MockDynalistClient } from "./dummy-server";
 
 // ─── Test helpers ────────────────────────────────────────────────────
@@ -534,10 +534,95 @@ describe("AccessController.getPolicies", () => {
   });
 });
 
+// ─── getPolicies ConfigError propagation ──────────────────────────────
+
+describe("AccessController.getPolicies ConfigError", () => {
+  test("validation failure throws ConfigError through batch path", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Typo Folder/**", policy: "deny" }],
+      },
+    });
+    await expect(ac.getPolicies(["da", "ds"], config)).rejects.toThrow(ConfigError);
+  });
+});
+
+// ─── Error message information leaks ─────────────────────────────────
+
+describe("ConfigError messages do not leak protected info", () => {
+  test("path drift error does not reveal rule path, id, or resolved path", async () => {
+    const { server, client } = setupServer();
+    server.files.get("fp")!.title = "Secret Renamed";
+
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
+      },
+    });
+
+    const err = await ac.getPolicy("da", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).not.toContain("/Private");
+    expect(err.message).not.toContain("fp");
+    expect(err.message).not.toContain("Secret Renamed");
+  });
+
+  test("missing id error does not reveal rule path or id", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Secret/**", policy: "deny", id: "gone123" }],
+      },
+    });
+
+    const err = await ac.getPolicy("da", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).not.toContain("/Secret");
+    expect(err.message).not.toContain("gone123");
+  });
+
+  test("unmatched path error does not reveal rule path", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Confidential/**", policy: "deny" }],
+      },
+    });
+
+    const err = await ac.getPolicy("da", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).not.toContain("/Confidential");
+  });
+
+  test("interior glob error does not reveal rule path", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Secret/*/Nested", policy: "deny" }],
+      },
+    });
+
+    const err = await ac.getPolicy("da", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).not.toContain("/Secret");
+  });
+});
+
 // ─── ID-anchored rules ──────────────────────────────────────────────
 
 describe("ID-anchored rules", () => {
-  test("id-anchored rule uses resolved path", async () => {
+  test("id-anchored rename throws ConfigError with corrected path", async () => {
     const { server, client } = setupServer();
     // Rename the folder so the path drifts from the rule's path pattern.
     const folder = server.files.get("fp")!;
@@ -552,11 +637,13 @@ describe("ID-anchored rules", () => {
     });
 
     // The rule's path says /Private/** but the folder is now /Renamed Private.
-    // ID anchoring resolves to the actual path.
-    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    // Path drift is a config error.
+    const err = await ac.getPolicy("ds", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).toContain("no longer matches its id");
   });
 
-  test("id-anchored rule where file was moved to a different folder", async () => {
+  test("id-anchored move throws ConfigError with corrected path", async () => {
     const { server, client } = setupServer();
 
     // Move /Private folder under /Folder B.
@@ -573,12 +660,13 @@ describe("ID-anchored rules", () => {
       },
     });
 
-    // ID resolution should find fp at /Folder B/Private, and apply the
-    // glob suffix. Secret is at /Folder B/Private/Secret.
-    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    // ID resolves to /Folder B/Private but config says /Private.
+    const err = await ac.getPolicy("ds", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).toContain("no longer matches its id");
   });
 
-  test("id-anchored rule with glob suffix preserves suffix on resolved path", async () => {
+  test("id-anchored path drift includes glob suffix in suggested fix", async () => {
     const { server, client } = setupServer();
 
     // Rename the folder. The rule uses /** suffix.
@@ -593,13 +681,13 @@ describe("ID-anchored rules", () => {
       },
     });
 
-    // The rule should resolve to /Moved Private/** and still deny descendants.
-    expect(await ac.getPolicy("ds", config)).toBe("deny");
-    // The folder itself should also match (/Moved Private matches /Moved Private/**).
-    expect(await ac.getPolicy("fp", config)).toBe("deny");
+    // The error message should not reveal the resolved path.
+    const err = await ac.getPolicy("ds", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).toContain("no longer matches its id");
   });
 
-  test("id-anchored rule where ID does not exist causes validation error (fail-closed)", async () => {
+  test("id-anchored rule where ID does not exist throws ConfigError", async () => {
     const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -610,11 +698,10 @@ describe("ID-anchored rules", () => {
     });
 
     // Validation should fail because the ID is not in the tree.
-    // Fail-closed means all access is denied.
-    expect(await ac.getPolicy("da", config)).toBe("deny");
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
   });
 
-  test("id-anchored rule path drift: rule still works using id-resolved path", async () => {
+  test("id-anchored rule path drift throws ConfigError with corrected path", async () => {
     const { server, client } = setupServer();
 
     // Rename Private to "Secure" so the path drifts.
@@ -630,10 +717,10 @@ describe("ID-anchored rules", () => {
       },
     });
 
-    // Despite path drift, the ID-resolved path /Secure/** should be used.
-    expect(await ac.getPolicy("ds", config)).toBe("deny");
-    // Other files should be unaffected.
-    expect(await ac.getPolicy("da", config)).toBe("allow");
+    // Path drift is a ConfigError.
+    const err = await ac.getPolicy("ds", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).toContain("no longer matches its id");
   });
 });
 
@@ -695,7 +782,7 @@ describe("buildPathMap (via getPolicy)", () => {
     const config = makeConfig({
       access: {
         default: "deny",
-        rules: [{ path: "/Root", policy: "allow" }],
+        rules: [{ path: "/Folder A/**", policy: "allow" }],
       },
     });
     // Root file should get default deny since it has no path.
@@ -736,7 +823,7 @@ describe("validateRules (via getPolicy)", () => {
     expect(await ac.getPolicy("da", config)).toBe("allow");
   });
 
-  test("rule path that does not match any file causes fail-closed", async () => {
+  test("rule path that does not match any file throws ConfigError", async () => {
     const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -745,8 +832,8 @@ describe("validateRules (via getPolicy)", () => {
         rules: [{ path: "/Typo Folder/**", policy: "deny" }],
       },
     });
-    // Validation fails because /Typo Folder does not exist. Fail-closed.
-    expect(await ac.getPolicy("da", config)).toBe("deny");
+    // Validation fails because /Typo Folder does not exist.
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
   });
 
   test("id-anchored rule with valid ID: no error", async () => {
@@ -763,7 +850,7 @@ describe("validateRules (via getPolicy)", () => {
     expect(await ac.getPolicy("ds", config)).toBe("deny");
   });
 
-  test("id-anchored rule with non-existent ID causes fail-closed", async () => {
+  test("id-anchored rule with non-existent ID throws ConfigError", async () => {
     const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -772,11 +859,11 @@ describe("validateRules (via getPolicy)", () => {
         rules: [{ path: "/Whatever/**", policy: "deny", id: "bad_id" }],
       },
     });
-    // Non-existent ID triggers validation error. Fail-closed denies all.
-    expect(await ac.getPolicy("da", config)).toBe("deny");
+    // Non-existent ID triggers ConfigError.
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
   });
 
-  test("id-anchored rule with path drift: rule still works", async () => {
+  test("id-anchored rule with path drift throws ConfigError", async () => {
     const { server, client } = setupServer();
     // Rename Private to something else to cause path drift.
     server.files.get("fp")!.title = "Renamed";
@@ -789,12 +876,11 @@ describe("validateRules (via getPolicy)", () => {
         rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
       },
     });
-    // Rule still works using ID-resolved path, not the stale path in config.
-    expect(await ac.getPolicy("ds", config)).toBe("deny");
-    expect(await ac.getPolicy("da", config)).toBe("allow");
+    // Path drift is now a ConfigError, not a silent warning.
+    await expect(ac.getPolicy("ds", config)).rejects.toThrow(ConfigError);
   });
 
-  test("validation errors cause fail-closed: all access denied", async () => {
+  test("validation errors throw ConfigError", async () => {
     const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -803,16 +889,15 @@ describe("validateRules (via getPolicy)", () => {
         rules: [{ path: "/Does Not Exist/**", policy: "read" }],
       },
     });
-    // The path does not match any file. Validation fails, fail-closed.
-    expect(await ac.getPolicy("da", config)).toBe("deny");
-    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    // The path does not match any file. Validation throws ConfigError.
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
   });
 });
 
 // ─── Rule validation: interior globs ─────────────────────────────────
 
 describe("validateRules: interior globs", () => {
-  test("interior glob /foo/*/bar causes fail-closed", async () => {
+  test("interior glob /foo/*/bar throws ConfigError", async () => {
     const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -821,11 +906,10 @@ describe("validateRules: interior globs", () => {
         rules: [{ path: "/Folder A/*/Doc A", policy: "deny" }],
       },
     });
-    // Interior glob is unsupported. Validation fails, fail-closed.
-    expect(await ac.getPolicy("da", config)).toBe("deny");
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
   });
 
-  test("interior glob with ID anchor causes fail-closed", async () => {
+  test("interior glob with ID anchor throws ConfigError", async () => {
     const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -834,10 +918,10 @@ describe("validateRules: interior globs", () => {
         rules: [{ path: "/Private/*/Secret", policy: "deny", id: "fp" }],
       },
     });
-    expect(await ac.getPolicy("da", config)).toBe("deny");
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
   });
 
-  test("multiple glob segments /foo/**/bar/* causes fail-closed", async () => {
+  test("multiple glob segments /foo/**/bar/* throws ConfigError", async () => {
     const { client } = setupServer();
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -846,7 +930,7 @@ describe("validateRules: interior globs", () => {
         rules: [{ path: "/Folder A/**/Sub/*", policy: "deny" }],
       },
     });
-    expect(await ac.getPolicy("da", config)).toBe("deny");
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
   });
 
   test("trailing /** with ID anchor passes validation", async () => {

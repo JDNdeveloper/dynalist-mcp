@@ -1,8 +1,4 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
-import { getConfig } from "../../config";
 import {
   createTestContext,
   callTool,
@@ -1090,7 +1086,7 @@ describe("insert_nodes", () => {
     expect(err.error).toBe("InvalidInput");
   });
 
-  test("node_id mismatching reference parent returns error", async () => {
+  test("node_id mismatching reference parent returns error without leaking parent id", async () => {
     // n1a's parent is n1, but we pass node_id: "n2".
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -1100,6 +1096,8 @@ describe("insert_nodes", () => {
       reference_node_id: "n1a",
     });
     expect(err.error).toBe("InvalidInput");
+    // The error message must not reveal the actual parent node id (n1).
+    expect(err.message).not.toContain("n1");
   });
 
   test("nonexistent reference_node_id returns error", async () => {
@@ -1145,27 +1143,6 @@ describe("send_to_inbox", () => {
 
   // ─── 13b: checkbox behavior ────────────────────────────────────────
 
-  const INBOX_CONFIG_PATH = join(tmpdir(), `dynalist-mcp-inbox-test-config-${process.pid}.json`);
-  let fakeMtime = Date.now();
-
-  function writeInboxConfig(data: unknown) {
-    writeFileSync(INBOX_CONFIG_PATH, JSON.stringify(data));
-    fakeMtime += 2000;
-    const secs = fakeMtime / 1000;
-    utimesSync(INBOX_CONFIG_PATH, secs, secs);
-  }
-
-  function cleanupInboxConfig() {
-    if (existsSync(INBOX_CONFIG_PATH)) {
-      unlinkSync(INBOX_CONFIG_PATH);
-    }
-    try {
-      getConfig();
-    } catch {
-      // Ignore errors from stale config state.
-    }
-  }
-
   test("default config (defaultCheckbox: false) sends with checkbox false", async () => {
     // Default config has inbox.defaultCheckbox = false. The handler
     // always passes the effective checkbox value to the API.
@@ -1180,23 +1157,14 @@ describe("send_to_inbox", () => {
 
   test("config inbox.defaultCheckbox: true adds checkbox by default", async () => {
     await ctx.cleanup();
+    ctx = await createTestContext(standardSetup, { inbox: { defaultCheckbox: true } });
+    await callToolOk(ctx.mcpClient, "send_to_inbox", {
+      content: "Checkbox default item",
+    });
 
-    process.env.DYNALIST_MCP_CONFIG = INBOX_CONFIG_PATH;
-    writeInboxConfig({ inbox: { defaultCheckbox: true } });
-
-    ctx = await createTestContext(standardSetup);
-    try {
-      await callToolOk(ctx.mcpClient, "send_to_inbox", {
-        content: "Checkbox default item",
-      });
-
-      const doc = ctx.server.documents.get("inbox_doc")!;
-      const node = doc.nodes.find((n) => n.content === "Checkbox default item")!;
-      expect(node.checkbox).toBe(true);
-    } finally {
-      cleanupInboxConfig();
-      delete process.env.DYNALIST_MCP_CONFIG;
-    }
+    const doc = ctx.server.documents.get("inbox_doc")!;
+    const node = doc.nodes.find((n) => n.content === "Checkbox default item")!;
+    expect(node.checkbox).toBe(true);
   });
 
   test("explicit checkbox: true overrides config default of false", async () => {
@@ -1212,25 +1180,16 @@ describe("send_to_inbox", () => {
 
   test("explicit checkbox: false overrides config default of true", async () => {
     await ctx.cleanup();
+    ctx = await createTestContext(standardSetup, { inbox: { defaultCheckbox: true } });
+    await callToolOk(ctx.mcpClient, "send_to_inbox", {
+      content: "No checkbox override",
+      checkbox: false,
+    });
 
-    process.env.DYNALIST_MCP_CONFIG = INBOX_CONFIG_PATH;
-    writeInboxConfig({ inbox: { defaultCheckbox: true } });
-
-    ctx = await createTestContext(standardSetup);
-    try {
-      await callToolOk(ctx.mcpClient, "send_to_inbox", {
-        content: "No checkbox override",
-        checkbox: false,
-      });
-
-      const doc = ctx.server.documents.get("inbox_doc")!;
-      const node = doc.nodes.find((n) => n.content === "No checkbox override")!;
-      // When checkbox is explicitly false, it is passed through to the API.
-      expect(node.checkbox).toBe(false);
-    } finally {
-      cleanupInboxConfig();
-      delete process.env.DYNALIST_MCP_CONFIG;
-    }
+    const doc = ctx.server.documents.get("inbox_doc")!;
+    const node = doc.nodes.find((n) => n.content === "No checkbox override")!;
+    // When checkbox is explicitly false, it is passed through to the API.
+    expect(node.checkbox).toBe(false);
   });
 
   // ─── 13c: response shape ───────────────────────────────────────────

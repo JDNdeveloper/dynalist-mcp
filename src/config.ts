@@ -92,6 +92,19 @@ export function getConfigVersion(): number {
   return configVersion;
 }
 
+// ─── Test injection ───────────────────────────────────────────────────
+
+let injectedConfig: Config | null = null;
+
+/**
+ * Inject a config for testing. When set, getConfig() returns it
+ * directly without reading any file. Pass null to clear.
+ */
+export function setTestConfig(config: Config | null): void {
+  injectedConfig = config;
+  configVersion++;
+}
+
 function getConfigPath(): string {
   return process.env.DYNALIST_MCP_CONFIG ?? join(homedir(), ".dynalist-mcp.json");
 }
@@ -101,6 +114,7 @@ function getConfigPath(): string {
  * file exists but is invalid (fail-closed). Called on every tool invocation.
  */
 export function getConfig(): Config {
+  if (injectedConfig !== null) return injectedConfig;
   const configPath = getConfigPath();
 
   let mtimeMs: number | null = null;

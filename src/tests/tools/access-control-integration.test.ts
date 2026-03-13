@@ -1,42 +1,12 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
 import {
   createTestContext,
   callToolOk,
   callToolError,
   type TestContext,
 } from "./test-helpers";
+import { setTestConfig } from "../../config";
 import { DummyDynalistServer } from "../dummy-server";
-import { getConfig } from "../../config";
-
-// ─── Config file helpers ──────────────────────────────────────────────
-
-const TEST_CONFIG_PATH = join(tmpdir(), `dynalist-mcp-acl-test-${process.pid}.json`);
-
-// Monotonically increasing fake mtime to guarantee the config module
-// sees a different mtime on each write.
-let fakeMtime = Date.now();
-
-function writeTestConfig(data: unknown) {
-  writeFileSync(TEST_CONFIG_PATH, JSON.stringify(data));
-  fakeMtime += 2000;
-  const secs = fakeMtime / 1000;
-  utimesSync(TEST_CONFIG_PATH, secs, secs);
-}
-
-function cleanupConfig() {
-  if (existsSync(TEST_CONFIG_PATH)) {
-    unlinkSync(TEST_CONFIG_PATH);
-  }
-  // Let the config module detect deletion and reset internal state.
-  try {
-    getConfig();
-  } catch {
-    // Ignore errors from stale state.
-  }
-}
 
 // ─── Shared setup ─────────────────────────────────────────────────────
 
@@ -92,38 +62,41 @@ function aclSetup(server: DummyDynalistServer): void {
   server.setInbox("inbox_doc", "inbox_root");
 }
 
-/**
- * Write the ACL config with deny default and explicit rules for
- * three of the four folders. The "Unruled Folder" has no rule,
- * so it falls back to the default policy (deny).
- */
-function writeAclConfig() {
-  writeTestConfig({
-    access: {
-      default: "deny",
-      rules: [
-        { path: "/Denied Folder/**", policy: "deny" },
-        { path: "/Denied Folder/Allowed In Denied Doc", policy: "allow" },
-        { path: "/ReadOnly Folder/**", policy: "read" },
-        { path: "/Allowed Folder/**", policy: "allow" },
-        { path: "/Inbox", policy: "allow" },
-      ],
-    },
+/** Build a full config with overrides applied on top of test defaults. */
+function updateTestConfig(overrides: Record<string, unknown>) {
+  setTestConfig({
+    readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+    sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
+    inbox: { defaultCheckbox: false },
+    readOnly: false,
+    cache: { ttlSeconds: 300 },
+    logLevel: "warn",
+    ...ACL_CONFIG,
+    ...overrides,
   });
 }
+
+const ACL_CONFIG = {
+  access: {
+    default: "deny" as const,
+    rules: [
+      { path: "/Denied Folder/**", policy: "deny" as const },
+      { path: "/Denied Folder/Allowed In Denied Doc", policy: "allow" as const },
+      { path: "/ReadOnly Folder/**", policy: "read" as const },
+      { path: "/Allowed Folder/**", policy: "allow" as const },
+      { path: "/Inbox", policy: "allow" as const },
+    ],
+  },
+};
 
 let ctx: TestContext;
 
 beforeEach(async () => {
-  process.env.DYNALIST_MCP_CONFIG = TEST_CONFIG_PATH;
-  writeAclConfig();
-  ctx = await createTestContext(aclSetup);
+  ctx = await createTestContext(aclSetup, ACL_CONFIG);
 });
 
 afterEach(async () => {
   await ctx.cleanup();
-  cleanupConfig();
-  delete process.env.DYNALIST_MCP_CONFIG;
 });
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -359,7 +332,7 @@ describe("move_node with ACL", () => {
 
 describe("send_to_inbox with ACL", () => {
   test("global readOnly blocks inbox with correct message", async () => {
-    writeTestConfig({
+    updateTestConfig({
       readOnly: true,
       access: {
         default: "deny",
@@ -387,7 +360,7 @@ describe("send_to_inbox with ACL", () => {
   });
 
   test("deny-all default blocks inbox when no explicit inbox rule", async () => {
-    writeTestConfig({
+    updateTestConfig({
       access: {
         default: "deny",
         rules: [],
@@ -400,7 +373,7 @@ describe("send_to_inbox with ACL", () => {
   });
 
   test("read-all default blocks inbox when no explicit inbox rule", async () => {
-    writeTestConfig({
+    updateTestConfig({
       access: {
         default: "read",
         rules: [],
@@ -413,7 +386,7 @@ describe("send_to_inbox with ACL", () => {
   });
 
   test("global read rule blocks inbox even with allow default", async () => {
-    writeTestConfig({
+    updateTestConfig({
       access: {
         default: "allow",
         rules: [
@@ -428,7 +401,7 @@ describe("send_to_inbox with ACL", () => {
   });
 
   test("explicit inbox allow overrides global read rule", async () => {
-    writeTestConfig({
+    updateTestConfig({
       access: {
         default: "read",
         rules: [
@@ -582,14 +555,13 @@ describe("check_document_versions with ACL", () => {
     expect(versions.allowed_doc).toBeGreaterThan(0);
   });
 
-  test("denied documents appear in denied array", async () => {
+  test("denied documents get version -1 (indistinguishable from not-found)", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["denied_doc"],
     });
-    const denied = result.denied as string[];
-    expect(denied).toContain("denied_doc");
     const versions = result.versions as Record<string, number>;
-    expect(versions.denied_doc).toBeUndefined();
+    expect(versions.denied_doc).toBe(-1);
+    expect(result.denied).toBeUndefined();
   });
 
   test("read-policy documents appear in versions (read is sufficient)", async () => {
@@ -600,25 +572,24 @@ describe("check_document_versions with ACL", () => {
     expect(versions.readonly_doc).toBeGreaterThan(0);
   });
 
-  test("mixed batch populates both versions and denied", async () => {
+  test("mixed batch: denied gets -1, allowed and read get real versions", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["allowed_doc", "denied_doc", "readonly_doc"],
     });
     const versions = result.versions as Record<string, number>;
-    const denied = result.denied as string[];
     expect(versions.allowed_doc).toBeGreaterThan(0);
     expect(versions.readonly_doc).toBeGreaterThan(0);
-    expect(denied).toContain("denied_doc");
+    expect(versions.denied_doc).toBe(-1);
+    expect(result.denied).toBeUndefined();
   });
 
-  test("all-denied batch returns empty versions and populated denied", async () => {
+  test("all-denied batch returns all versions as -1", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["denied_doc"],
     });
     const versions = result.versions as Record<string, number>;
-    const denied = result.denied as string[];
-    expect(Object.keys(versions)).toHaveLength(0);
-    expect(denied).toContain("denied_doc");
+    expect(versions.denied_doc).toBe(-1);
+    expect(result.denied).toBeUndefined();
   });
 
   test("all-allowed batch returns populated versions without denied field", async () => {
@@ -781,7 +752,7 @@ describe("move_document with ACL", () => {
     // Create a second allowed folder to move into.
     ctx.server.addFolder("allowed_folder_2", "Allowed Folder 2", "root_folder");
     // Add a rule for the new folder.
-    writeTestConfig({
+    updateTestConfig({
       access: {
         default: "deny",
         rules: [
@@ -841,7 +812,7 @@ describe("move_folder with ACL", () => {
   test("allow source + allow destination succeeds", async () => {
     // Create a second allowed folder to move into.
     ctx.server.addFolder("allowed_folder_2", "Allowed Folder 2", "root_folder");
-    writeTestConfig({
+    updateTestConfig({
       access: {
         default: "deny",
         rules: [
@@ -871,7 +842,7 @@ describe("move_folder with ACL", () => {
 describe("global readOnly: true overrides", () => {
   // Helper to switch to a readOnly config while keeping ACL rules.
   function writeReadOnlyConfig() {
-    writeTestConfig({
+    updateTestConfig({
       readOnly: true,
       access: {
         default: "deny",

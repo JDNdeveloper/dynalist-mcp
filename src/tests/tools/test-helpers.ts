@@ -7,6 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { AccessController } from "../../access-control";
+import { setTestConfig, type Config } from "../../config";
 import { registerReadTools } from "../../tools/read";
 import { registerWriteTools } from "../../tools/write";
 import { registerStructureTools } from "../../tools/structure";
@@ -29,7 +30,20 @@ export interface TestContext {
  */
 export async function createTestContext(
   setupFn?: (server: DummyDynalistServer) => void,
+  config?: Partial<Config>,
 ): Promise<TestContext> {
+  // Inject a default config to isolate tests from the developer's
+  // real config file. Tests can pass overrides via the config parameter.
+  setTestConfig({
+    readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+    sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
+    inbox: { defaultCheckbox: false },
+    readOnly: false,
+    cache: { ttlSeconds: 300 },
+    logLevel: "warn",
+    ...config,
+  });
+
   const server = new DummyDynalistServer();
   server.init();
   if (setupFn) {
@@ -59,6 +73,7 @@ export async function createTestContext(
     cleanup: async () => {
       await mcpClient.close();
       await mcpServer.close();
+      setTestConfig(null);
     },
   };
 }

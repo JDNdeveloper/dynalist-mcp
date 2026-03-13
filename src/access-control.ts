@@ -8,7 +8,7 @@
 
 import type { DynalistClient, DynalistFile } from "./dynalist-client";
 import type { Config, AccessRule } from "./config";
-import { log, getConfigVersion } from "./config";
+import { log, getConfigVersion, ConfigError } from "./config";
 
 export type Policy = "allow" | "read" | "deny";
 
@@ -61,28 +61,12 @@ function specificityScore(type: MatchType, prefixLength: number): number {
  * Evaluate rules against a file path and return the effective policy.
  * Most-specific match wins; falls back to the default policy.
  */
-/**
- * For ID-anchored rules, replace the base path with the ID-resolved
- * path while preserving the original glob suffix.
- */
-function resolveRulePath(rule: AccessRule, pathMap: Map<string, string>): string {
-  if (!rule.id) return rule.path;
-  const resolvedBase = pathMap.get(rule.id);
-  if (!resolvedBase) return rule.path;
-  if (rule.path.endsWith("/**")) return resolvedBase + "/**";
-  if (rule.path.endsWith("/*")) return resolvedBase + "/*";
-  return resolvedBase;
-}
-
-function evaluateRules(filePath: string, rules: AccessRule[], defaultPolicy: Policy, pathMap: Map<string, string>): Policy {
+function evaluateRules(filePath: string, rules: AccessRule[], defaultPolicy: Policy): Policy {
   let bestMatch: RuleMatch | null = null;
   let bestScore = -1;
 
   for (const rule of rules) {
-    // If the rule has an ID, use the ID-resolved path (authoritative),
-    // preserving the original glob suffix.
-    const effectivePath = resolveRulePath(rule, pathMap);
-    const match = matchRule(effectivePath, filePath);
+    const match = matchRule(rule.path, filePath);
     if (!match) continue;
 
     const score = specificityScore(match.type, match.prefixLength);
@@ -154,6 +138,11 @@ function buildPathMap(files: DynalistFile[], rootFileId: string): Map<string, st
 /**
  * Log warnings for rules with ID mismatches and for ambiguous
  * duplicate-title paths.
+ *
+ * IMPORTANT: Strings pushed to `errors` are agent-facing (thrown as
+ * ConfigError and returned via wrapToolHandler). They must never
+ * include rule paths, file IDs, resolved paths, or titles. Use
+ * log() for detailed diagnostics visible only to the server operator.
  */
 function validateRules(rules: AccessRule[], pathMap: Map<string, string>): string[] {
   const errors: string[] = [];
@@ -164,9 +153,10 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
   for (const rule of rules) {
     const base = rule.path.replace(/\/\*\*?$/, "");
     if (base.includes("*")) {
+      log("error", `Access rule '${rule.path}' contains an unsupported interior glob.`);
       errors.push(
-        `Access rule path '${rule.path}' contains an unsupported interior glob. ` +
-        `Only trailing '/**' and '/*' patterns are supported.`
+        "An access rule contains an unsupported interior glob. " +
+        "Only trailing '/**' and '/*' patterns are supported."
       );
     }
   }
@@ -178,25 +168,23 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
       // ID-anchored: the ID must exist in the tree.
       const resolvedPath = pathMap.get(rule.id);
       if (!resolvedPath) {
-        errors.push(`Access rule for '${rule.path}' has id '${rule.id}' which does not exist in the file tree.`);
+        log("error", `Access rule '${rule.path}' has id '${rule.id}' which does not exist in the file tree.`);
+        errors.push("An id-anchored rule references an id that does not exist in the file tree.");
         continue;
       }
       // Check for path drift.
       const ruleBase = rule.path.replace(/\/\*\*?$/, "");
       if (resolvedPath !== ruleBase) {
-        log("warn",
-          `Access rule for '${rule.path}' has id '${rule.id}' which now resolves to '${resolvedPath}'. Update your config.`
-        );
+        log("error", `Access rule '${rule.path}' has id '${rule.id}' which now resolves to '${resolvedPath}'.`);
+        errors.push("An id-anchored rule's path no longer matches its id.");
       }
     } else {
       // Path-only: the base path must match at least one file/folder.
       const ruleBase = rule.path.replace(/\/\*\*?$/, "");
       // Root-level globs like /** and /* produce an empty ruleBase, which is valid.
       if (ruleBase !== "" && !allPaths.has(ruleBase)) {
-        errors.push(
-          `Access rule path '${rule.path}' does not match any file or folder in the account. ` +
-          `Check for typos, or remove the rule if the path was deleted.`
-        );
+        log("error", `Access rule path '${rule.path}' does not match any file or folder in the account.`);
+        errors.push("A path-only rule does not match any file or folder in the account.");
       }
     }
   }
@@ -272,15 +260,17 @@ export class AccessController {
       if (config.access?.rules) {
         const errors = validateRules(config.access.rules, pathMap);
         if (errors.length > 0) {
-          log("error", `Access rule validation failed:\n  ${errors.join("\n  ")}`);
-          // Fail closed: return null so all tools are denied.
-          return null;
+          throw new ConfigError(
+            `Access rule validation failed:\n  ${errors.join("\n  ")}`
+          );
         }
       }
 
       this.cache = { pathMap, fetchedAt: Date.now() };
       return pathMap;
     } catch (err) {
+      // Config errors must propagate to the agent, not be swallowed.
+      if (err instanceof ConfigError) throw err;
       log("error", `Failed to fetch file tree for access control: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
@@ -321,7 +311,7 @@ export class AccessController {
       return access.default;
     }
 
-    return evaluateRules(filePath, access.rules, access.default, pathMap);
+    return evaluateRules(filePath, access.rules, access.default);
   }
 
   /**
@@ -355,7 +345,7 @@ export class AccessController {
         result.set(id, policy);
         if (policy === "deny") hasDenials = true;
       } else {
-        const policy = evaluateRules(filePath, access.rules, access.default, pathMap);
+        const policy = evaluateRules(filePath, access.rules, access.default);
         result.set(id, policy);
         if (policy === "deny") hasDenials = true;
       }
@@ -376,7 +366,7 @@ export class AccessController {
         if (!filePath) {
           result.set(id, access.default);
         } else {
-          result.set(id, evaluateRules(filePath, access.rules, access.default, freshPathMap));
+          result.set(id, evaluateRules(filePath, access.rules, access.default));
         }
       }
     }

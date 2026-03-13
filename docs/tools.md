@@ -192,12 +192,11 @@ Check version numbers for documents without fetching content. Useful for detecti
 **Response**:
 ```json
 {
-  "versions": { "file_id_1": 42, "file_id_2": 17 },
-  "denied": ["file_id_3"]
+  "versions": { "file_id_1": 42, "file_id_2": 17, "file_id_3": -1 }
 }
 ```
 
-A version of `-1` means the document was not found. `denied` lists file IDs rejected by access control (IDs only, no metadata leaked).
+A version of `-1` means the document was not found or access was denied.
 
 ## Write tools
 

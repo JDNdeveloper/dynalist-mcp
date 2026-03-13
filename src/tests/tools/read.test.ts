@@ -1,7 +1,4 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
 import {
   createTestContext,
   callToolOk,
@@ -11,7 +8,6 @@ import {
   type TestContext,
 } from "./test-helpers";
 import { DummyDynalistServer } from "../dummy-server";
-import { getConfig } from "../../config";
 
 let ctx: TestContext;
 
@@ -1695,30 +1691,6 @@ describe("check_document_versions", () => {
 // sizeWarning settings from config are applied correctly.
 // ═════════════════════════════════════════════════════════════════════════
 
-const CONFIG_PATH = join(tmpdir(), `dynalist-mcp-read-test-${process.pid}.json`);
-
-// Monotonically increasing fake mtime so the config module always
-// detects a change when we rewrite the file.
-let configFakeMtime = Date.now();
-
-function writeConfigFile(data: unknown) {
-  writeFileSync(CONFIG_PATH, JSON.stringify(data));
-  configFakeMtime += 2000;
-  const secs = configFakeMtime / 1000;
-  utimesSync(CONFIG_PATH, secs, secs);
-}
-
-function removeConfigFile() {
-  if (existsSync(CONFIG_PATH)) {
-    unlinkSync(CONFIG_PATH);
-  }
-  // Let the config module detect deletion and reset internal state.
-  try {
-    getConfig();
-  } catch {
-    // Ignore errors from stale state.
-  }
-}
 
 // ─── 4b. max_depth config defaults ────────────────────────────────────
 
@@ -1727,8 +1699,6 @@ describe("read_document config defaults: max_depth", () => {
 
   afterEach(async () => {
     await cfgCtx.cleanup();
-    removeConfigFile();
-    delete process.env.DYNALIST_MCP_CONFIG;
   });
 
   test("default max_depth (omitted) uses config default of 5", async () => {
@@ -1768,9 +1738,6 @@ describe("read_document config defaults: max_depth", () => {
   });
 
   test("custom readDefaults.maxDepth in config overrides hardcoded default", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ readDefaults: { maxDepth: 2 } });
-
     function treeSetup(server: DummyDynalistServer): void {
       server.addDocument("cfg_doc", "Config Doc", "root_folder", [
         server.makeNode("root", "Config Doc", ["a1"]),
@@ -1780,7 +1747,7 @@ describe("read_document config defaults: max_depth", () => {
       ]);
     }
 
-    cfgCtx = await createTestContext(treeSetup);
+    cfgCtx = await createTestContext(treeSetup, { readDefaults: { maxDepth: 2, includeCollapsedChildren: false, includeNotes: true, includeChecked: true } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
       file_id: "cfg_doc",
@@ -1795,10 +1762,6 @@ describe("read_document config defaults: max_depth", () => {
   });
 
   test("explicit max_depth parameter overrides config default", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    // Set config maxDepth to 1.
-    writeConfigFile({ readDefaults: { maxDepth: 1 } });
-
     function treeSetup(server: DummyDynalistServer): void {
       server.addDocument("cfg_doc2", "Config Doc 2", "root_folder", [
         server.makeNode("root", "Config Doc 2", ["b1"]),
@@ -1807,7 +1770,7 @@ describe("read_document config defaults: max_depth", () => {
       ]);
     }
 
-    cfgCtx = await createTestContext(treeSetup);
+    cfgCtx = await createTestContext(treeSetup, { readDefaults: { maxDepth: 1, includeCollapsedChildren: false, includeNotes: true, includeChecked: true } });
 
     // Explicit max_depth: 10 should override the config's maxDepth: 1.
     const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
@@ -1830,15 +1793,10 @@ describe("read_document config defaults: include_notes", () => {
 
   afterEach(async () => {
     await cfgCtx.cleanup();
-    removeConfigFile();
-    delete process.env.DYNALIST_MCP_CONFIG;
   });
 
   test("config default readDefaults.includeNotes: false omits notes when parameter not specified", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ readDefaults: { includeNotes: false } });
-
-    cfgCtx = await createTestContext(standardSetup);
+    cfgCtx = await createTestContext(standardSetup, { readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: false, includeChecked: true } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
       file_id: "doc1",
@@ -1863,8 +1821,6 @@ describe("read_document config defaults: include_checked", () => {
 
   afterEach(async () => {
     await cfgCtx.cleanup();
-    removeConfigFile();
-    delete process.env.DYNALIST_MCP_CONFIG;
   });
 
   test("include_checked false: children_count on parent reflects original count, not filtered count", async () => {
@@ -1886,10 +1842,7 @@ describe("read_document config defaults: include_checked", () => {
   });
 
   test("config default readDefaults.includeChecked: false omits checked nodes when parameter not specified", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ readDefaults: { includeChecked: false } });
-
-    cfgCtx = await createTestContext(standardSetup);
+    cfgCtx = await createTestContext(standardSetup, { readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: false } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
       file_id: "doc1",
@@ -1909,14 +1862,9 @@ describe("read_document size warning content", () => {
 
   afterEach(async () => {
     await cfgCtx.cleanup();
-    removeConfigFile();
-    delete process.env.DYNALIST_MCP_CONFIG;
   });
 
   test("warning includes suggestions for max_depth and node_id", async () => {
-    // Use a low warning threshold so we do not need massive test data.
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
 
     function bigSetup(server: DummyDynalistServer): void {
       const childIds: string[] = [];
@@ -1930,7 +1878,7 @@ describe("read_document size warning content", () => {
       server.addDocument("warn_doc", "Big Doc", "root_folder", nodes);
     }
 
-    cfgCtx = await createTestContext(bigSetup);
+    cfgCtx = await createTestContext(bigSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
       file_id: "warn_doc",
@@ -1950,8 +1898,6 @@ describe("search_in_document size warnings", () => {
 
   afterEach(async () => {
     await cfgCtx.cleanup();
-    removeConfigFile();
-    delete process.env.DYNALIST_MCP_CONFIG;
   });
 
   // Setup function that creates many searchable nodes.
@@ -1968,10 +1914,7 @@ describe("search_in_document size warnings", () => {
   }
 
   test("large result set triggers size warning", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
-
-    cfgCtx = await createTestContext(manyNodesSetup);
+    cfgCtx = await createTestContext(manyNodesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
       file_id: "search_warn_doc",
@@ -1981,10 +1924,7 @@ describe("search_in_document size warnings", () => {
   });
 
   test("warning suggests narrowing query, parent_levels 0, include_children false", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
-
-    cfgCtx = await createTestContext(manyNodesSetup);
+    cfgCtx = await createTestContext(manyNodesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
       file_id: "search_warn_doc",
@@ -1997,13 +1937,8 @@ describe("search_in_document size warnings", () => {
   });
 
   test("bypass_warning true on large result under max threshold succeeds", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
     // Set warning low but max high so result is between thresholds.
-    writeConfigFile({
-      sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 100000 },
-    });
-
-    cfgCtx = await createTestContext(manyNodesSetup);
+    cfgCtx = await createTestContext(manyNodesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 100000 } });
 
     // First call should trigger warning.
     const first = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
@@ -2174,8 +2109,6 @@ describe("get_recent_changes size warnings", () => {
 
   afterEach(async () => {
     await cfgCtx.cleanup();
-    removeConfigFile();
-    delete process.env.DYNALIST_MCP_CONFIG;
   });
 
   function manyChangesSetup(server: DummyDynalistServer): void {
@@ -2191,10 +2124,7 @@ describe("get_recent_changes size warnings", () => {
   }
 
   test("large result triggers size warning", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
-
-    cfgCtx = await createTestContext(manyChangesSetup);
+    cfgCtx = await createTestContext(manyChangesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "changes_doc",
@@ -2204,10 +2134,7 @@ describe("get_recent_changes size warnings", () => {
   });
 
   test("warning suggests narrowing time period, filtering by type, parent_levels 0", async () => {
-    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
-    writeConfigFile({ sizeWarning: { warningTokenThreshold: 50 } });
-
-    cfgCtx = await createTestContext(manyChangesSetup);
+    cfgCtx = await createTestContext(manyChangesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "changes_doc",

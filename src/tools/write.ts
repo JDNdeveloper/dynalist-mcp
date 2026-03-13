@@ -305,7 +305,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
         // If node_id was provided, validate it matches the reference node's parent.
         if (node_id !== undefined && node_id !== refInfo.parentId) {
-          return makeErrorResponse("InvalidInput", `node_id '${node_id}' does not match the parent of reference_node_id ('${refInfo.parentId}').`);
+          return makeErrorResponse("InvalidInput", "node_id does not match the parent of reference_node_id.");
         }
 
         parentNodeId = refInfo.parentId;
