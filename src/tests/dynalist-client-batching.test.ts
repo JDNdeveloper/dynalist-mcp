@@ -33,7 +33,7 @@ function createClientWithMockedRequest() {
     return {
       _code: "ok",
       new_node_ids: ids,
-    } as unknown as EditDocumentResponse;
+    } as Pick<EditDocumentResponse, "new_node_ids">;
   };
 
   return { client, calls };

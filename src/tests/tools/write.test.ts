@@ -955,7 +955,7 @@ describe("insert_nodes", () => {
     expect(newNode.heading).toBe(2);
   });
 
-  test("heading 0 is omitted from the inserted node", async () => {
+  test("heading 0 is passed through to the inserted node", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -966,7 +966,7 @@ describe("insert_nodes", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No heading node")!;
-    expect(newNode.heading).toBeUndefined();
+    expect(newNode.heading).toBe(0);
   });
 
   test("color > 0 is included on the inserted node", async () => {
@@ -983,7 +983,7 @@ describe("insert_nodes", () => {
     expect(newNode.color).toBe(3);
   });
 
-  test("color 0 is omitted from the inserted node", async () => {
+  test("color 0 is passed through to the inserted node", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -994,7 +994,7 @@ describe("insert_nodes", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No color node")!;
-    expect(newNode.color).toBeUndefined();
+    expect(newNode.color).toBe(0);
   });
 
   test("multiline content round-trips", async () => {

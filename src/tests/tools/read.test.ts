@@ -68,7 +68,7 @@ describe("list_documents", () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const folders = result.folders as Record<string, unknown>[];
     for (const folder of folders) {
-      const children = folder.children as unknown[];
+      const children = folder.children as string[];
       for (const child of children) {
         expect(typeof child).toBe("string");
       }
@@ -194,7 +194,7 @@ describe("read_document", () => {
     const node = result.node as Record<string, unknown>;
     expect(node.node_id).toBe("n1");
     expect(node.content).toBe("First item");
-    expect((node.children as unknown[]).length).toBe(2);
+    expect((node.children as Record<string, unknown>[]).length).toBe(2);
   });
 
   test("invalid node_id returns error", async () => {
@@ -398,7 +398,7 @@ describe("read_document", () => {
     const node = result.node as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
     const n1 = children.find((c) => c.node_id === "n1")!;
-    expect((n1.children as unknown[]).length).toBe(2);
+    expect((n1.children as Record<string, unknown>[]).length).toBe(2);
   });
 
   test("max_depth: null (unlimited) returns full tree", async () => {
@@ -409,7 +409,7 @@ describe("read_document", () => {
     const node = result.node as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
     const n1 = children.find((c) => c.node_id === "n1")!;
-    expect((n1.children as unknown[]).length).toBe(2);
+    expect((n1.children as Record<string, unknown>[]).length).toBe(2);
     // No depth_limited anywhere since depth is unlimited.
     expect(n1.depth_limited).toBeUndefined();
   });
@@ -514,7 +514,7 @@ describe("read_document", () => {
     });
     const node = result.node as Record<string, unknown>;
     expect(node.collapsed).toBe(true);
-    expect((node.children as unknown[]).length).toBe(2);
+    expect((node.children as Record<string, unknown>[]).length).toBe(2);
     expect(node.children_count).toBe(2);
   });
 
@@ -550,7 +550,7 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
-    expect((n1Result.children as unknown[]).length).toBe(2);
+    expect((n1Result.children as Record<string, unknown>[]).length).toBe(2);
     expect(n1Result.children_count).toBe(2);
   });
 
@@ -655,10 +655,10 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
-    expect((n1Result.children as unknown[]).length).toBe(2);
+    expect((n1Result.children as Record<string, unknown>[]).length).toBe(2);
     const n1aResult = (n1Result.children as Record<string, unknown>[]).find((c) => c.node_id === "n1a")!;
     expect(n1aResult.collapsed).toBe(true);
-    expect((n1aResult.children as unknown[]).length).toBe(1);
+    expect((n1aResult.children as Record<string, unknown>[]).length).toBe(1);
   });
 
   test("collapsed node NOT at depth limit: collapsed true, no depth_limited", async () => {
@@ -732,7 +732,7 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     // Children at depth 2 ARE shown.
-    expect((n1Result.children as unknown[]).length).toBe(2);
+    expect((n1Result.children as Record<string, unknown>[]).length).toBe(2);
   });
 
   // ─── Section 4d: additional depth + collapsed interaction ──────────
@@ -1012,7 +1012,7 @@ describe("read_document", () => {
     // which is 3 regardless of checked filtering.
     expect(root.children_count).toBe(3);
     // But only 2 children are rendered (n3 is checked and excluded).
-    expect((root.children as unknown[]).length).toBe(2);
+    expect((root.children as Record<string, unknown>[]).length).toBe(2);
   });
 
   test("children_count 0 on leaf nodes", async () => {
@@ -1817,7 +1817,7 @@ describe("read_document config defaults: max_depth", () => {
     const rootNode = result.node as Record<string, unknown>;
     const b1 = (rootNode.children as Record<string, unknown>[])[0];
     // b2 should be visible at depth 2 since explicit max_depth is 10.
-    expect((b1.children as unknown[]).length).toBe(1);
+    expect((b1.children as Record<string, unknown>[]).length).toBe(1);
     const b2 = (b1.children as Record<string, unknown>[])[0];
     expect(b2.node_id).toBe("b2");
   });
@@ -1875,7 +1875,7 @@ describe("read_document config defaults: include_checked", () => {
     // Root has 3 children in source (n1, n2, n3).
     expect(root.children_count).toBe(3);
     // But only 2 are rendered (n3 is checked and excluded).
-    expect((root.children as unknown[]).length).toBe(2);
+    expect((root.children as Record<string, unknown>[]).length).toBe(2);
   });
 
   test("config default readDefaults.includeChecked: false omits checked nodes when parameter not specified", async () => {

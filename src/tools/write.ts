@@ -373,6 +373,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             if (!parentNodeId) {
               doc = await store.read(file_id);
               parentNodeId = findRootNodeId(doc.nodes);
+            } else {
+              // Validate that the specified parent node exists in the document.
+              doc = await store.read(file_id);
+              const parentNode = doc.nodes.find(n => n.id === parentNodeId);
+              if (!parentNode) {
+                throw new ToolInputError("NodeNotFound", `Parent node '${parentNodeId}' not found in document.`);
+              }
             }
 
             if (index !== undefined && index !== -1) {

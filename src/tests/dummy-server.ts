@@ -291,8 +291,8 @@ export class DummyDynalistServer {
           };
           if (change.checked !== undefined) node.checked = change.checked;
           if (change.checkbox !== undefined) node.checkbox = change.checkbox;
-          if (change.heading !== undefined && change.heading > 0) node.heading = change.heading;
-          if (change.color !== undefined && change.color > 0) node.color = change.color;
+          if (change.heading !== undefined) node.heading = change.heading;
+          if (change.color !== undefined) node.color = change.color;
 
           doc.nodes.push(node);
 
