@@ -99,8 +99,8 @@ describe("delete_node", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
 
     // n1a should be at index 0, n1b at index 1, then n2, n3.
-    expect(root.children[0]).toBe("n1a");
-    expect(root.children[1]).toBe("n1b");
+    expect(root.children![0]).toBe("n1a");
+    expect(root.children![1]).toBe("n1b");
     expect(root.children).toContain("n2");
     expect(root.children).toContain("n3");
   });
@@ -313,7 +313,7 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
-    expect(n1.children[0]).toBe("n2a");
+    expect(n1.children![0]).toBe("n2a");
   });
 
   test("last_child: moves node as last child of reference", async () => {
@@ -325,7 +325,7 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
-    expect(n1.children[n1.children.length - 1]).toBe("n2a");
+    expect(n1.children![n1.children!.length - 1]).toBe("n2a");
   });
 
   test("after: moves node as sibling after reference", async () => {
@@ -338,8 +338,8 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const n1Index = root.children.indexOf("n1");
-    expect(root.children[n1Index + 1]).toBe("n3");
+    const n1Index = root.children!.indexOf("n1");
+    expect(root.children![n1Index + 1]).toBe("n3");
   });
 
   test("before: moves node as sibling before reference", async () => {
@@ -351,8 +351,8 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const n1Index = root.children.indexOf("n1");
-    expect(root.children[n1Index - 1]).toBe("n3");
+    const n1Index = root.children!.indexOf("n1");
+    expect(root.children![n1Index - 1]).toBe("n3");
   });
 
   test("returns file_id, node_id, url", async () => {
@@ -433,7 +433,7 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
-    expect(n1.children[0]).toBe("n3");
+    expect(n1.children![0]).toBe("n3");
   });
 
   test("last_child: moved node is at last index of reference's children", async () => {
@@ -446,7 +446,7 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
-    expect(n1.children[n1.children.length - 1]).toBe("n3");
+    expect(n1.children![n1.children!.length - 1]).toBe("n3");
   });
 
   test("after: moved node is at index immediately after reference", async () => {
@@ -459,8 +459,8 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const n1Idx = root.children.indexOf("n1");
-    const n3Idx = root.children.indexOf("n3");
+    const n1Idx = root.children!.indexOf("n1");
+    const n3Idx = root.children!.indexOf("n3");
     expect(n3Idx).toBe(n1Idx + 1);
   });
 
@@ -474,8 +474,8 @@ describe("move_node", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const n2Idx = root.children.indexOf("n2");
-    const n3Idx = root.children.indexOf("n3");
+    const n2Idx = root.children!.indexOf("n2");
+    const n3Idx = root.children!.indexOf("n3");
     expect(n3Idx).toBe(n2Idx - 1);
   });
 
@@ -513,7 +513,7 @@ describe("move_node", () => {
       ctx.server.makeNode("n1a1", "Grandchild", []),
     );
     const n1a = ctx.server.documents.get("doc1")!.nodes.find((n) => n.id === "n1a")!;
-    n1a.children.push("n1a1");
+    n1a.children!.push("n1a1");
 
     const err = await callToolError(ctx.mcpClient, "move_node", {
       file_id: "doc1",
@@ -591,8 +591,8 @@ describe("move_node", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
 
     // n3 should now come before n1.
-    const n3Idx = root.children.indexOf("n3");
-    const n1Idx = root.children.indexOf("n1");
+    const n3Idx = root.children!.indexOf("n3");
+    const n1Idx = root.children!.indexOf("n1");
     expect(n3Idx).toBeLessThan(n1Idx);
   });
 
@@ -622,8 +622,8 @@ describe("move_node", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
 
     // n1 should now come after n3.
-    const n1Idx = root.children.indexOf("n1");
-    const n3Idx = root.children.indexOf("n3");
+    const n1Idx = root.children!.indexOf("n1");
+    const n3Idx = root.children!.indexOf("n3");
     expect(n1Idx).toBeGreaterThan(n3Idx);
   });
 

@@ -217,11 +217,22 @@ export class DummyDynalistServer {
     // JSON, not a shared mutable reference to internal state. Without this,
     // in-place mutations from editDocument would silently update cached
     // responses, masking cache invalidation bugs.
+    const cloned = structuredClone(doc.nodes);
+
+    // The real Dynalist API omits `children` for leaf nodes. Strip empty
+    // children arrays to match, so tests catch code that assumes `children`
+    // is always present.
+    for (const node of cloned) {
+      if (node.children && node.children.length === 0) {
+        delete node.children;
+      }
+    }
+
     return {
       file_id: fileId,
       title: doc.title,
       version: doc.version,
-      nodes: structuredClone(doc.nodes),
+      nodes: cloned,
     };
   }
 
@@ -259,7 +270,7 @@ export class DummyDynalistServer {
       if (change.action === "insert" && change.parent_id && !snapshotChildCounts.has(change.parent_id)) {
         const parent = doc.nodes.find((n) => n.id === change.parent_id);
         if (parent) {
-          snapshotChildCounts.set(change.parent_id, parent.children.length);
+          snapshotChildCounts.set(change.parent_id, parent.children!.length);
         }
       }
     }
@@ -289,10 +300,10 @@ export class DummyDynalistServer {
           const parent = doc.nodes.find((n) => n.id === change.parent_id);
           if (parent) {
             if (change.index === -1 || change.index === undefined) {
-              const snapshotCount = snapshotChildCounts.get(change.parent_id!) ?? parent.children.length;
-              parent.children.splice(snapshotCount, 0, nodeId);
+              const snapshotCount = snapshotChildCounts.get(change.parent_id!) ?? parent.children!.length;
+              parent.children!.splice(snapshotCount, 0, nodeId);
             } else {
-              parent.children.splice(change.index, 0, nodeId);
+              parent.children!.splice(change.index, 0, nodeId);
             }
           }
 
@@ -335,9 +346,9 @@ export class DummyDynalistServer {
 
           // Remove from current parent.
           for (const n of doc.nodes) {
-            const idx = n.children.indexOf(change.node_id!);
+            const idx = n.children!.indexOf(change.node_id!);
             if (idx !== -1) {
-              n.children.splice(idx, 1);
+              n.children!.splice(idx, 1);
               break;
             }
           }
@@ -346,9 +357,9 @@ export class DummyDynalistServer {
           const newParent = doc.nodes.find((n) => n.id === change.parent_id);
           if (newParent) {
             if (change.index === -1 || change.index === undefined) {
-              newParent.children.push(change.node_id!);
+              newParent.children!.push(change.node_id!);
             } else {
-              newParent.children.splice(change.index, 0, change.node_id!);
+              newParent.children!.splice(change.index, 0, change.node_id!);
             }
           }
 
@@ -362,9 +373,9 @@ export class DummyDynalistServer {
 
           // Remove from parent's children array.
           for (const n of doc.nodes) {
-            const idx = n.children.indexOf(nodeId);
+            const idx = n.children!.indexOf(nodeId);
             if (idx !== -1) {
-              n.children.splice(idx, 1);
+              n.children!.splice(idx, 1);
               break;
             }
           }
@@ -425,9 +436,9 @@ export class DummyDynalistServer {
     const index = options.index ?? -1;
     if (root) {
       if (index === -1) {
-        root.children.push(nodeId);
+        root.children!.push(nodeId);
       } else {
-        root.children.splice(index, 0, nodeId);
+        root.children!.splice(index, 0, nodeId);
       }
     }
 
@@ -435,7 +446,7 @@ export class DummyDynalistServer {
     return {
       file_id: this.inboxFileId,
       node_id: nodeId,
-      index: index === -1 ? (root?.children.length ?? 1) - 1 : index,
+      index: index === -1 ? (root?.children!.length ?? 1) - 1 : index,
     };
   }
 

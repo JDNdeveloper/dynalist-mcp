@@ -36,7 +36,7 @@ describe("insert_nodes race simulation", () => {
       const n1 = doc.nodes.find(n => n.id === "n1")!;
       const intruder = ctx.server.makeNode("intruder", "Intruder", []);
       doc.nodes.push(intruder);
-      n1.children.push("intruder");
+      n1.children!.push("intruder");
       doc.version++;
     });
 
@@ -56,7 +56,7 @@ describe("insert_nodes race simulation", () => {
       const n1 = doc.nodes.find(n => n.id === "n1")!;
       const intruder = ctx.server.makeNode("intruder", "Intruder", []);
       doc.nodes.push(intruder);
-      n1.children.unshift("intruder");
+      n1.children!.unshift("intruder");
       doc.version++;
     });
 
@@ -78,7 +78,7 @@ describe("insert_nodes race simulation", () => {
       const doc = ctx.server.documents.get(fileId)!;
       const root = doc.nodes.find(n => n.id === "root")!;
       // Reverse the children order to simulate a reorder.
-      root.children.reverse();
+      root.children!.reverse();
       doc.version++;
     });
 
@@ -106,7 +106,7 @@ describe("delete_node race simulation", () => {
       const n2 = doc.nodes.find(n => n.id === "n2")!;
       const newChild = ctx.server.makeNode("n2_new", "New under n2", []);
       doc.nodes.push(newChild);
-      n2.children.push("n2_new");
+      n2.children!.push("n2_new");
       doc.version++;
     });
 
@@ -130,7 +130,7 @@ describe("move_node race simulation", () => {
     ctx.server.onNextEdit((fileId) => {
       const doc = ctx.server.documents.get(fileId)!;
       const root = doc.nodes.find(n => n.id === "root")!;
-      root.children.reverse();
+      root.children!.reverse();
       doc.version++;
     });
 

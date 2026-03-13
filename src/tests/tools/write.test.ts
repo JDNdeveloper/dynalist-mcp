@@ -400,10 +400,10 @@ describe("insert_nodes", () => {
     // Verify the tree structure in the dummy server.
     const doc = ctx.server.documents.get("doc1")!;
     const parentNode = doc.nodes.find((n) => n.content === "parent")!;
-    expect(parentNode.children.length).toBe(1);
-    const childNode = doc.nodes.find((n) => n.id === parentNode.children[0])!;
+    expect(parentNode.children!.length).toBe(1);
+    const childNode = doc.nodes.find((n) => n.id === parentNode.children![0])!;
     expect(childNode.content).toBe("child");
-    expect(childNode.children.length).toBe(1);
+    expect(childNode.children!.length).toBe(1);
   });
 
   test("as_first_child position", async () => {
@@ -415,7 +415,7 @@ describe("insert_nodes", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const firstChild = doc.nodes.find((n) => n.id === root.children[0])!;
+    const firstChild = doc.nodes.find((n) => n.id === root.children![0])!;
     expect(firstChild.content).toBe("top item");
   });
 
@@ -453,11 +453,11 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const l1 = doc.nodes.find((n) => n.content === "level1")!;
-    expect(l1.children.length).toBe(1);
-    const l2 = doc.nodes.find((n) => n.id === l1.children[0])!;
+    expect(l1.children!.length).toBe(1);
+    const l2 = doc.nodes.find((n) => n.id === l1.children![0])!;
     expect(l2.content).toBe("level2");
-    expect(l2.children.length).toBe(1);
-    const l3 = doc.nodes.find((n) => n.id === l2.children[0])!;
+    expect(l2.children!.length).toBe(1);
+    const l3 = doc.nodes.find((n) => n.id === l2.children![0])!;
     expect(l3.content).toBe("level3");
   });
 
@@ -489,20 +489,20 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const nodeA = doc.nodes.find((n) => n.content === "A")!;
-    expect(nodeA.children.length).toBe(2);
+    expect(nodeA.children!.length).toBe(2);
 
-    const nodeA1 = doc.nodes.find((n) => n.id === nodeA.children[0])!;
+    const nodeA1 = doc.nodes.find((n) => n.id === nodeA.children![0])!;
     expect(nodeA1.content).toBe("A1");
-    const nodeA2 = doc.nodes.find((n) => n.id === nodeA.children[1])!;
+    const nodeA2 = doc.nodes.find((n) => n.id === nodeA.children![1])!;
     expect(nodeA2.content).toBe("A2");
 
-    const nodeA1a = doc.nodes.find((n) => n.id === nodeA1.children[0])!;
+    const nodeA1a = doc.nodes.find((n) => n.id === nodeA1.children![0])!;
     expect(nodeA1a.content).toBe("A1a");
-    expect(nodeA1a.children.length).toBe(1);
+    expect(nodeA1a.children!.length).toBe(1);
 
     const nodeB = doc.nodes.find((n) => n.content === "B")!;
-    expect(nodeB.children.length).toBe(1);
-    const nodeB1 = doc.nodes.find((n) => n.id === nodeB.children[0])!;
+    expect(nodeB.children!.length).toBe(1);
+    const nodeB1 = doc.nodes.find((n) => n.id === nodeB.children![0])!;
     expect(nodeB1.content).toBe("B1");
   });
 
@@ -520,9 +520,9 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const p1 = doc.nodes.find((n) => n.content === "Parent1")!;
-    expect(p1.children.length).toBe(2);
+    expect(p1.children!.length).toBe(2);
     const p2 = doc.nodes.find((n) => n.content === "Parent2")!;
-    expect(p2.children.length).toBe(1);
+    expect(p2.children!.length).toBe(1);
   });
 
   test("mixed depths: some branches deeper than others", async () => {
@@ -547,9 +547,9 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const shallow = doc.nodes.find((n) => n.content === "Shallow")!;
-    expect(shallow.children.length).toBe(0);
+    expect(shallow.children!.length).toBe(0);
     const deep = doc.nodes.find((n) => n.content === "Deep")!;
-    expect(deep.children.length).toBe(1);
+    expect(deep.children!.length).toBe(1);
   });
 
   // ─── position behavior ────────────────────────────────────────────
@@ -557,7 +557,7 @@ describe("insert_nodes", () => {
   test("as_last_child (default) appends to end of parent children", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const originalLastChildId = root.children[root.children.length - 1];
+    const originalLastChildId = root.children![root.children!.length - 1];
 
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -567,7 +567,7 @@ describe("insert_nodes", () => {
 
     // The new node should be after the original last child.
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
-    const newLastChildId = rootAfter.children[rootAfter.children.length - 1];
+    const newLastChildId = rootAfter.children![rootAfter.children!.length - 1];
     const newLastChild = doc.nodes.find((n) => n.id === newLastChildId)!;
     expect(newLastChild.content).toBe("appended item");
     expect(newLastChildId).not.toBe(originalLastChildId);
@@ -576,7 +576,7 @@ describe("insert_nodes", () => {
   test("as_first_child prepends to start of parent children", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const originalFirstChildId = root.children[0];
+    const originalFirstChildId = root.children![0];
 
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -586,7 +586,7 @@ describe("insert_nodes", () => {
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
-    const newFirstChildId = rootAfter.children[0];
+    const newFirstChildId = rootAfter.children![0];
     const newFirstChild = doc.nodes.find((n) => n.id === newFirstChildId)!;
     expect(newFirstChild.content).toBe("prepended item");
 
@@ -597,7 +597,7 @@ describe("insert_nodes", () => {
   test("as_last_child with multiple items preserves input order", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const originalChildCount = root.children.length;
+    const originalChildCount = root.children!.length;
 
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -606,12 +606,29 @@ describe("insert_nodes", () => {
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
-    expect(rootAfter.children.length).toBe(originalChildCount + 3);
+    expect(rootAfter.children!.length).toBe(originalChildCount + 3);
 
     // Items should appear in input order at the end.
-    const newChildren = rootAfter.children.slice(originalChildCount);
+    const newChildren = rootAfter.children!.slice(originalChildCount);
     const contents = newChildren.map(id => doc.nodes.find((n) => n.id === id)!.content);
     expect(contents).toEqual(["Order A", "Order B", "Order C"]);
+  });
+
+  test("as_last_child with multiple items under leaf node succeeds", async () => {
+    // Regression: the real Dynalist API omits `children` for leaf nodes.
+    // Inserting multiple items as_last_child under a leaf resolves the
+    // parent's child count, which must handle a missing `children` field.
+    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "n1a",
+      nodes: [{ content: "Leaf A" }, { content: "Leaf B" }],
+    });
+
+    expect(result.total_created).toBe(2);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1a = doc.nodes.find(n => n.id === "n1a")!;
+    expect(n1a.children!.length).toBe(2);
   });
 
   test("as_first_child with multiple items preserves input order", async () => {
@@ -627,7 +644,7 @@ describe("insert_nodes", () => {
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
 
     // Items should appear in input order at the start.
-    const firstThree = rootAfter.children.slice(0, 3);
+    const firstThree = rootAfter.children!.slice(0, 3);
     const contents = firstThree.map(id => doc.nodes.find((n) => n.id === id)!.content);
     expect(contents).toEqual(["First A", "First B", "First C"]);
   });
@@ -635,7 +652,7 @@ describe("insert_nodes", () => {
   test("existing children preserved after insert", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const originalChildren = [...root.children];
+    const originalChildren = [...root.children!];
 
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -658,7 +675,7 @@ describe("insert_nodes", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const firstChildId = root.children[0];
+    const firstChildId = root.children![0];
     const firstChild = doc.nodes.find((n) => n.id === firstChildId)!;
     expect(firstChild.content).toBe("At index 0");
   });
@@ -672,7 +689,7 @@ describe("insert_nodes", () => {
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const lastChildId = root.children[root.children.length - 1];
+    const lastChildId = root.children![root.children!.length - 1];
     const lastChild = doc.nodes.find((n) => n.id === lastChildId)!;
     expect(lastChild.content).toBe("Appended via index");
   });
@@ -800,7 +817,7 @@ describe("insert_nodes", () => {
     const doc = ctx.server.documents.get("doc1")!;
     const parent = doc.nodes.find((n) => n.content === "Parent")!;
     expect(parent.heading).toBe(1);
-    const child = doc.nodes.find((n) => n.id === parent.children[0])!;
+    const child = doc.nodes.find((n) => n.id === parent.children![0])!;
     expect(child.content).toBe("Child");
     expect(child.note).toBe("child note");
     expect(child.color).toBe(5);
@@ -874,8 +891,8 @@ describe("insert_nodes", () => {
     expect(nodeD).toBeUndefined();
 
     // Verify the parent-child relationship was established.
-    expect(nodeA!.children.length).toBe(1);
-    expect(nodeA!.children[0]).toBe(nodeB!.id);
+    expect(nodeA!.children!.length).toBe(1);
+    expect(nodeA!.children![0]).toBe(nodeB!.id);
   });
 
   // ─── response shape ───────────────────────────────────────────────
@@ -908,8 +925,8 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const n1Index = root.children.indexOf("n1");
-    const insertedId = root.children[n1Index + 1];
+    const n1Index = root.children!.indexOf("n1");
+    const insertedId = root.children![n1Index + 1];
     const inserted = doc.nodes.find((n) => n.id === insertedId)!;
     expect(inserted.content).toBe("After n1");
   });
@@ -924,8 +941,8 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const n2Index = root.children.indexOf("n2");
-    const insertedId = root.children[n2Index - 1];
+    const n2Index = root.children!.indexOf("n2");
+    const insertedId = root.children![n2Index - 1];
     const inserted = doc.nodes.find((n) => n.id === insertedId)!;
     expect(inserted.content).toBe("Before n2");
   });
@@ -933,7 +950,7 @@ describe("insert_nodes", () => {
   test("insert after the last sibling appends at end", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const rootBefore = doc.nodes.find((n) => n.id === "root")!;
-    const childCountBefore = rootBefore.children.length;
+    const childCountBefore = rootBefore.children!.length;
 
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -943,8 +960,8 @@ describe("insert_nodes", () => {
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
-    expect(rootAfter.children.length).toBe(childCountBefore + 1);
-    const lastChildId = rootAfter.children[rootAfter.children.length - 1];
+    expect(rootAfter.children!.length).toBe(childCountBefore + 1);
+    const lastChildId = rootAfter.children![rootAfter.children!.length - 1];
     const lastChild = doc.nodes.find((n) => n.id === lastChildId)!;
     expect(lastChild.content).toBe("After last");
   });
@@ -959,7 +976,7 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const firstChildId = root.children[0];
+    const firstChildId = root.children![0];
     const firstChild = doc.nodes.find((n) => n.id === firstChildId)!;
     expect(firstChild.content).toBe("Before first");
   });
@@ -974,10 +991,10 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-    const n1Index = root.children.indexOf("n1");
-    const insertedA = doc.nodes.find((n) => n.id === root.children[n1Index + 1])!;
-    const insertedB = doc.nodes.find((n) => n.id === root.children[n1Index + 2])!;
-    const insertedC = doc.nodes.find((n) => n.id === root.children[n1Index + 3])!;
+    const n1Index = root.children!.indexOf("n1");
+    const insertedA = doc.nodes.find((n) => n.id === root.children![n1Index + 1])!;
+    const insertedB = doc.nodes.find((n) => n.id === root.children![n1Index + 2])!;
+    const insertedC = doc.nodes.find((n) => n.id === root.children![n1Index + 3])!;
     expect(insertedA.content).toBe("Multi A");
     expect(insertedB.content).toBe("Multi B");
     expect(insertedC.content).toBe("Multi C");
@@ -998,8 +1015,8 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const parent = doc.nodes.find((n) => n.content === "Hier parent")!;
-    expect(parent.children.length).toBe(1);
-    const child = doc.nodes.find((n) => n.id === parent.children[0])!;
+    expect(parent.children!.length).toBe(1);
+    const child = doc.nodes.find((n) => n.id === parent.children![0])!;
     expect(child.content).toBe("Hier child");
   });
 
@@ -1014,8 +1031,8 @@ describe("insert_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
-    const n1aIndex = n1.children.indexOf("n1a");
-    const insertedId = n1.children[n1aIndex + 1];
+    const n1aIndex = n1.children!.indexOf("n1a");
+    const insertedId = n1.children![n1aIndex + 1];
     const inserted = doc.nodes.find((n) => n.id === insertedId)!;
     expect(inserted.content).toBe("After n1a");
   });

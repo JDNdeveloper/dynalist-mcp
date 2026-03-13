@@ -64,7 +64,7 @@ export interface DynalistNode {
   note: string;
   created: number;
   modified: number;
-  children: string[];
+  children?: string[];
   checked?: boolean;
   checkbox?: boolean;
   heading?: number; // 0-3

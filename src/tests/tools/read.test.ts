@@ -414,7 +414,7 @@ describe("read_document", () => {
       const childId = `deep_${i}`;
       doc.nodes.push(ctx.server.makeNode(childId, `Deep level ${i}`, []));
       const parent = doc.nodes.find((n) => n.id === parentId)!;
-      parent.children.push(childId);
+      parent.children!.push(childId);
       parentId = childId;
     }
 

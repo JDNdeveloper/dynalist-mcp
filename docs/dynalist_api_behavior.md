@@ -51,7 +51,7 @@ behaves, based on exhaustive testing against a real account.
       note: string,
       created: number,          // milliseconds since epoch
       modified: number,         // milliseconds since epoch
-      children: string[],       // child node IDs (empty array if leaf)
+      children?: string[],      // child node IDs (omitted for leaf nodes)
       checked?: boolean,        // present only when true
       checkbox?: boolean,       // present only when true
       heading?: number,         // 1=H1, 2=H2, 3=H3, omitted when 0
