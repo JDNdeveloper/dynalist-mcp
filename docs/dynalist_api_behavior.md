@@ -157,6 +157,15 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
   compensate, or the node will land one position too late.
 - Moving a node to be a child of itself: API silently accepts but the node becomes
   orphaned (unreachable from the root tree). Our tool validates and rejects this.
+- **Cross-document moves are not supported.** Node IDs are scoped to their document,
+  not global. Verified (2026-03-13) against the live API with two approaches:
+  - Source-anchored (`file_id` = source doc, `parent_id` = root of dest doc): API
+    returns `Ok` but silently does nothing. The foreign `parent_id` is not recognized
+    within the source document's node list, so the move is a no-op.
+  - Destination-anchored (`file_id` = dest doc, `node_id` from source doc): API
+    returns `NodeNotFound` because the node ID does not exist in the dest document.
+  The Dynalist desktop/web client supports cross-document drag-and-drop, so it likely
+  uses a private API endpoint not exposed in the public API.
 
 ### Delete
 
