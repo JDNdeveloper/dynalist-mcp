@@ -18,9 +18,10 @@ import {
   getPermissionLabel,
   buildNodeTree,
 } from "../utils/dynalist-helpers";
+import type { DocumentStore } from "../document-store";
 import { FILE_ID_DESCRIPTION, BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION } from "./descriptions";
 
-export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
+export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: list_documents
   // ═════════════════════════════════════════════════════════════════════
@@ -250,7 +251,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const effectiveIncludeNotes = include_notes ?? config.readDefaults.includeNotes;
       const effectiveIncludeChecked = include_checked ?? config.readDefaults.includeChecked;
 
-      const doc = await client.readDocument(file_id);
+      const doc = await store.read(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
 
       // Determine starting node.
@@ -356,7 +357,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const accessError = requireAccess(policy, "read", false);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      const doc = await client.readDocument(file_id);
+      const doc = await store.read(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
       const parentMap = buildParentMap(doc.nodes);
       const queryLower = query.toLowerCase();
@@ -514,7 +515,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         return makeErrorResponse("InvalidInput", "Invalid 'until' date format");
       }
 
-      const doc = await client.readDocument(file_id);
+      const doc = await store.read(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
       const parentMap = buildParentMap(doc.nodes);
 

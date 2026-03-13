@@ -5,6 +5,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient } from "../dynalist-client";
+import { DocumentStore } from "../document-store";
 import { AccessController } from "../access-control";
 import { registerReadTools } from "./read";
 import { registerWriteTools } from "./write";
@@ -16,8 +17,9 @@ import { registerFileTools } from "./files";
  */
 export function registerTools(server: McpServer, client: DynalistClient): void {
   const ac = new AccessController(client);
-  registerReadTools(server, client, ac);
-  registerWriteTools(server, client, ac);
-  registerStructureTools(server, client, ac);
+  const store = new DocumentStore(client);
+  registerReadTools(server, client, ac, store);
+  registerWriteTools(server, client, ac, store);
+  registerStructureTools(server, client, ac, store);
   registerFileTools(server, client, ac);
 }

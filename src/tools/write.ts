@@ -16,6 +16,7 @@ import {
   insertTreeUnderParent,
   type ParsedNode,
 } from "../utils/dynalist-helpers";
+import type { DocumentStore } from "../document-store";
 import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE, CONTENT_MULTILINE_GUIDANCE, EXPECTED_VERSION_DESCRIPTION } from "./descriptions";
 
 /**
@@ -44,7 +45,7 @@ function checkGlobalWriteBlock(
   return requireAccess(effectivePolicy, "write", false);
 }
 
-export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
+export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: send_to_inbox
   // ═════════════════════════════════════════════════════════════════════
@@ -97,6 +98,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         note,
         checkbox: effectiveCheckbox,
       });
+
+      // Invalidate the inbox document's cache entry since its content changed.
+      store.invalidate(response.file_id);
 
       return makeResponse({
         file_id: response.file_id,
@@ -178,7 +182,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       if (color !== undefined) change.color = color;
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version },
+        { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
           const response = await client.editDocument(file_id, [change]);
           return { result: undefined, apiCallCount: response.batches_sent };
@@ -295,7 +299,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
       if (position === "after" || position === "before") {
         // Sibling-relative positioning: resolve parent and index from the reference node.
-        const doc = await client.readDocument(file_id);
+        const doc = await store.read(file_id);
         const parentMap = buildParentMap(doc.nodes);
         const refInfo = parentMap.get(reference_node_id!);
 
@@ -318,7 +322,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         // resolve to explicit indices to preserve input order.
         let doc: ReadDocumentResponse | undefined;
         if (!parentNodeId) {
-          doc = await client.readDocument(file_id);
+          doc = await store.read(file_id);
           parentNodeId = findRootNodeId(doc.nodes);
         }
 
@@ -333,7 +337,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           // as_last_child (default) or index: -1 with multiple items.
           // Resolve to the parent's current child count so each item gets
           // a distinct index instead of all resolving to the same position.
-          if (!doc) doc = await client.readDocument(file_id);
+          if (!doc) doc = await store.read(file_id);
           const parentNode = doc.nodes.find(n => n.id === parentNodeId);
           startIndex = parentNode ? parentNode.children.length : 0;
         }
@@ -346,7 +350,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version },
+        { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
           const result = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
             startIndex,

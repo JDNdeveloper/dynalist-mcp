@@ -4,11 +4,13 @@
  */
 
 import { DynalistApiError, type DynalistClient } from "./dynalist-client";
+import type { DocumentStore } from "./document-store";
 
 export interface VersionGuardOptions {
   client: DynalistClient;
   fileId: string;
   expectedVersion?: number;
+  store?: DocumentStore;
 }
 
 export interface VersionGuardResult<T> {
@@ -34,7 +36,7 @@ export async function withVersionGuard<T>(
   options: VersionGuardOptions,
   writeFn: () => Promise<{ result: T; apiCallCount: number }>,
 ): Promise<VersionGuardResult<T>> {
-  const { client, fileId, expectedVersion } = options;
+  const { client, fileId, expectedVersion, store } = options;
 
   // Pre-write: get current version.
   const preCheck = await client.checkForUpdates([fileId]);
@@ -55,6 +57,11 @@ export async function withVersionGuard<T>(
 
   // Execute the write.
   const { result, apiCallCount } = await writeFn();
+
+  // Invalidate cached document content since the write changed it.
+  if (store) {
+    store.invalidate(fileId);
+  }
 
   // Post-write: check for concurrent modifications.
   const postCheck = await client.checkForUpdates([fileId]);

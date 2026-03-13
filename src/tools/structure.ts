@@ -14,9 +14,10 @@ import {
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
+import type { DocumentStore } from "../document-store";
 import { FILE_ID_DESCRIPTION, CONFIRM_GUIDANCE, EXPECTED_VERSION_DESCRIPTION } from "./descriptions";
 
-export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
+export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: delete_node
   // ═════════════════════════════════════════════════════════════════════
@@ -70,7 +71,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         return makeErrorResponse("InvalidInput", "Cannot delete the root node of a document.");
       }
 
-      const doc = await client.readDocument(file_id);
+      const doc = await store.read(file_id);
       const rootId = findRootNodeId(doc.nodes);
       if (node_id === rootId) {
         return makeErrorResponse("InvalidInput", "Cannot delete the root node of a document.");
@@ -95,7 +96,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         const promotedCount = targetNode.children.length;
 
         const guard = await withVersionGuard(
-          { client, fileId: file_id, expectedVersion: expected_version },
+          { client, fileId: file_id, expectedVersion: expected_version, store },
           async () => {
             // Move each child to be a sibling of the node being deleted,
             // placed at the node's index. Each successive child goes after
@@ -153,7 +154,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const changes = nodesToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version },
+        { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
           const response = await client.editDocument(file_id, changes);
           return { result: undefined, apiCallCount: response.batches_sent };
@@ -229,7 +230,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       }
 
       // Read the document to validate the move and resolve positions.
-      const doc = await client.readDocument(file_id);
+      const doc = await store.read(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
 
       if (!nodeMap.has(node_id)) {
@@ -289,7 +290,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version },
+        { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
           const response = await client.editDocument(file_id, [
             { action: "move", node_id, parent_id: targetParentId, index: targetIndex },

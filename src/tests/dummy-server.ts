@@ -187,11 +187,15 @@ export class DummyDynalistServer {
     if (!doc) {
       throw new DynalistApiError("NotFound", "Document not found.");
     }
+    // Clone nodes to match real API behavior: each response is independent
+    // JSON, not a shared mutable reference to internal state. Without this,
+    // in-place mutations from editDocument would silently update cached
+    // responses, masking cache invalidation bugs.
     return {
       file_id: fileId,
       title: doc.title,
       version: doc.version,
-      nodes: doc.nodes,
+      nodes: structuredClone(doc.nodes),
     };
   }
 

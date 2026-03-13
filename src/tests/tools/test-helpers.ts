@@ -12,6 +12,7 @@ import { registerReadTools } from "../../tools/read";
 import { registerWriteTools } from "../../tools/write";
 import { registerStructureTools } from "../../tools/structure";
 import { registerFileTools } from "../../tools/files";
+import { DocumentStore } from "../../document-store";
 import { DummyDynalistServer, MockDynalistClient } from "../dummy-server";
 
 export interface TestContext {
@@ -53,10 +54,12 @@ export async function createTestContext(
   const mockClient = new MockDynalistClient(server);
   const ac = new AccessController(mockClient);
 
+  const store = new DocumentStore(mockClient);
+
   const mcpServer = new McpServer({ name: "test-server", version: "1.0.0" });
-  registerReadTools(mcpServer, mockClient, ac);
-  registerWriteTools(mcpServer, mockClient, ac);
-  registerStructureTools(mcpServer, mockClient, ac);
+  registerReadTools(mcpServer, mockClient, ac, store);
+  registerWriteTools(mcpServer, mockClient, ac, store);
+  registerStructureTools(mcpServer, mockClient, ac, store);
   registerFileTools(mcpServer, mockClient, ac);
 
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
