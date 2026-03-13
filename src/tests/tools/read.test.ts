@@ -1643,7 +1643,7 @@ describe("check_document_versions", () => {
     const v1 = (before.versions as Record<string, number>).doc1;
 
     // Edit the document.
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       content: "Updated",

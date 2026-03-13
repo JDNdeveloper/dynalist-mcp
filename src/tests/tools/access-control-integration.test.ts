@@ -221,12 +221,12 @@ describe("get_recent_changes with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3e. edit_node with ACL
+// 3e. edit_nodes with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("edit_node with ACL", () => {
+describe("edit_nodes with ACL", () => {
   test("denied document returns NotFound (not ReadOnly)", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_node", {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "denied_doc",
       node_id: "dn1",
       content: "hacked",
@@ -235,7 +235,7 @@ describe("edit_node with ACL", () => {
   });
 
   test("read-policy document returns ReadOnly error", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_node", {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "readonly_doc",
       node_id: "rn1",
       content: "hacked",
@@ -244,7 +244,7 @@ describe("edit_node with ACL", () => {
   });
 
   test("allow-policy document edit succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "edit_node", {
+    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "allowed_doc",
       node_id: "an1",
       content: "Updated content",
@@ -887,7 +887,7 @@ describe("global readOnly: true overrides", () => {
 
   test("readOnly blocks write on allow-policy document", async () => {
     writeReadOnlyConfig();
-    const err = await callToolError(ctx.mcpClient, "edit_node", {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "allowed_doc",
       node_id: "an1",
       content: "hacked",
@@ -976,7 +976,7 @@ describe("global readOnly: true overrides", () => {
 
   test("readOnly error message is distinct from per-policy ReadOnly message", async () => {
     // Per-policy ReadOnly message.
-    const policyErr = await callToolError(ctx.mcpClient, "edit_node", {
+    const policyErr = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "readonly_doc",
       node_id: "rn1",
       content: "hacked",
@@ -984,7 +984,7 @@ describe("global readOnly: true overrides", () => {
 
     // Global readOnly message.
     writeReadOnlyConfig();
-    const globalErr = await callToolError(ctx.mcpClient, "edit_node", {
+    const globalErr = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "allowed_doc",
       node_id: "an1",
       content: "hacked",

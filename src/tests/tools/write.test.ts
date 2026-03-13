@@ -22,11 +22,11 @@ afterEach(async () => {
   await ctx.cleanup();
 });
 
-// ─── edit_node ───────────────────────────────────────────────────────
+// ─── edit_nodes ───────────────────────────────────────────────────────
 
-describe("edit_node", () => {
+describe("edit_nodes", () => {
   test("updates content", async () => {
-    const result = await callToolOk(ctx.mcpClient, "edit_node", {
+    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       content: "Updated content",
@@ -48,7 +48,7 @@ describe("edit_node", () => {
     node.note = "original note";
 
     // Edit only content, not note.
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       content: "New content",
@@ -59,7 +59,7 @@ describe("edit_node", () => {
   });
 
   test("empty content is allowed", async () => {
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       content: "",
@@ -74,7 +74,7 @@ describe("edit_node", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.note = "some note";
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       note: "",
@@ -83,7 +83,7 @@ describe("edit_node", () => {
   });
 
   test("sets heading and color", async () => {
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       heading: 2,
@@ -96,7 +96,7 @@ describe("edit_node", () => {
   });
 
   test("nonexistent document returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_node", {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "nonexistent",
       node_id: "n1",
       content: "test",
@@ -105,7 +105,7 @@ describe("edit_node", () => {
   });
 
   test("nonexistent node returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_node", {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "nonexistent",
       content: "test",
@@ -115,7 +115,7 @@ describe("edit_node", () => {
 
   test("note content fidelity: multi-line with code blocks round-trips", async () => {
     const complexNote = "Line 1\n\n```python\ndef foo():\n    return 42\n```\n\nLine after code";
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       note: complexNote,
@@ -136,7 +136,7 @@ describe("edit_node", () => {
     node.checkbox = true;
     node.checked = true;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       content: "Changed content only",
@@ -155,7 +155,7 @@ describe("edit_node", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     const originalContent = node.content;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       note: "brand new note",
@@ -172,7 +172,7 @@ describe("edit_node", () => {
     node.color = 5;
     const originalContent = node.content;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       heading: 3,
@@ -190,7 +190,7 @@ describe("edit_node", () => {
     node.heading = 1;
     const originalContent = node.content;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       color: 6,
@@ -207,7 +207,7 @@ describe("edit_node", () => {
     node.note = "note here";
     const originalContent = node.content;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       checkbox: true,
@@ -225,7 +225,7 @@ describe("edit_node", () => {
     node.note = "keep me";
     const originalContent = node.content;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       checked: true,
@@ -244,7 +244,7 @@ describe("edit_node", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.heading = 2;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       heading: 0,
@@ -255,7 +255,7 @@ describe("edit_node", () => {
 
   test("heading: 1, 2, 3 all set correctly", async () => {
     for (const h of [1, 2, 3]) {
-      await callToolOk(ctx.mcpClient, "edit_node", {
+      await callToolOk(ctx.mcpClient, "edit_nodes", {
         file_id: "doc1",
         node_id: "n1",
         heading: h,
@@ -271,7 +271,7 @@ describe("edit_node", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.color = 3;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       color: 0,
@@ -282,7 +282,7 @@ describe("edit_node", () => {
 
   test("color: 1 through 6 all set correctly", async () => {
     for (const c of [1, 2, 3, 4, 5, 6]) {
-      await callToolOk(ctx.mcpClient, "edit_node", {
+      await callToolOk(ctx.mcpClient, "edit_nodes", {
         file_id: "doc1",
         node_id: "n1",
         color: c,
@@ -298,7 +298,7 @@ describe("edit_node", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.checkbox = true;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       checkbox: false,
@@ -308,7 +308,7 @@ describe("edit_node", () => {
   });
 
   test("checked: true with checkbox: true marks node as checked", async () => {
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       checkbox: true,
@@ -327,7 +327,7 @@ describe("edit_node", () => {
     node.checked = true;
     node.checkbox = true;
 
-    await callToolOk(ctx.mcpClient, "edit_node", {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       checked: false,
@@ -339,7 +339,7 @@ describe("edit_node", () => {
   // ─── 10d: response shape ────────────────────────────────────────────
 
   test("response includes file_id, node_id, and url", async () => {
-    const result = await callToolOk(ctx.mcpClient, "edit_node", {
+    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       content: "shape test",
@@ -354,7 +354,7 @@ describe("edit_node", () => {
   // ─── 10e: error codes ──────────────────────────────────────────────
 
   test("nonexistent document returns NotFound error code", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_node", {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "no_such_doc",
       node_id: "n1",
       content: "test",
@@ -363,7 +363,7 @@ describe("edit_node", () => {
   });
 
   test("nonexistent node returns NodeNotFound error code", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_node", {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "no_such_node",
       content: "test",

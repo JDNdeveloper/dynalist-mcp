@@ -1,5 +1,5 @@
 /**
- * Write tools: send_to_inbox, edit_node, insert_nodes.
+ * Write tools: send_to_inbox, edit_nodes, insert_nodes.
  */
 
 import { z } from "zod";
@@ -106,10 +106,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
   );
 
   // ═════════════════════════════════════════════════════════════════════
-  // TOOL: edit_node
+  // TOOL: edit_nodes
   // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
-    "edit_node",
+    "edit_nodes",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +

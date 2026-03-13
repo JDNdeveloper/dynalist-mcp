@@ -266,11 +266,11 @@ describe("check_document_versions response shape", () => {
   });
 });
 
-// ─── edit_node ──────────────────────────────────────────────────────
+// ─── edit_nodes ──────────────────────────────────────────────────────
 
-describe("edit_node response shape", () => {
+describe("edit_nodes response shape", () => {
   test("success response has correct envelope and fields", async () => {
-    const raw = await callTool(ctx.mcpClient, "edit_node", {
+    const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "n1",
       content: "Updated content",
@@ -283,7 +283,7 @@ describe("edit_node response shape", () => {
   });
 
   test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "edit_node", {
+    const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "nonexistent",
       node_id: "n1",
       content: "test",
@@ -293,7 +293,7 @@ describe("edit_node response shape", () => {
   });
 
   test("error response for non-existent node has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "edit_node", {
+    const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       node_id: "bad_node",
       content: "test",

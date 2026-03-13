@@ -218,7 +218,7 @@ Send a single item to your Dynalist inbox. The target document is the user's con
 }
 ```
 
-### `edit_node`
+### `edit_nodes`
 
 Edit an existing node. Only specified fields are updated. Omitted fields are left unchanged (not reset to defaults). This is a partial update.
 
