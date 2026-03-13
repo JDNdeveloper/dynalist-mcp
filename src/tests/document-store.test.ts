@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { DocumentStore } from "../document-store";
-import type { DynalistClient, ReadDocumentResponse, CheckForUpdatesResponse } from "../dynalist-client";
+import type { ReadDocumentResponse, CheckForUpdatesResponse } from "../dynalist-client";
 
 /**
  * Minimal mock client that tracks call counts for readDocument and
@@ -57,7 +57,7 @@ describe("DocumentStore", () => {
     spy.addDoc("d1", 1, "Doc 1");
     spy.addDoc("d2", 1, "Doc 2");
     spy.addDoc("d3", 1, "Doc 3");
-    store = new DocumentStore(spy as unknown as DynalistClient);
+    store = new DocumentStore(spy);
   });
 
   test("cold miss calls readDocument, not checkForUpdates", async () => {
@@ -125,7 +125,7 @@ describe("DocumentStore", () => {
 
   test("LRU eviction at capacity", async () => {
     // Capacity 3 for easy testing.
-    store = new DocumentStore(spy as unknown as DynalistClient, 3);
+    store = new DocumentStore(spy, 3);
 
     await store.read("d1");
     await store.read("d2");
@@ -145,7 +145,7 @@ describe("DocumentStore", () => {
   });
 
   test("LRU eviction respects access recency", async () => {
-    store = new DocumentStore(spy as unknown as DynalistClient, 3);
+    store = new DocumentStore(spy, 3);
 
     await store.read("d1");
     await store.read("d2");

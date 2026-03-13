@@ -7,7 +7,7 @@ import { DynalistApiError, type DynalistClient } from "./dynalist-client";
 import type { DocumentStore } from "./document-store";
 
 export interface VersionGuardOptions {
-  client: DynalistClient;
+  client: Pick<DynalistClient, "checkForUpdates">;
   fileId: string;
   expectedVersion: number;
   store?: DocumentStore;

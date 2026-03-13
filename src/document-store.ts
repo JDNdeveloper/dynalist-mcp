@@ -15,13 +15,13 @@ import type { DynalistClient, ReadDocumentResponse } from "./dynalist-client";
 const DEFAULT_CAPACITY = 5;
 
 export class DocumentStore {
-  private client: DynalistClient;
+  private client: Pick<DynalistClient, "readDocument" | "checkForUpdates">;
   private capacity: number;
 
   // Map preserves insertion order. MRU is at the end.
   private cache = new Map<string, ReadDocumentResponse>();
 
-  constructor(client: DynalistClient, capacity: number = DEFAULT_CAPACITY) {
+  constructor(client: Pick<DynalistClient, "readDocument" | "checkForUpdates">, capacity: number = DEFAULT_CAPACITY) {
     this.client = client;
     this.capacity = capacity;
   }

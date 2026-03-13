@@ -5,7 +5,9 @@
 
 import { describe, test, expect } from "bun:test";
 import { withVersionGuard, VersionMismatchError } from "../version-guard";
-import { DynalistApiError, DynalistClient } from "../dynalist-client";
+import { DynalistApiError, type DynalistClient } from "../dynalist-client";
+
+type MockClient = Pick<DynalistClient, "checkForUpdates">;
 
 /**
  * Create a minimal mock client that returns controlled versions from
@@ -16,7 +18,7 @@ function createMockClient(opts: {
   preVersion: number;
   postVersion: number;
   fileId?: string;
-}): DynalistClient {
+}): MockClient {
   const fileId = opts.fileId ?? "test_doc";
   let callCount = 0;
 
@@ -29,7 +31,7 @@ function createMockClient(opts: {
       }
       return { versions };
     },
-  } as unknown as DynalistClient;
+  };
 }
 
 describe("withVersionGuard", () => {
@@ -124,14 +126,14 @@ describe("withVersionGuard", () => {
 
   test("propagates writeFn errors without running post-write check", async () => {
     let checkForUpdatesCallCount = 0;
-    const client = {
+    const client: MockClient = {
       checkForUpdates: async (fileIds: string[]) => {
         checkForUpdatesCallCount++;
         const versions: Record<string, number> = {};
         if (fileIds.includes("test_doc")) versions["test_doc"] = 5;
         return { versions };
       },
-    } as unknown as DynalistClient;
+    };
 
     await expect(
       withVersionGuard(
@@ -148,9 +150,9 @@ describe("withVersionGuard", () => {
 
   test("throws DynalistApiError NotFound for nonexistent document", async () => {
     // Client returns empty versions (simulates checkForUpdates dropping unknown IDs).
-    const client = {
+    const client: MockClient = {
       checkForUpdates: async () => ({ versions: {} }),
-    } as unknown as DynalistClient;
+    };
 
     await expect(
       withVersionGuard(
@@ -195,11 +197,11 @@ describe("withVersionGuard", () => {
   });
 
   test("checkForUpdates failure propagates as error", async () => {
-    const client = {
+    const client: MockClient = {
       checkForUpdates: async () => {
         throw new DynalistApiError("TooManyRequests", "Rate limited.");
       },
-    } as unknown as DynalistClient;
+    };
 
     await expect(
       withVersionGuard(

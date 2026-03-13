@@ -6,7 +6,9 @@
 
 import { describe, test, expect } from "bun:test";
 import { withVersionGuard } from "../version-guard";
-import { DynalistApiError, DynalistClient } from "../dynalist-client";
+import { DynalistApiError, type DynalistClient } from "../dynalist-client";
+
+type MockClient = Pick<DynalistClient, "checkForUpdates">;
 
 /**
  * Create a mock client where checkForUpdates succeeds on the first call
@@ -16,7 +18,7 @@ function createPostWriteFailureClient(opts: {
   preVersion: number;
   fileId?: string;
   postError?: Error;
-}): DynalistClient {
+}): MockClient {
   const fileId = opts.fileId ?? "test_doc";
   let callCount = 0;
 
@@ -34,7 +36,7 @@ function createPostWriteFailureClient(opts: {
       // Post-write check fails.
       throw opts.postError ?? new DynalistApiError("TooManyRequests", "Rate limited.");
     },
-  } as unknown as DynalistClient;
+  };
 }
 
 describe("withVersionGuard post-write checkForUpdates failure", () => {
