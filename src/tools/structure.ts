@@ -229,8 +229,10 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Move nodes (with subtrees) to new positions in a document. Applied sequentially; " +
-        "later moves see earlier moves' effects.\n\n" +
+        "Move nodes (with subtrees) to new positions in a document. Moves within a single " +
+        "call are applied sequentially; later moves see earlier moves' effects. Batch all " +
+        "related moves into one call. Separate calls each start from the document's current " +
+        "state.\n\n" +
         "Position values:\n" +
         "- 'after'/'before': sibling of reference (same parent).\n" +
         "- 'first_child'/'last_child': child of reference.",

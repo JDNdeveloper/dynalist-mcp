@@ -338,6 +338,8 @@ Example input:
 
 `version_warning` is present only when a concurrent edit was detected during the write.
 
+**Partial inserts:** Large tree inserts are batched by depth level. If a batch fails mid-way, some nodes may have been created but not all. The error response is a `PartialInsert` error containing `inserted_count`, `total_count`, `first_node_id`, and `failed_at_depth` so you can inspect or clean up partial results.
+
 ## Structure tools
 
 ### `delete_nodes`
@@ -413,6 +415,8 @@ Example input:
 ```
 
 `version_warning` is present only when a concurrent edit was detected during the write.
+
+**Sequential semantics:** Moves within a single call are applied sequentially, so later moves see the effects of earlier ones. Batch all related moves into one call. Separate `move_nodes` calls each start from the document's current state; index tracking does not carry over across calls.
 
 ## File management tools
 
