@@ -11,18 +11,18 @@ List all documents and folders in your Dynalist account. Returns the folder hier
 **Response**:
 ```json
 {
-  "root_file_id": "abc123",
   "count": 5,
   "documents": [
     { "file_id": "...", "title": "...", "url": "...", "permission": "owner" }
   ],
   "folders": [
     { "file_id": "...", "title": "...", "children": ["...", "..."] }
-  ]
+  ],
+  "root_file_id": "abc123"
 }
 ```
 
-Documents with a `read` access policy include `"access_policy": "read"`. Same applies to `search_documents` matches.
+Documents with a `read` access policy include `"access_policy": "read"`.
 
 ### `search_documents`
 
@@ -41,13 +41,14 @@ Search for documents and folders by name. Client-side filter on the file tree.
   "matches": [
     {
       "file_id": "...", "title": "...", "type": "document",
-      "url": "...", "permission": "owner"
+      "url": "...", "permission": "owner",
+      "access_policy": "read"
     }
   ]
 }
 ```
 
-Folders include `children` instead of `url`/`permission`.
+Folders include `children` instead of `url`/`permission`. `access_policy` is present only when a restrictive policy applies (e.g. `"read"` for read-only documents).
 
 ### `read_document`
 
@@ -97,6 +98,7 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 - See `collapsed: true` with hidden children? Pass the node's `node_id` to zoom in (the starting node always expands), or set `include_collapsed_children: true` to expand all collapsed nodes.
 - Need everything? Set `max_depth: null` and `include_collapsed_children: true`.
 - The starting node (the `node_id` you pass, or the document root) always shows its children regardless of collapsed state, matching the Dynalist UI zoom behavior.
+- If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the node tree.
 
 **Node properties:**
 - `checked`, `checkbox`: only present when the node has a checkbox. Omitted for plain nodes.
@@ -125,6 +127,7 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
 {
   "file_id": "...",
   "title": "...",
+  "version": 42,
   "url": "...",
   "count": 5,
   "query": "search term",
@@ -132,6 +135,7 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
     {
       "node_id": "...",
       "content": "...",
+      "note": "...",
       "url": "...",
       "collapsed": false,
       "parents": [{ "node_id": "...", "content": "..." }],
@@ -141,7 +145,9 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
 }
 ```
 
-`checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist. `children` is present only when `include_children: true` and the node has children.
+`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist. `children` is present only when `include_children: true` and the node has children.
+
+If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the match results.
 
 ### `get_recent_changes`
 
@@ -162,12 +168,14 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
 {
   "file_id": "...",
   "title": "...",
+  "version": 42,
   "url": "...",
   "count": 3,
   "matches": [
     {
       "node_id": "...",
       "content": "...",
+      "note": "...",
       "url": "...",
       "change_type": "created",
       "created": 1710000000000,
@@ -179,7 +187,9 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
 }
 ```
 
-`checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist.
+`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist.
+
+If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the match results.
 
 ### `check_document_versions`
 
@@ -209,6 +219,9 @@ Send a single item to your Dynalist inbox. The target document is the user's con
 | `content` | string | yes | | Text content for the inbox item |
 | `note` | string | no | | Note for the item |
 | `checkbox` | boolean | no | config | Whether to add a checkbox |
+| `heading` | number | no | `0` | 0 = no heading, 1 = H1, 2 = H2, 3 = H3 |
+| `color` | number | no | `0` | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+| `checked` | boolean | no | | Check state. Only meaningful when checkbox is true |
 
 **Response**:
 ```json
@@ -221,7 +234,9 @@ Send a single item to your Dynalist inbox. The target document is the user's con
 
 ### `edit_nodes`
 
-Edit one or more existing nodes. Only specified fields are updated per node. Omitted fields are left unchanged (not reset to defaults). For a single node, pass a one-element array.
+Edit one or more existing nodes. Only specified fields are updated per node. Omitted fields are left unchanged (not reset to defaults).
+
+Node IDs are pre-validated before the write: if any node ID is not found in the document, the tool returns a `NodeNotFound` error with the specific ID. Entries with only `node_id` and no mutable fields are rejected as no-op edits.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -272,11 +287,11 @@ Insert one or more nodes into a Dynalist document as a JSON tree. Supports neste
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
-| `node_id` | string | no | root | Parent node ID. Inferred from `reference_node_id` when using `after`/`before`. |
+| `parent_node_id` | string | no | root | Parent node. Omit for root. Must be omitted for `after`/`before` (parent is inferred from `reference_node_id`). |
 | `nodes` | array | yes | | Array of node objects (see below) |
-| `position` | string | no | `"as_last_child"` | `"as_first_child"`, `"as_last_child"`, `"after"`, or `"before"` |
-| `index` | number | no | | Exact child index for root-level nodes. Overrides `position`. 0 = first, -1 = last. Cannot be combined with `reference_node_id`. |
-| `reference_node_id` | string | no | | Sibling node to insert relative to. Required when position is `"after"` or `"before"`. Cannot be combined with `"as_first_child"`/`"as_last_child"` or `index`. |
+| `position` | string | yes | | `"first_child"`, `"last_child"`, `"after"`, or `"before"` |
+| `index` | number | no | | Exact child index. Overrides `position`. 0 = first, -1 = last. Cannot be combined with `reference_node_id`. |
+| `reference_node_id` | string | no | | Sibling reference. Required for `after`/`before`. Cannot be combined with `first_child`/`last_child` or `index`. |
 | `expected_version` | number | yes | | Document version from `read_document`. Aborts if stale. |
 
 **Node object fields:**
@@ -296,6 +311,7 @@ Example input:
 {
   "file_id": "abc123",
   "expected_version": 42,
+  "position": "last_child",
   "nodes": [
     {
       "content": "Top level item",
@@ -326,15 +342,15 @@ Example input:
 
 ### `delete_nodes`
 
-Delete one or more nodes from a document. By default, each node and its entire subtree are deleted. For a single deletion, pass a one-element array. If two nodes in the array overlap (one is an ancestor of the other), the descendant is automatically deduplicated.
+Delete one or more nodes from a document. By default, each node and its entire subtree are deleted. If two nodes in the array overlap (one is an ancestor of the other), the descendant is automatically deduplicated.
 
-`include_children: false` is a **niche option** that promotes (unwraps) a single node's children up to its parent instead of deleting them. This is only supported when deleting a single node (`node_ids` must have exactly one element). The vast majority of deletions should use the default. Only use `include_children: false` when the user explicitly wants to remove a grouping node (e.g. a section header) while keeping its items.
+`children: "promote"` is a **niche option** that re-parents a single node's children to the deleted node's parent instead of deleting them. This is only supported when deleting a single node (`node_ids` must have exactly one element). The vast majority of deletions should use the default. Only use `children: "promote"` when the user explicitly wants to remove a grouping node (e.g. a section header) while keeping its items.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
-| `node_ids` | string[] | yes | | Node IDs to delete. For a single deletion, pass a one-element array. |
-| `include_children` | boolean | no | `true` | Delete entire subtree if true; promote children if false (single node only) |
+| `node_ids` | string[] | yes | | Node IDs to delete |
+| `children` | string | no | `"delete"` | `"delete"`: remove entire subtree. `"promote"`: re-parent children to the deleted node's parent (single node only). |
 | `expected_version` | number | yes | | Document version from `read_document`. Aborts if stale. |
 
 **Response**:
@@ -342,12 +358,13 @@ Delete one or more nodes from a document. By default, each node and its entire s
 {
   "file_id": "...",
   "deleted_count": 5,
+  "deleted_ids": ["node1", "node2", "node3", "node4", "node5"],
   "promoted_children": 3,
   "version_warning": "..."
 }
 ```
 
-`promoted_children` is present only when children were promoted (`include_children: false`). `version_warning` is present only when a concurrent edit was detected during the write.
+`deleted_ids` lists all deleted node IDs (target nodes and their descendants). `promoted_children` is present only when children were promoted (`children: "promote"`). `version_warning` is present only when a concurrent edit was detected during the write.
 
 ### `move_nodes`
 

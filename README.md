@@ -6,7 +6,7 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 
 ### Features
 
-- **18 tools** for reading, writing, searching, and organizing documents.
+- **17 tools** for reading, writing, searching, and organizing documents.
 - **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
 - **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more.
 - **Read-only mode** to prevent all write operations.
@@ -103,10 +103,13 @@ src/
 ├── index.ts                      # Entry point, server identity, instructions
 ├── config.ts                     # Zod-validated config with mtime-based reloading
 ├── access-control.ts             # Path-based ACL (deny/read/allow policies)
+├── document-store.ts             # LRU-cached document reader with version checks
 ├── types.ts                      # Shared types (OutputNode, NodeSummary, etc.)
 ├── dynalist-client.ts            # Wrapper for the Dynalist API
+├── version-guard.ts              # Pre/post-write version checks for race detection
 ├── tools/
 │   ├── index.ts                  # Aggregator - registers all tools
+│   ├── descriptions.ts           # Shared parameter descriptions and guidance constants
 │   ├── read.ts                   # Read tools
 │   ├── write.ts                  # Write tools
 │   ├── structure.ts              # Structure tools (delete, move)

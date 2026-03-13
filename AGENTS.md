@@ -47,10 +47,13 @@ src/
 ├── index.ts                      # Entry point, server identity, MCP instructions
 ├── config.ts                     # Zod-validated config with mtime-based reloading
 ├── access-control.ts             # Path-based ACL (deny/read/allow policies)
+├── document-store.ts             # LRU-cached document reader with version checks
 ├── types.ts                      # Shared types (OutputNode, NodeSummary, etc.)
 ├── dynalist-client.ts            # Wrapper for the Dynalist API
+├── version-guard.ts              # Pre/post-write version checks for race detection
 ├── tools/
 │   ├── index.ts                  # Aggregator - registers all tools
+│   ├── descriptions.ts           # Shared parameter descriptions and guidance constants
 │   ├── read.ts                   # Read tools (list, search, read_document, etc.)
 │   ├── write.ts                  # Write tools (inbox, edit, insert)
 │   ├── structure.ts              # Structure tools (delete, move)
