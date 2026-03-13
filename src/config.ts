@@ -11,7 +11,9 @@ import { z } from "zod";
 // ─── Zod schemas ───────────────────────────────────────────────────────
 
 const AccessRuleSchema = z.object({
-  path: z.string().refine((p) => p.startsWith("/"), { message: "Access rule path must start with '/'" }),
+  path: z.string()
+    .refine((p) => p.startsWith("/"), { message: "Access rule path must start with '/'" })
+    .transform((p) => p.normalize("NFC")),
   policy: z.enum(["allow", "read", "deny"]),
   id: z.string().optional(),
 });

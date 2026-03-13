@@ -6,6 +6,31 @@ Path-based access control restricts which documents and folders the LLM can acce
 
 Paths are derived from the Dynalist folder tree. A document at the top level of a folder named "Work" has the path `/Work`. A document named "Notes" inside that folder has the path `/Work/Notes`.
 
+### Special characters in titles
+
+If a folder or document title contains a literal `/`, `\`, or `*`, it is escaped in the path. This prevents ambiguity between path separators and title characters, and between glob patterns and literal asterisks.
+
+| Character | Escaped form |
+|-----------|-------------|
+| `/` | `\/` |
+| `\` | `\\` |
+| `*` | `\*` |
+
+| Title | Path segment |
+|-------|-------------|
+| `Work` | `Work` |
+| `Coding/Career` | `Coding\/Career` |
+| `A\B` | `A\\B` |
+| `Important*` | `Important\*` |
+
+A folder titled "Coding/Career" containing a document "Resume" has the path `/Coding\/Career/Resume`. The corresponding rule path uses the same escaping:
+
+```json
+{ "path": "/Coding\\/Career/**", "policy": "allow" }
+```
+
+Note the doubled backslash in JSON (`\\/`). JSON requires `\\` to represent a single `\` character, so the escaped path segment `\/` is written as `\\/` in the config file.
+
 ## Policy levels
 
 | Policy | Read | Write |
@@ -21,7 +46,9 @@ Rules support two glob suffixes:
 - `/**` (recursive): matches the path itself and all descendants at any depth.
 - `/*` (single-level): matches only direct children, not the path itself or deeper descendants.
 
-No other glob patterns (wildcards in segments, brace expansion) are supported. A path without a glob suffix targets a single document or folder exactly.
+No other glob patterns are supported. Interior globs like `/foo/*/bar` or `/foo/**/bar` are rejected during validation. Literal asterisks in titles must be escaped as `\*` in rule paths (written as `\\*` in JSON). A path without a glob suffix targets a single document or folder exactly.
+
+Dangling backslashes (an odd number of trailing `\` before the glob suffix or at the end of a non-glob path) are also rejected during validation.
 
 **Examples:**
 - `/Work/**` matches `/Work`, `/Work/Notes`, `/Work/Projects/Alpha`.
@@ -42,7 +69,7 @@ Rules can include an `id` field to anchor to a specific file ID:
 { "path": "/Work/Notes", "policy": "deny", "id": "abc123" }
 ```
 
-When an `id` is present, the rule tracks the file by ID even if it is renamed or moved. The ID pins the document or folder, not the glob pattern. A rule like `{ "path": "/Work/**", "policy": "deny", "id": "abc123" }` pins `/Work` to `abc123`; if that folder is later renamed to `/Projects`, the rule automatically applies to `/Projects/**`. If the file's current path no longer matches the rule's path, a warning is logged suggesting a config update.
+The `id` field serves two purposes: it disambiguates when multiple files share the same path (see [Duplicate titles](#duplicate-titles)), and it detects config staleness when files are renamed or moved. The path in the rule must match the ID's actual location in the file tree. If the file is renamed or moved and the rule's path no longer matches, validation fails and all tools are denied until the config is updated with the new path.
 
 ## Fail-closed behavior
 
@@ -60,7 +87,7 @@ Each `path` value in `access.rules` must be unique. Duplicate paths are rejected
 
 ## Duplicate titles
 
-Multiple files can have the same title, resulting in the same path. Use `id` anchoring to disambiguate. Without `id`, the rule applies to all files with the matching path.
+Multiple files can have the same title, resulting in the same path. If a non-ID-anchored rule matches multiple files with the same path, validation fails and all tools are denied until the config is fixed. Add an `id` field to the rule to disambiguate. ID-anchored rules are exempt from this check.
 
 ## Examples
 

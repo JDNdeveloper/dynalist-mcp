@@ -12,6 +12,89 @@ import { log, getConfigVersion, ConfigError } from "./config";
 
 export type Policy = "allow" | "read" | "deny";
 
+// ─── Path escaping ───────────────────────────────────────────────────
+
+/**
+ * Escape a file/folder title for use as a path segment. Normalizes
+ * to NFC first for consistent Unicode comparison, then escapes
+ * backslashes (\ -> \\), slashes (/ -> \/), and asterisks (* -> \*),
+ * so that unescaped "/" always means "path separator" and unescaped
+ * "*" always means "glob".
+ */
+function escapePathSegment(title: string): string {
+  return title.normalize("NFC")
+    .replace(/\\/g, "\\\\")
+    .replace(/\//g, "\\/")
+    .replace(/\*/g, "\\*");
+}
+
+/**
+ * Replace control characters (U+0000..U+001F, U+007F..U+009F) with
+ * their \xNN hex representation. Used to sanitize paths before
+ * including them in log messages to prevent log injection.
+ */
+function sanitizeForLog(s: string): string {
+  return s.replace(/[\x00-\x1f\x7f-\x9f]/g, (ch) =>
+    `\\x${ch.charCodeAt(0).toString(16).padStart(2, "0")}`
+  );
+}
+
+/**
+ * Count consecutive backslashes immediately before the given index.
+ */
+function countPrecedingBackslashes(s: string, index: number): number {
+  let count = 0;
+  for (let j = index - 1; j >= 0 && s[j] === "\\"; j--) {
+    count++;
+  }
+  return count;
+}
+
+/**
+ * Check whether the character at the given index is escaped (preceded
+ * by an odd number of backslashes).
+ */
+function isEscapedChar(s: string, index: number): boolean {
+  return countPrecedingBackslashes(s, index) % 2 !== 0;
+}
+
+/**
+ * Check whether a string contains at least one unescaped forward slash.
+ * Used by the single-level glob matcher to detect nested path
+ * segments inside an escaped title.
+ */
+function hasUnescapedSlash(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "/" && !isEscapedChar(s, i)) return true;
+  }
+  return false;
+}
+
+/**
+ * Check whether a string contains at least one unescaped asterisk.
+ * Used to detect interior globs while allowing escaped literal
+ * asterisks from title escaping.
+ */
+function hasUnescapedStar(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "*" && !isEscapedChar(s, i)) return true;
+  }
+  return false;
+}
+
+/**
+ * Check whether a string ends with a dangling (unescaped) backslash.
+ * An odd number of trailing backslashes means the last one is not
+ * part of a \\ pair and is escaping nothing.
+ */
+function hasDanglingBackslash(s: string): boolean {
+  let count = 0;
+  for (let i = s.length - 1; i >= 0 && s[i] === "\\"; i--) {
+    count++;
+  }
+  return count % 2 !== 0;
+}
+
 // ─── Rule matching ────────────────────────────────────────────────────
 
 type MatchType = "exact" | "single" | "recursive";
@@ -27,16 +110,27 @@ interface RuleMatch {
  * Returns match metadata for specificity ranking, or null if no match.
  */
 function matchRule(rulePath: string, filePath: string): { type: MatchType; prefixLength: number } | null {
+  // Normalize to NFC for consistent comparison. File paths are already
+  // NFC from escapePathSegment; rule paths are normalized here as a
+  // defensive measure (Zod also normalizes, but callers may bypass it).
+  rulePath = rulePath.normalize("NFC");
+
   if (rulePath.endsWith("/**")) {
     const prefix = rulePath.slice(0, -3);
-    if (filePath === prefix || filePath.startsWith(prefix + "/")) {
+    // Check that the "/" after the prefix in the file path is an
+    // unescaped separator, not part of an escaped "\/" sequence.
+    if (filePath === prefix ||
+        (filePath.length > prefix.length && filePath.startsWith(prefix) &&
+         filePath[prefix.length] === "/" && !isEscapedChar(filePath, prefix.length))) {
       return { type: "recursive", prefixLength: prefix.length };
     }
   } else if (rulePath.endsWith("/*")) {
     const prefix = rulePath.slice(0, -2);
-    const rest = filePath.slice(prefix.length);
-    // Must start with "/" and have exactly one segment after.
-    if (rest.startsWith("/") && rest.length > 1 && !rest.slice(1).includes("/")) {
+    // Must match the prefix, then have an unescaped "/" followed by
+    // exactly one segment (no further unescaped slashes).
+    if (filePath.length > prefix.length && filePath.startsWith(prefix) &&
+        filePath[prefix.length] === "/" && !isEscapedChar(filePath, prefix.length) &&
+        !hasUnescapedSlash(filePath.slice(prefix.length + 1))) {
       return { type: "single", prefixLength: prefix.length };
     }
   } else {
@@ -99,45 +193,39 @@ function buildPathMap(files: DynalistFile[], rootFileId: string): Map<string, st
 
   const pathMap = new Map<string, string>();
 
-  function walk(fileId: string, parentPath: string) {
-    const file = fileById.get(fileId);
-    if (!file) return;
+  // Recursively walk a file's children, computing each child's path
+  // as parentPath + "/" + escaped title. The root is never passed as
+  // fileId; instead, its children are seeded with parentPath = "".
+  function walkChildren(parentId: string, parentPath: string) {
+    const parent = fileById.get(parentId);
+    if (!parent?.children) return;
 
-    const path = parentPath === "" ? "" : `${parentPath}/${file.title}`;
-    if (path !== "") {
-      pathMap.set(fileId, path);
-    }
-
-    if (file.children) {
-      for (const childId of file.children) {
-        walk(childId, path);
-      }
-    }
-  }
-
-  // Walk root's children directly (root itself has no path segment).
-  const rootFile = fileById.get(rootFileId);
-  if (rootFile?.children) {
-    for (const childId of rootFile.children) {
+    for (const childId of parent.children) {
       const child = fileById.get(childId);
-      if (child) {
-        const childPath = `/${child.title}`;
-        pathMap.set(childId, childPath);
-        if (child.children) {
-          for (const grandchildId of child.children) {
-            walk(grandchildId, childPath);
-          }
-        }
+      if (!child) continue;
+
+      // Empty titles produce ambiguous path segments (/ or //). Skip
+      // the file and its descendants; they receive the default policy.
+      if (child.title === "") {
+        log("warn", `File '${child.id}' has an empty title; excluded from access control path map.`);
+        continue;
       }
+
+      const childPath = `${parentPath}/${escapePathSegment(child.title)}`;
+      pathMap.set(childId, childPath);
+      walkChildren(childId, childPath);
     }
   }
+
+  walkChildren(rootFileId, "");
 
   return pathMap;
 }
 
 /**
- * Log warnings for rules with ID mismatches and for ambiguous
- * duplicate-title paths.
+ * Validate access rules against the current file tree. Checks for
+ * interior globs, missing IDs, path drift, unresolvable paths, and
+ * duplicate-title ambiguity.
  *
  * IMPORTANT: Strings pushed to `errors` are agent-facing (thrown as
  * ConfigError and returned via wrapToolHandler). They must never
@@ -148,15 +236,24 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
   const errors: string[] = [];
   const allPaths = new Set(pathMap.values());
 
-  // Reject rules with unsupported glob patterns. Only trailing /** and /*
-  // are recognized; a * anywhere else silently produces wrong behavior.
+  // Reject rules with structural problems in the path syntax. These
+  // are checked before semantic validation (path existence, ID drift)
+  // because they indicate a fundamentally malformed rule.
   for (const rule of rules) {
-    const base = rule.path.replace(/\/\*\*?$/, "");
-    if (base.includes("*")) {
-      log("error", `Access rule '${rule.path}' contains an unsupported interior glob.`);
+    const base = rule.path.normalize("NFC").replace(/\/\*\*?$/, "");
+    if (hasUnescapedStar(base)) {
+      log("error", `Access rule '${sanitizeForLog(rule.path)}' contains an unsupported interior glob.`);
       errors.push(
         "An access rule contains an unsupported interior glob. " +
-        "Only trailing '/**' and '/*' patterns are supported."
+        "Only trailing '/**' and '/*' patterns are supported. " +
+        "Literal asterisks in titles must be escaped as '\\*'."
+      );
+    }
+    if (hasDanglingBackslash(base)) {
+      log("error", `Access rule '${sanitizeForLog(rule.path)}' has a dangling backslash in its path.`);
+      errors.push(
+        "An access rule has a dangling backslash. " +
+        "Literal backslashes must be escaped as '\\\\'."
       );
     }
   }
@@ -168,22 +265,22 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
       // ID-anchored: the ID must exist in the tree.
       const resolvedPath = pathMap.get(rule.id);
       if (!resolvedPath) {
-        log("error", `Access rule '${rule.path}' has id '${rule.id}' which does not exist in the file tree.`);
+        log("error", `Access rule '${sanitizeForLog(rule.path)}' has id '${rule.id}' which does not exist in the file tree.`);
         errors.push("An id-anchored rule references an id that does not exist in the file tree.");
         continue;
       }
       // Check for path drift.
-      const ruleBase = rule.path.replace(/\/\*\*?$/, "");
+      const ruleBase = rule.path.normalize("NFC").replace(/\/\*\*?$/, "");
       if (resolvedPath !== ruleBase) {
-        log("error", `Access rule '${rule.path}' has id '${rule.id}' which now resolves to '${resolvedPath}'.`);
+        log("error", `Access rule '${sanitizeForLog(rule.path)}' has id '${rule.id}' which now resolves to '${sanitizeForLog(resolvedPath)}'.`);
         errors.push("An id-anchored rule's path no longer matches its id.");
       }
     } else {
       // Path-only: the base path must match at least one file/folder.
-      const ruleBase = rule.path.replace(/\/\*\*?$/, "");
+      const ruleBase = rule.path.normalize("NFC").replace(/\/\*\*?$/, "");
       // Root-level globs like /** and /* produce an empty ruleBase, which is valid.
       if (ruleBase !== "" && !allPaths.has(ruleBase)) {
-        log("error", `Access rule path '${rule.path}' does not match any file or folder in the account.`);
+        log("error", `Access rule path '${sanitizeForLog(rule.path)}' does not match any file or folder in the account.`);
         errors.push("A path-only rule does not match any file or folder in the account.");
       }
     }
@@ -202,12 +299,16 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
 
   for (const rule of rules) {
     if (rule.id) continue;
-    const ruleBase = rule.path.replace(/\/\*\*?$/, "");
+    const ruleBase = rule.path.normalize("NFC").replace(/\/\*\*?$/, "");
     const ids = pathToIds.get(ruleBase);
     if (ids && ids.length > 1) {
-      log("warn",
-        `Access rule for '${rule.path}' matches ${ids.length} files with the same path. ` +
+      log("error",
+        `Access rule for '${sanitizeForLog(rule.path)}' matches ${ids.length} files with the same path. ` +
         `Add an 'id' field to disambiguate.`
+      );
+      errors.push(
+        "A path-only rule matches multiple files with the same path. " +
+        "Add an 'id' field to disambiguate."
       );
     }
   }

@@ -158,6 +158,22 @@ describe("AccessController.getPolicy", () => {
     expect(await ac.getPolicy("fa", config)).toBe("allow");
   });
 
+  test("single-level glob does not false-match a different folder with same-length path", async () => {
+    const ac = new AccessController(client);
+    // /Folder A/* must NOT match /Folder B/Doc C. Both prefixes are 9
+    // characters, so a naive slice-based check would false-match.
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A/*", policy: "deny" }],
+      },
+    });
+    // Doc C is under Folder B, not Folder A.
+    expect(await ac.getPolicy("dc", config)).toBe("allow");
+    // Doc A is under Folder A.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
   test("exact match beats single-level glob", async () => {
     const ac = new AccessController(client);
     const config = makeConfig({
@@ -1138,7 +1154,7 @@ describe("rule validation: duplicates", () => {
     }
   });
 
-  test("duplicate titles in tree: warning logged, rule applies to all files at that path", async () => {
+  test("duplicate titles in tree: non-ID-anchored rule throws ConfigError", async () => {
     const server = new DummyDynalistServer();
     server.init();
     // Create two folders with different names.
@@ -1155,7 +1171,7 @@ describe("rule validation: duplicates", () => {
     const ac = new AccessController(client);
 
     // Both documents now live at /FolderX/SameName.
-    // A path-only rule should apply to both of them.
+    // A path-only rule matching duplicate paths should fail validation.
     const config = makeConfig({
       access: {
         default: "allow",
@@ -1163,9 +1179,7 @@ describe("rule validation: duplicates", () => {
       },
     });
 
-    // The rule matches the path for both d1 and d2.
-    expect(await ac.getPolicy("d1", config)).toBe("deny");
-    expect(await ac.getPolicy("d2", config)).toBe("deny");
+    await expect(ac.getPolicy("d1", config)).rejects.toThrow(ConfigError);
   });
 
   test("duplicate titles with ID disambiguation: no validation error", async () => {
@@ -1183,8 +1197,7 @@ describe("rule validation: duplicates", () => {
     const ac = new AccessController(client);
 
     // Use an ID-anchored rule targeting d1. Because the rule has an
-    // ID, validateRules skips the duplicate-title warning check.
-    // This means no validation error and no fail-closed behavior.
+    // ID, validateRules skips the duplicate-title check entirely.
     const config = makeConfig({
       access: {
         default: "allow",
@@ -1192,11 +1205,8 @@ describe("rule validation: duplicates", () => {
       },
     });
 
-    // The rule should work normally without fail-closed behavior.
-    // The ID resolves to d1's path, which matches both d1 and d2
-    // since they share the same literal path. The key point is that
-    // validation passes (no fail-closed) because ID-anchored rules
-    // are exempt from the duplicate-title warning.
+    // Validation passes because ID-anchored rules are exempt from the
+    // duplicate-title check. The rule matches d1's path.
     expect(await ac.getPolicy("d1", config)).toBe("deny");
 
     // Other unrelated files remain unaffected.
@@ -1209,7 +1219,572 @@ describe("rule validation: duplicates", () => {
     // The ID-anchored glob rule targets f1's subtree.
     expect(await ac.getPolicy("d1", configWithFolder)).toBe("deny");
     // d2 is under f2 (also at /FolderX), so its path also matches.
-    // No fail-closed behavior occurs since the ID is valid.
     expect(await ac.getPolicy("d2", configWithFolder)).toBe("deny");
+  });
+
+  test("duplicate-title error does not reveal rule path or file IDs", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("f1", "SecretFolder", "root_folder");
+    server.addFolder("f2", "SecretFolder", "root_folder");
+
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/SecretFolder", policy: "deny" }],
+      },
+    });
+
+    const err = await ac.getPolicy("f1", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).not.toContain("/SecretFolder");
+    expect(err.message).not.toContain("f1");
+    expect(err.message).not.toContain("f2");
+  });
+});
+
+// ─── Slash escaping in paths ─────────────────────────────────────────
+
+describe("slash escaping in paths", () => {
+  test("folder with slash in title produces escaped path segment", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("slashf", "Coding/Career", "root_folder");
+    server.addDocument("slashd", "Resume", "slashf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // The escaped path is /Coding\/Career/Resume.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Coding\\/Career/Resume", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("slashd", config)).toBe("allow");
+  });
+
+  test("document with slash in title produces escaped path segment", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("pf", "Projects", "root_folder");
+    server.addDocument("slashd", "Q1/Q2 Report", "pf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Projects/Q1\\/Q2 Report", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("slashd", config)).toBe("allow");
+  });
+
+  test("slash-titled folder does not collide with nested folders of the same name parts", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Folder titled "A/B" (single folder with slash in name).
+    server.addFolder("ab_slash", "A/B", "root_folder");
+    server.addDocument("d_slash", "Doc", "ab_slash");
+    // Folder "A" > subfolder "B" (two separate folders).
+    server.addFolder("a_folder", "A", "root_folder");
+    server.addFolder("b_folder", "B", "a_folder");
+    server.addDocument("d_nested", "Doc", "b_folder");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Rule targets the escaped single-folder path. Should NOT match
+    // the nested folder path /A/B/Doc.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/A\\/B/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("d_slash", config)).toBe("allow");
+    expect(await ac.getPolicy("d_nested", config)).toBe("deny");
+  });
+
+  test("recursive glob on slash-escaped folder matches its descendants", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("slashf", "Work/Personal", "root_folder");
+    server.addFolder("sub", "Sub", "slashf");
+    server.addDocument("d1", "Doc1", "slashf");
+    server.addDocument("d2", "Doc2", "sub");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Work\\/Personal/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("slashf", config)).toBe("allow");
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+    expect(await ac.getPolicy("d2", config)).toBe("allow");
+  });
+
+  test("single-level glob on slash-escaped folder matches direct children", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("slashf", "A/B", "root_folder");
+    server.addFolder("sub", "Sub", "slashf");
+    server.addDocument("d1", "Doc1", "slashf");
+    server.addDocument("d2", "Doc2", "sub");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/A\\/B/*", policy: "allow" }],
+      },
+    });
+    // Direct children match.
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+    expect(await ac.getPolicy("sub", config)).toBe("allow");
+    // The folder itself and deeper descendants do not.
+    expect(await ac.getPolicy("slashf", config)).toBe("deny");
+    expect(await ac.getPolicy("d2", config)).toBe("deny");
+  });
+
+  test("exact-match rule on slash-escaped document matches only that document", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("pf", "Projects", "root_folder");
+    server.addDocument("d_slash", "A/B", "pf");
+    server.addDocument("d_other", "Other", "pf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Projects/A\\/B", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("d_slash", config)).toBe("allow");
+    expect(await ac.getPolicy("d_other", config)).toBe("deny");
+  });
+
+  test("title with backslash is double-escaped and does not collide with slash-escaped title", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Title "A\B" contains a literal backslash. Escaped: A\\B.
+    server.addFolder("bs", "A\\B", "root_folder");
+    server.addDocument("d_bs", "Doc", "bs");
+    // Title "A/B" contains a literal slash. Escaped: A\/B.
+    server.addFolder("sl", "A/B", "root_folder");
+    server.addDocument("d_sl", "Doc", "sl");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Target backslash folder (A\\B in the rule).
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/A\\\\B/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("d_bs", config)).toBe("allow");
+    expect(await ac.getPolicy("d_sl", config)).toBe("deny");
+  });
+
+  test("recursive glob does not false-positive on escaped slash after prefix", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Folder titled "A/B" (escaped path: /A\/B).
+    server.addFolder("ab_slash", "A/B", "root_folder");
+    server.addDocument("d1", "Doc", "ab_slash");
+    // Also create a folder "A" so the rule /A/** is valid.
+    server.addFolder("a_folder", "A", "root_folder");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Rule /A/** should match descendants of folder "A", NOT folder "A/B".
+    // The path /A\/B starts with /A but the next char is \, not /.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/A/**", policy: "allow" }],
+      },
+    });
+    // Folder "A" itself matches /A/**.
+    expect(await ac.getPolicy("a_folder", config)).toBe("allow");
+    // Folder "A/B" should NOT match /A/** because the "/" after "A" is escaped.
+    expect(await ac.getPolicy("ab_slash", config)).toBe("deny");
+    expect(await ac.getPolicy("d1", config)).toBe("deny");
+  });
+
+  test("single-level glob correctly handles child with slash in title", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("pf", "Parent", "root_folder");
+    // Child document with a slash in its title.
+    server.addDocument("child_slash", "X/Y", "pf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // /Parent/* should match /Parent/X\/Y because X\/Y is a single
+    // escaped segment (no unescaped slash).
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Parent/*", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("child_slash", config)).toBe("allow");
+  });
+
+  test("title with asterisk is escaped and does not trigger interior glob rejection", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("pf", "Projects", "root_folder");
+    server.addDocument("star_doc", "Important*", "pf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // The escaped path is /Projects/Important\*. The rule uses the
+    // same escaping so the \* is a literal asterisk, not a glob.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Projects/Important\\*", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("star_doc", config)).toBe("allow");
+  });
+
+  test("recursive glob on folder with asterisk in title works", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("starf", "A*B", "root_folder");
+    server.addDocument("d1", "Doc", "starf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/A\\*B/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("starf", config)).toBe("allow");
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+  });
+
+  test("unescaped asterisk in rule path still triggers interior glob rejection", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A/*/Doc A", policy: "deny" }],
+      },
+    });
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
+  });
+});
+
+// ─── Dangling backslash validation ───────────────────────────────────
+
+describe("dangling backslash validation", () => {
+  test("rule path with dangling backslash before /** throws ConfigError", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        // After stripping /**, base is "/Folder A\" which has a dangling \.
+        rules: [{ path: "/Folder A\\/**", policy: "deny" }],
+      },
+    });
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
+  });
+
+  test("rule path with dangling backslash before /* throws ConfigError", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A\\/*", policy: "deny" }],
+      },
+    });
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
+  });
+
+  test("rule path with dangling backslash at end (no glob) throws ConfigError", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A\\", policy: "deny" }],
+      },
+    });
+    await expect(ac.getPolicy("da", config)).rejects.toThrow(ConfigError);
+  });
+
+  test("rule path ending in escaped backslash (\\\\) does NOT have a dangling backslash", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Folder titled "A\" (literal backslash). Escaped: A\\.
+    server.addFolder("bsf", "A\\", "root_folder");
+    server.addDocument("d1", "Doc", "bsf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Rule path /A\\/** has base /A\\, which ends in \\ (even count).
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/A\\\\/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("bsf", config)).toBe("allow");
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+  });
+
+  test("dangling backslash error does not reveal rule path", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Secret\\/**", policy: "deny" }],
+      },
+    });
+    const err = await ac.getPolicy("da", config).catch((e) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).not.toContain("/Secret");
+  });
+});
+
+// ─── Empty title handling ────────────────────────────────────────────
+
+describe("empty title handling", () => {
+  test("empty-titled root child is excluded from path map and gets default policy", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("empty_f", "", "root_folder");
+    server.addDocument("normal_d", "Normal", "root_folder");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Normal", policy: "allow" }],
+      },
+    });
+    // Empty-titled folder is not in pathMap, so it gets default (deny).
+    expect(await ac.getPolicy("empty_f", config)).toBe("deny");
+    expect(await ac.getPolicy("normal_d", config)).toBe("allow");
+  });
+
+  test("empty-titled nested folder is excluded along with its descendants", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("parent", "Parent", "root_folder");
+    server.addFolder("empty_child", "", "parent");
+    server.addDocument("deep_doc", "Deep", "empty_child");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Parent/**", policy: "allow" }],
+      },
+    });
+    // Parent itself is accessible.
+    expect(await ac.getPolicy("parent", config)).toBe("allow");
+    // Empty-titled child and its descendants are excluded from pathMap.
+    expect(await ac.getPolicy("empty_child", config)).toBe("deny");
+    expect(await ac.getPolicy("deep_doc", config)).toBe("deny");
+  });
+
+  test("empty-titled file with allow default gets allow", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addDocument("empty_d", "", "root_folder");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [],
+      },
+    });
+    // Not in pathMap, so gets default (allow).
+    expect(await ac.getPolicy("empty_d", config)).toBe("allow");
+  });
+});
+
+// ─── Unicode normalization ───────────────────────────────────────────
+
+describe("Unicode normalization", () => {
+  // e-acute as a single code point (NFC) vs decomposed (NFD).
+  const NFC_TITLE = "R\u00e9sum\u00e9";
+  const NFD_TITLE = "Re\u0301sume\u0301";
+
+  test("NFD title matches NFC rule path", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Dynalist stores the title in NFD form.
+    server.addFolder("pf", "Work", "root_folder");
+    server.addDocument("nfd_doc", NFD_TITLE, "pf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Rule uses NFC form (the natural form when typing in most editors).
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: `/Work/${NFC_TITLE}`, policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("nfd_doc", config)).toBe("allow");
+  });
+
+  test("NFC title matches NFD rule path", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("pf", "Work", "root_folder");
+    server.addDocument("nfc_doc", NFC_TITLE, "pf");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Rule uses NFD form.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: `/Work/${NFD_TITLE}`, policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("nfc_doc", config)).toBe("allow");
+  });
+
+  test("NFD folder title with recursive glob matches descendants", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("nfd_f", NFD_TITLE, "root_folder");
+    server.addDocument("d1", "Doc", "nfd_f");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: `/${NFC_TITLE}/**`, policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("nfd_f", config)).toBe("allow");
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+  });
+});
+
+// ─── Whitespace in titles ────────────────────────────────────────────
+
+describe("whitespace in titles", () => {
+  test("title with leading space does not match rule without space (fail-closed)", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("sp_f", " Work", "root_folder");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Rule omits the leading space. Validation fails because /Work
+    // does not match any file (actual path is / Work).
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Work/**", policy: "deny" }],
+      },
+    });
+    await expect(ac.getPolicy("sp_f", config)).rejects.toThrow(ConfigError);
+  });
+
+  test("title with leading space matches rule with leading space", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("sp_f", " Work", "root_folder");
+    server.addDocument("d1", "Doc", "sp_f");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Rule includes the leading space. Path matches.
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/ Work/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("sp_f", config)).toBe("allow");
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+  });
+});
+
+// ─── Combined special characters ─────────────────────────────────────
+
+describe("combined special characters in titles", () => {
+  test("title with all three special characters (slash, backslash, asterisk)", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    // Title "A/B\\C*D" contains all three escaped characters.
+    server.addFolder("combo", "A/B\\C*D", "root_folder");
+    server.addDocument("d1", "Doc", "combo");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // Escaped path: A\/B\\C\*D. In a JS string the rule path is:
+    // "/A\\/B\\\\C\\*D/**" (each \ doubled for JS, then for escaping).
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/A\\/B\\\\C\\*D/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("combo", config)).toBe("allow");
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+  });
+});
+
+// ─── Duplicate titles within a glob subtree ──────────────────────────
+
+describe("duplicate titles within a glob subtree", () => {
+  test("glob rule applies uniformly to duplicate-path files in its subtree", async () => {
+    const server = new DummyDynalistServer();
+    server.init();
+    server.addFolder("fa", "Folder", "root_folder");
+    // Two subfolders with the same name, creating duplicate paths.
+    server.addFolder("sub1", "Sub", "fa");
+    server.addFolder("sub2", "Sub", "fa");
+    server.addDocument("d1", "Doc", "sub1");
+    server.addDocument("d2", "Doc", "sub2");
+    const client = new MockDynalistClient(server);
+    const ac = new AccessController(client);
+
+    // The glob rule covers the entire subtree. Duplicate paths within
+    // the subtree do not cause ambiguity because the policy is uniform.
+    // No validation error is raised (the duplicate check only applies
+    // to the rule's base path, not paths within its scope).
+    const config = makeConfig({
+      access: {
+        default: "deny",
+        rules: [{ path: "/Folder/**", policy: "allow" }],
+      },
+    });
+    expect(await ac.getPolicy("fa", config)).toBe("allow");
+    expect(await ac.getPolicy("d1", config)).toBe("allow");
+    expect(await ac.getPolicy("d2", config)).toBe("allow");
   });
 });
