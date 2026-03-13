@@ -54,8 +54,8 @@ behaves, based on exhaustive testing against a real account.
       children: string[],       // child node IDs (empty array if leaf)
       checked?: boolean,        // present only when true
       checkbox?: boolean,       // present only when true
-      heading?: number,         // 1-3, omitted when 0
-      color?: number,           // 1-6, omitted when 0
+      heading?: number,         // 1=H1, 2=H2, 3=H3, omitted when 0
+      color?: number,           // 1=red, 2=orange, 3=yellow, 4=green, 5=blue, 6=purple, omitted when 0
       collapsed?: boolean       // always present
     }
   ]
@@ -69,6 +69,33 @@ behaves, based on exhaustive testing against a real account.
 - `created` and `modified` are millisecond Unix timestamps.
 - The `nodes` array is flat (not nested). Parent-child relationships are expressed through
   the `children` arrays.
+
+### `heading` values
+
+The API documents `heading` as an integer 0-3 but does not label the levels. Verified
+against the Dynalist UI (2026-03-13):
+
+| Value | Meaning |
+|-------|---------|
+| 0 | No heading (default, omitted from response) |
+| 1 | H1 (largest) |
+| 2 | H2 |
+| 3 | H3 (smallest) |
+
+### `color` values
+
+The API documents `color` as an integer 0-6 but does not map numbers to colors. Verified
+against the Dynalist UI (2026-03-13):
+
+| Value | Color |
+|-------|-------|
+| 0 | No color (default, omitted from response) |
+| 1 | Red |
+| 2 | Orange |
+| 3 | Yellow |
+| 4 | Green |
+| 5 | Blue |
+| 6 | Purple |
 
 ## `/doc/edit`: node actions
 
