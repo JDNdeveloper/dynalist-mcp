@@ -1,6 +1,6 @@
 /**
  * File management tools: create_document, create_folder,
- * rename_document, rename_folder, move_file.
+ * rename_document, rename_folder, move_document, move_folder.
  */
 
 import { z } from "zod";
@@ -244,25 +244,25 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
   );
 
   // ═════════════════════════════════════════════════════════════════════
-  // TOOL: move_file
+  // TOOL: move_document
   // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
-    "move_file",
+    "move_document",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Move a document or folder to a different parent folder. If moving a folder, all its " +
-        "contents (documents and subfolders) move with it. This operates on the file tree, not " +
-        "on nodes within a document. Use move_node for moving nodes.",
+        "Move a document to a different parent folder, or reorder it within its current " +
+        "folder by passing the same parent_folder_id with a new index. This operates on the " +
+        "file tree, not on nodes within a document. Use move_node for moving nodes.",
       inputSchema: {
-        file_id: z.string().describe("File ID of the document or folder to move"),
+        file_id: z.string().describe("Document file ID to move"),
         parent_folder_id: z.string().describe("Destination folder file ID"),
         index: z.number().optional().default(-1).describe(
           "Position in destination. 0 = first, -1 = last (default)."
         ),
       },
       outputSchema: {
-        file_id: z.string().describe("Moved file ID"),
+        file_id: z.string().describe("Moved document file ID"),
         parent_folder_id: z.string().describe("Destination folder file ID"),
       },
     },
@@ -286,23 +286,101 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       const destError = requireAccess(destPolicy, "write", config.readOnly);
       if (destError) return makeErrorResponse(destError.error, destError.message);
 
-      // Detect file type from the file tree so we send the correct type.
+      // Verify the file is a document, not a folder.
       const listResponse = await client.listFiles();
       const file = listResponse.files.find((f) => f.id === file_id);
       if (!file) {
-        return makeErrorResponse("NotFound", "File not found.");
+        return makeErrorResponse("NotFound", "Document not found.");
+      }
+      if (file.type !== "document") {
+        return makeErrorResponse("InvalidArgument", "The specified file_id is a folder, not a document. Use move_folder instead.");
       }
 
       const response = await client.editFiles([{
         action: "move",
-        type: file.type,
+        type: "document",
         file_id,
         parent_id: parent_folder_id,
         index,
       }]);
 
       if (!response.results?.[0]) {
-        return makeErrorResponse("ApiError", "Failed to move file. The destination folder may not exist.");
+        return makeErrorResponse("ApiError", "Failed to move document. The destination folder may not exist.");
+      }
+
+      // Invalidate path cache since the file tree changed.
+      ac.invalidateCache();
+
+      return makeResponse({
+        file_id,
+        parent_folder_id,
+      });
+    })
+  );
+
+  // ═════════════════════════════════════════════════════════════════════
+  // TOOL: move_folder
+  // ═════════════════════════════════════════════════════════════════════
+  server.registerTool(
+    "move_folder",
+    {
+      description:
+        `${CONFIRM_GUIDANCE} ` +
+        "Move a folder to a different parent folder, or reorder it within its current folder " +
+        "by passing the same parent_folder_id with a new index. All contents (documents and " +
+        "subfolders) move with it.",
+      inputSchema: {
+        file_id: z.string().describe("Folder file ID to move"),
+        parent_folder_id: z.string().describe("Destination folder file ID"),
+        index: z.number().optional().default(-1).describe(
+          "Position in destination. 0 = first, -1 = last (default)."
+        ),
+      },
+      outputSchema: {
+        file_id: z.string().describe("Moved folder file ID"),
+        parent_folder_id: z.string().describe("Destination folder file ID"),
+      },
+    },
+    wrapToolHandler(async ({
+      file_id,
+      parent_folder_id,
+      index,
+    }: {
+      file_id: string;
+      parent_folder_id: string;
+      index: number;
+    }) => {
+      const config = getConfig();
+
+      // Access check: moving requires allow on both source and destination.
+      const sourcePolicy = await ac.getPolicy(file_id, config);
+      const sourceError = requireAccess(sourcePolicy, "write", config.readOnly);
+      if (sourceError) return makeErrorResponse(sourceError.error, sourceError.message);
+
+      const destPolicy = await ac.getPolicy(parent_folder_id, config);
+      const destError = requireAccess(destPolicy, "write", config.readOnly);
+      if (destError) return makeErrorResponse(destError.error, destError.message);
+
+      // Verify the file is a folder, not a document.
+      const listResponse = await client.listFiles();
+      const file = listResponse.files.find((f) => f.id === file_id);
+      if (!file) {
+        return makeErrorResponse("NotFound", "Folder not found.");
+      }
+      if (file.type !== "folder") {
+        return makeErrorResponse("InvalidArgument", "The specified file_id is a document, not a folder. Use move_document instead.");
+      }
+
+      const response = await client.editFiles([{
+        action: "move",
+        type: "folder",
+        file_id,
+        parent_id: parent_folder_id,
+        index,
+      }]);
+
+      if (!response.results?.[0]) {
+        return makeErrorResponse("ApiError", "Failed to move folder. The destination folder may not exist.");
       }
 
       // Invalidate path cache since the file tree changed.

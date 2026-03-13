@@ -188,11 +188,11 @@ describe("rename_folder", () => {
   });
 });
 
-// ─── move_file ───────────────────────────────────────────────────────
+// ─── move_document ───────────────────────────────────────────────────
 
-describe("move_file", () => {
+describe("move_document", () => {
   test("moves document between folders", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_file", {
+    const result = await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
       parent_folder_id: "folder_b",
     });
@@ -208,32 +208,24 @@ describe("move_file", () => {
     expect(folderA.children).not.toContain("doc1");
   });
 
-  test("moves folder with children", async () => {
-    // Move folder_a (which contains doc1) into folder_b.
-    const result = await callToolOk(ctx.mcpClient, "move_file", {
+  test("rejects folder file_id", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "folder_a",
       parent_folder_id: "folder_b",
     });
-    expect(result.file_id).toBe("folder_a");
-
-    const folderB = ctx.server.files.get("folder_b")!;
-    expect(folderB.children).toContain("folder_a");
-
-    // folder_a's children should be unaffected.
-    const folderA = ctx.server.files.get("folder_a")!;
-    expect(folderA.children).toContain("doc1");
+    expect(err.error).toBe("InvalidArgument");
   });
 
   test("moving to non-existent folder returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_file", {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "doc1",
       parent_folder_id: "nonexistent",
     });
     expect(err.error).toBeDefined();
   });
 
-  test("moving non-existent file returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_file", {
+  test("moving non-existent document returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "nonexistent",
       parent_folder_id: "folder_a",
     });
@@ -246,7 +238,7 @@ describe("move_file", () => {
       ctx.server.makeNode("root", "Extra Doc", []),
     ]);
 
-    await callToolOk(ctx.mcpClient, "move_file", {
+    await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
       parent_folder_id: "folder_b",
       index: 0,
@@ -257,7 +249,7 @@ describe("move_file", () => {
   });
 
   test("index: -1 appends document to end of destination", async () => {
-    await callToolOk(ctx.mcpClient, "move_file", {
+    await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
       parent_folder_id: "folder_b",
       index: -1,
@@ -272,13 +264,57 @@ describe("move_file", () => {
     const folderABefore = ctx.server.files.get("folder_a")!;
     expect(folderABefore.children).toContain("doc1");
 
-    await callToolOk(ctx.mcpClient, "move_file", {
+    await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
       parent_folder_id: "folder_b",
     });
 
     const folderAAfter = ctx.server.files.get("folder_a")!;
     expect(folderAAfter.children).not.toContain("doc1");
+  });
+});
+
+// ─── move_folder ────────────────────────────────────────────────────
+
+describe("move_folder", () => {
+  test("moves folder with children", async () => {
+    // Move folder_a (which contains doc1) into folder_b.
+    const result = await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+      parent_folder_id: "folder_b",
+    });
+    expect(result.file_id).toBe("folder_a");
+
+    const folderB = ctx.server.files.get("folder_b")!;
+    expect(folderB.children).toContain("folder_a");
+
+    // folder_a's children should be unaffected.
+    const folderA = ctx.server.files.get("folder_a")!;
+    expect(folderA.children).toContain("doc1");
+  });
+
+  test("rejects document file_id", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "doc1",
+      parent_folder_id: "folder_b",
+    });
+    expect(err.error).toBe("InvalidArgument");
+  });
+
+  test("moving to non-existent folder returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+      parent_folder_id: "nonexistent",
+    });
+    expect(err.error).toBeDefined();
+  });
+
+  test("moving non-existent folder returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "nonexistent",
+      parent_folder_id: "folder_b",
+    });
+    expect(err.error).toBeDefined();
   });
 });
 
@@ -405,7 +441,7 @@ describe("cache invalidation after file operations", () => {
     }
   });
 
-  test("move_file invalidates path cache for moved file", async () => {
+  test("move_document invalidates path cache for moved document", async () => {
     await ctx.cleanup();
 
     process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
@@ -420,13 +456,43 @@ describe("cache invalidation after file operations", () => {
     ctx = await createTestContext(standardSetup);
     try {
       // Move doc1 from Folder A to Folder B.
-      await callToolOk(ctx.mcpClient, "move_file", {
+      await callToolOk(ctx.mcpClient, "move_document", {
         file_id: "doc1",
         parent_folder_id: "folder_b",
       });
 
       // After the move, the path cache should be invalidated.
       // doc1 should still be readable at its new location.
+      const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+        file_id: "doc1",
+      });
+      expect(readResult.title).toBe("Test Document");
+    } finally {
+      cleanupConfig();
+      delete process.env.DYNALIST_MCP_CONFIG;
+    }
+  });
+
+  test("move_folder invalidates path cache for moved folder", async () => {
+    await ctx.cleanup();
+
+    process.env.DYNALIST_MCP_CONFIG = CONFIG_PATH;
+    writeConfig({
+      access: {
+        default: "allow",
+        rules: [],
+      },
+    });
+
+    ctx = await createTestContext(standardSetup);
+    try {
+      // Move folder_a (containing doc1) into folder_b.
+      await callToolOk(ctx.mcpClient, "move_folder", {
+        file_id: "folder_a",
+        parent_folder_id: "folder_b",
+      });
+
+      // doc1 should still be readable under its moved parent.
       const readResult = await callToolOk(ctx.mcpClient, "read_document", {
         file_id: "doc1",
       });
@@ -484,14 +550,25 @@ describe("response shapes", () => {
     expect(result.title).toBe("Shape Renamed Folder");
   });
 
-  test("move_file response includes file_id, parent_folder_id", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_file", {
+  test("move_document response includes file_id, parent_folder_id", async () => {
+    const result = await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
       parent_folder_id: "folder_b",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.parent_folder_id).toBe("string");
     expect(result.file_id).toBe("doc1");
+    expect(result.parent_folder_id).toBe("folder_b");
+  });
+
+  test("move_folder response includes file_id, parent_folder_id", async () => {
+    const result = await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+      parent_folder_id: "folder_b",
+    });
+    expect(typeof result.file_id).toBe("string");
+    expect(typeof result.parent_folder_id).toBe("string");
+    expect(result.file_id).toBe("folder_a");
     expect(result.parent_folder_id).toBe("folder_b");
   });
 });

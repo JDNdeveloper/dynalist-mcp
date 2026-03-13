@@ -1,6 +1,6 @@
 # Dynalist MCP Server
 
-MCP (Model Context Protocol) server that integrates Dynalist.io with Claude and other AI assistants. Allows reading, writing, searching, and organizing Dynalist documents programmatically via 17 MCP tools.
+MCP (Model Context Protocol) server that integrates Dynalist.io with Claude and other AI assistants. Allows reading, writing, searching, and organizing Dynalist documents programmatically.
 
 ## Build
 
@@ -84,7 +84,7 @@ assets/
 The following docs must be kept up to date when the corresponding features change:
 
 - `README.md`: Getting started, feature summary, connect instructions, security model.
-- `docs/tools.md`: Parameter tables, response shapes, and usage notes for all 17 tools. Update when tool parameters, responses, or descriptions change.
+- `docs/tools.md`: Parameter tables, response shapes, and usage notes for all tools. Update when tool parameters, responses, or descriptions change.
 - `docs/configuration.md`: Config file reference, environment variables, field table, logging. Update when config schema or defaults change.
 - `docs/access-control.md`: ACL rules, glob syntax, specificity, ID anchoring, examples. Update when access control behavior changes.
 - `docs/client-setup.md`: Claude Desktop, Claude Code, and general MCP client setup. Update when supported clients or connection instructions change.

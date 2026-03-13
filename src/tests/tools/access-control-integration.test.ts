@@ -778,9 +778,9 @@ describe("rename_folder with ACL", () => {
   });
 });
 
-describe("move_file with ACL", () => {
+describe("move_document with ACL", () => {
   test("deny-policy source returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_file", {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "denied_doc",
       parent_folder_id: "allowed_folder",
     });
@@ -788,7 +788,7 @@ describe("move_file with ACL", () => {
   });
 
   test("read-policy source returns ReadOnly", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_file", {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "readonly_doc",
       parent_folder_id: "allowed_folder",
     });
@@ -796,7 +796,7 @@ describe("move_file with ACL", () => {
   });
 
   test("deny-policy destination returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_file", {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
       parent_folder_id: "denied_folder",
     });
@@ -804,7 +804,7 @@ describe("move_file with ACL", () => {
   });
 
   test("read-policy destination returns ReadOnly", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_file", {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
       parent_folder_id: "readonly_folder",
     });
@@ -830,11 +830,70 @@ describe("move_file with ACL", () => {
     // Invalidate cache so the new config is picked up.
     ctx.ac.invalidateCache();
 
-    const result = await callToolOk(ctx.mcpClient, "move_file", {
+    const result = await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
       parent_folder_id: "allowed_folder_2",
     });
     expect(result.file_id).toBe("allowed_doc");
+    expect(result.parent_folder_id).toBe("allowed_folder_2");
+  });
+});
+
+describe("move_folder with ACL", () => {
+  test("deny-policy source returns NotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "denied_folder",
+      parent_folder_id: "allowed_folder",
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
+  test("read-policy source returns ReadOnly", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "readonly_folder",
+      parent_folder_id: "allowed_folder",
+    });
+    expect(err.error).toBe("ReadOnly");
+  });
+
+  test("deny-policy destination returns NotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "allowed_folder",
+      parent_folder_id: "denied_folder",
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
+  test("read-policy destination returns ReadOnly", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "allowed_folder",
+      parent_folder_id: "readonly_folder",
+    });
+    expect(err.error).toBe("ReadOnly");
+  });
+
+  test("allow source + allow destination succeeds", async () => {
+    // Create a second allowed folder to move into.
+    ctx.server.addFolder("allowed_folder_2", "Allowed Folder 2", "root_folder");
+    writeTestConfig({
+      access: {
+        default: "deny",
+        rules: [
+          { path: "/Denied Folder/**", policy: "deny" },
+          { path: "/ReadOnly Folder/**", policy: "read" },
+          { path: "/Allowed Folder/**", policy: "allow" },
+          { path: "/Allowed Folder 2/**", policy: "allow" },
+          { path: "/Inbox", policy: "allow" },
+        ],
+      },
+    });
+    ctx.ac.invalidateCache();
+
+    const result = await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "allowed_folder",
+      parent_folder_id: "allowed_folder_2",
+    });
+    expect(result.file_id).toBe("allowed_folder");
     expect(result.parent_folder_id).toBe("allowed_folder_2");
   });
 });
@@ -929,10 +988,20 @@ describe("global readOnly: true overrides", () => {
     expect(err.message).toBe("Server is in read-only mode.");
   });
 
-  test("readOnly blocks move_file", async () => {
+  test("readOnly blocks move_document", async () => {
     writeReadOnlyConfig();
-    const err = await callToolError(ctx.mcpClient, "move_file", {
+    const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
+      parent_folder_id: "allowed_folder",
+    });
+    expect(err.error).toBe("ReadOnly");
+    expect(err.message).toBe("Server is in read-only mode.");
+  });
+
+  test("readOnly blocks move_folder", async () => {
+    writeReadOnlyConfig();
+    const err = await callToolError(ctx.mcpClient, "move_folder", {
+      file_id: "allowed_folder",
       parent_folder_id: "allowed_folder",
     });
     expect(err.error).toBe("ReadOnly");

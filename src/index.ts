@@ -107,9 +107,9 @@ to expand all collapsed nodes in the response.
 with that node's node_id as the starting point. This zooms into the subtree using the same \
 max_depth budget.
 - File organization: use list_documents to see the folder hierarchy, then use \
-create_document, create_folder, move_file, rename_document, and rename_folder to organize \
-the file tree.
-- File vs node management: tools like create_document, rename_folder, and move_file \
+create_document, create_folder, move_document, move_folder, rename_document, and rename_folder \
+to organize the file tree.
+- File vs node management: tools like create_document, rename_folder, and move_document \
 operate on the file tree. Tools like insert_node, edit_node, and move_node operate on \
 nodes within a single document. Do not confuse file IDs with node IDs.
 

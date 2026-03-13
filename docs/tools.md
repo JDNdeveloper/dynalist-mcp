@@ -394,13 +394,25 @@ Rename a folder. The `file_id` does not change.
 
 **Response**: `{ "file_id": "...", "title": "..." }`
 
-### `move_file`
+### `move_document`
 
-Move a document or folder to a different parent folder. If moving a folder, all its contents move with it.
+Move a document to a different parent folder, or reorder it within its current folder by passing the same parent_folder_id with a new index. Returns an error if the file_id refers to a folder.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `file_id` | string | yes | | File ID to move |
+| `file_id` | string | yes | | Document file ID to move |
+| `parent_folder_id` | string | yes | | Destination folder file ID |
+| `index` | number | no | `-1` | Position. 0 = first, -1 = last |
+
+**Response**: `{ "file_id": "...", "parent_folder_id": "..." }`
+
+### `move_folder`
+
+Move a folder to a different parent folder, or reorder it within its current folder by passing the same parent_folder_id with a new index. All contents (documents and subfolders) move with it. Returns an error if the file_id refers to a document.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `file_id` | string | yes | | Folder file ID to move |
 | `parent_folder_id` | string | yes | | Destination folder file ID |
 | `index` | number | no | `-1` | Position. 0 = first, -1 = last |
 

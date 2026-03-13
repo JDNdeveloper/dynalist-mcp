@@ -2,11 +2,11 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) server for [Dynalist.io](https://dynalist.io/), the infinite document outliner.
 
-Claude and other AI assistants can read, write, search, and organize Dynalist documents programmatically via 17 MCP tools.
+Claude and other AI assistants can read, write, search, and organize Dynalist documents programmatically.
 
 ### Features
 
-- **17 tools** for reading, writing, searching, and organizing documents.
+- **18 tools** for reading, writing, searching, and organizing documents.
 - **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
 - **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more.
 - **Read-only mode** to prevent all write operations.
@@ -70,7 +70,7 @@ Add the same JSON as above to your Claude Desktop config file:
 
 ## Documentation
 
-- [**Tools reference**](docs/tools.md): Parameter tables, response shapes, and usage notes for all 17 tools.
+- [**Tools reference**](docs/tools.md): Parameter tables, response shapes, and usage notes for all tools.
 - [**Configuration**](docs/configuration.md): Config file reference, environment variables, field table, and logging.
 - [**Access control**](docs/access-control.md): Path-based ACL rules, glob syntax, specificity precedence, ID anchoring, and examples.
 - [**Client setup**](docs/client-setup.md): Troubleshooting, environment isolation, and additional MCP client details.
