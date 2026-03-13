@@ -860,6 +860,219 @@ describe("insert_nodes", () => {
     expect(typeof result.url).toBe("string");
     expect(result.url).toContain("doc1");
   });
+
+  // ─── sibling-relative positioning (after/before) ─────────────────
+
+  test("insert after a sibling", async () => {
+    // root has children: n1, n2, n3. Insert after n1.
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "After n1" }],
+      position: "after",
+      reference_node_id: "n1",
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    const n1Index = root.children.indexOf("n1");
+    const insertedId = root.children[n1Index + 1];
+    const inserted = doc.nodes.find((n) => n.id === insertedId)!;
+    expect(inserted.content).toBe("After n1");
+  });
+
+  test("insert before a sibling", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "Before n2" }],
+      position: "before",
+      reference_node_id: "n2",
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    const n2Index = root.children.indexOf("n2");
+    const insertedId = root.children[n2Index - 1];
+    const inserted = doc.nodes.find((n) => n.id === insertedId)!;
+    expect(inserted.content).toBe("Before n2");
+  });
+
+  test("insert after the last sibling appends at end", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const rootBefore = doc.nodes.find((n) => n.id === "root")!;
+    const childCountBefore = rootBefore.children.length;
+
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "After last" }],
+      position: "after",
+      reference_node_id: "n3",
+    });
+
+    const rootAfter = doc.nodes.find((n) => n.id === "root")!;
+    expect(rootAfter.children.length).toBe(childCountBefore + 1);
+    const lastChildId = rootAfter.children[rootAfter.children.length - 1];
+    const lastChild = doc.nodes.find((n) => n.id === lastChildId)!;
+    expect(lastChild.content).toBe("After last");
+  });
+
+  test("insert before the first sibling places at index 0", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "Before first" }],
+      position: "before",
+      reference_node_id: "n1",
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    const firstChildId = root.children[0];
+    const firstChild = doc.nodes.find((n) => n.id === firstChildId)!;
+    expect(firstChild.content).toBe("Before first");
+  });
+
+  test("insert multiple top-level nodes after a sibling preserves order", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "Multi A" }, { content: "Multi B" }, { content: "Multi C" }],
+      position: "after",
+      reference_node_id: "n1",
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    const n1Index = root.children.indexOf("n1");
+    const insertedA = doc.nodes.find((n) => n.id === root.children[n1Index + 1])!;
+    const insertedB = doc.nodes.find((n) => n.id === root.children[n1Index + 2])!;
+    const insertedC = doc.nodes.find((n) => n.id === root.children[n1Index + 3])!;
+    expect(insertedA.content).toBe("Multi A");
+    expect(insertedB.content).toBe("Multi B");
+    expect(insertedC.content).toBe("Multi C");
+  });
+
+  test("insert hierarchy after a sibling preserves tree structure", async () => {
+    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{
+        content: "Hier parent",
+        children: [{ content: "Hier child" }],
+      }],
+      position: "after",
+      reference_node_id: "n2",
+    });
+
+    expect(result.total_created).toBe(2);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const parent = doc.nodes.find((n) => n.content === "Hier parent")!;
+    expect(parent.children.length).toBe(1);
+    const child = doc.nodes.find((n) => n.id === parent.children[0])!;
+    expect(child.content).toBe("Hier child");
+  });
+
+  test("omit node_id, infer parent from reference node", async () => {
+    // n1 has children n1a, n1b. Insert after n1a without specifying node_id.
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "After n1a" }],
+      position: "after",
+      reference_node_id: "n1a",
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    const n1aIndex = n1.children.indexOf("n1a");
+    const insertedId = n1.children[n1aIndex + 1];
+    const inserted = doc.nodes.find((n) => n.id === insertedId)!;
+    expect(inserted.content).toBe("After n1a");
+  });
+
+  test("provide node_id matching reference parent succeeds", async () => {
+    // n1a's parent is n1. Providing node_id: "n1" should work.
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "n1",
+      nodes: [{ content: "Explicit parent" }],
+      position: "before",
+      reference_node_id: "n1b",
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    const inserted = doc.nodes.find((n) => n.content === "Explicit parent")!;
+    expect(n1.children).toContain(inserted.id);
+  });
+
+  // ─── sibling-relative positioning: validation errors ─────────────
+
+  test("reference_node_id + index both provided returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "test" }],
+      reference_node_id: "n1",
+      index: 0,
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("after without reference_node_id returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "test" }],
+      position: "after",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("before without reference_node_id returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "test" }],
+      position: "before",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("reference_node_id with as_first_child returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "test" }],
+      position: "as_first_child",
+      reference_node_id: "n1",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("reference_node_id with as_last_child returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "test" }],
+      position: "as_last_child",
+      reference_node_id: "n1",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("node_id mismatching reference parent returns error", async () => {
+    // n1a's parent is n1, but we pass node_id: "n2".
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "n2",
+      nodes: [{ content: "test" }],
+      position: "after",
+      reference_node_id: "n1a",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("nonexistent reference_node_id returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      nodes: [{ content: "test" }],
+      position: "after",
+      reference_node_id: "nonexistent",
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
 });
 
 // ─── send_to_inbox ───────────────────────────────────────────────────

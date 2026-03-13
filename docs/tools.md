@@ -249,10 +249,11 @@ Insert one or more nodes into a Dynalist document as a JSON tree. Supports neste
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
-| `node_id` | string | no | root | Parent node ID |
+| `node_id` | string | no | root | Parent node ID. Inferred from `reference_node_id` when using `after`/`before`. |
 | `nodes` | array | yes | | Array of node objects (see below) |
-| `position` | string | no | `"as_last_child"` | `"as_first_child"` or `"as_last_child"` |
-| `index` | number | no | | Exact child index for root-level nodes. Overrides `position`. 0 = first, -1 = last. |
+| `position` | string | no | `"as_last_child"` | `"as_first_child"`, `"as_last_child"`, `"after"`, or `"before"` |
+| `index` | number | no | | Exact child index for root-level nodes. Overrides `position`. 0 = first, -1 = last. Cannot be combined with `reference_node_id`. |
+| `reference_node_id` | string | no | | Sibling node to insert relative to. Required when position is `"after"` or `"before"`. Cannot be combined with `"as_first_child"`/`"as_last_child"` or `index`. |
 
 **Node object fields:**
 

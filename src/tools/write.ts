@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, EditDocumentChange, findRootNodeId } from "../dynalist-client";
+import { DynalistClient, EditDocumentChange, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
@@ -219,13 +219,17 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "node, pass a one-element array.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().optional().describe("Parent node ID to insert under (omit for document root)"),
+        node_id: z.string().optional().describe("Parent node ID to insert under (omit for document root). Inferred from reference_node_id when using after/before."),
         nodes: z.array(jsonInputNodeSchema).describe("Array of nodes to insert"),
-        position: z.enum(["as_first_child", "as_last_child"]).optional().default("as_last_child")
-          .describe("Where to insert under the parent node"),
+        position: z.enum(["as_first_child", "as_last_child", "after", "before"]).optional().default("as_last_child")
+          .describe("Where to insert. 'as_first_child'/'as_last_child' insert under the parent (node_id). 'after'/'before' insert relative to reference_node_id as a sibling."),
         index: z.number().optional().describe(
           "Exact child index for root-level nodes. Overrides position when set. " +
-          "0 = first child, -1 = last child."
+          "0 = first child, -1 = last child. Cannot be combined with reference_node_id."
+        ),
+        reference_node_id: z.string().optional().describe(
+          "Sibling node to insert relative to. Required when position is 'after' or 'before'. " +
+          "Cannot be combined with 'as_first_child'/'as_last_child' or index."
         ),
       },
       outputSchema: {
@@ -241,12 +245,14 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       nodes,
       position,
       index,
+      reference_node_id,
     }: {
       file_id: string;
       node_id?: string;
       nodes: unknown[];
       position: string;
       index?: number;
+      reference_node_id?: string;
     }) => {
       const config = getConfig();
 
@@ -255,26 +261,55 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      let parentNodeId = node_id;
+      // Validate parameter combinations.
+      if (reference_node_id !== undefined && index !== undefined) {
+        return makeErrorResponse("InvalidInput", "Cannot specify both reference_node_id and index.");
+      }
+      if ((position === "after" || position === "before") && reference_node_id === undefined) {
+        return makeErrorResponse("InvalidInput", `Position '${position}' requires reference_node_id.`);
+      }
+      if (reference_node_id !== undefined && (position === "as_first_child" || position === "as_last_child")) {
+        return makeErrorResponse("InvalidInput", `Cannot use reference_node_id with position '${position}'.`);
+      }
 
-      // If no node specified, get root node.
-      if (!parentNodeId) {
+      let parentNodeId = node_id;
+      let startIndex: number | undefined;
+
+      if (position === "after" || position === "before") {
+        // Sibling-relative positioning: resolve parent and index from the reference node.
         const doc = await client.readDocument(file_id);
-        parentNodeId = findRootNodeId(doc.nodes);
+        const parentMap = buildParentMap(doc.nodes);
+        const refInfo = parentMap.get(reference_node_id!);
+
+        if (!refInfo) {
+          return makeErrorResponse("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
+        }
+
+        // If node_id was provided, validate it matches the reference node's parent.
+        if (node_id !== undefined && node_id !== refInfo.parentId) {
+          return makeErrorResponse("InvalidInput", `node_id '${node_id}' does not match the parent of reference_node_id ('${refInfo.parentId}').`);
+        }
+
+        parentNodeId = refInfo.parentId;
+        startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
+      } else {
+        // Child positioning (as_first_child / as_last_child / index).
+        if (!parentNodeId) {
+          const doc = await client.readDocument(file_id);
+          parentNodeId = findRootNodeId(doc.nodes);
+        }
+
+        if (index !== undefined) {
+          startIndex = index === -1 ? undefined : index;
+        } else if (position === "as_first_child") {
+          startIndex = 0;
+        }
       }
 
       // Convert JSON input to ParsedNode tree.
       const tree = jsonInputToTree(nodes as JsonInputNode[]);
       if (tree.length === 0) {
         return makeErrorResponse("InvalidInput", "No nodes to insert (empty array)");
-      }
-
-      // Determine start index. Explicit index overrides position.
-      let startIndex: number | undefined;
-      if (index !== undefined) {
-        startIndex = index === -1 ? undefined : index;
-      } else if (position === "as_first_child") {
-        startIndex = 0;
       }
 
       const result = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
