@@ -262,6 +262,16 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         return makeErrorResponse("InvalidInput", "No moves to apply (empty array).");
       }
 
+      // Reject moving the root node (literal "root" string check, no read needed).
+      //
+      // The Dynalist API does not reject this; it corrupts and permanently locks
+      // the document. See docs/dynalist_api_behavior.md.
+      for (const move of moves) {
+        if (move.node_id === "root") {
+          return makeErrorResponse("InvalidInput", "Cannot move the root node of a document.");
+        }
+      }
+
       const config = getConfig();
 
       // Access check: only document-level policy is checked for within-document moves.
@@ -273,7 +283,15 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
           const doc = await store.read(file_id);
+          const rootId = findRootNodeId(doc.nodes);
           const nodeMap = buildNodeMap(doc.nodes);
+
+          // Validate no move targets the root node (by actual ID).
+          for (const move of moves) {
+            if (move.node_id === rootId) {
+              throw new ToolInputError("InvalidInput", "Cannot move the root node of a document.");
+            }
+          }
 
           // Build mutable state: childrenMap and parentMap that we update
           // after each move so that later moves see the effects of earlier ones.

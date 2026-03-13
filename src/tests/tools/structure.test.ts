@@ -839,6 +839,50 @@ describe("move_nodes", () => {
     expect(err.error).toBe("InvalidInput");
   });
 
+  test("cannot move root node (literal 'root' ID)", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [{ node_id: "root", reference_node_id: "n1", position: "after" }],
+      expected_version: 1,
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("root node");
+  });
+
+  test("cannot move root node by actual root node ID (non-literal)", async () => {
+    // Exercises the findRootNodeId check inside the version guard.
+    ctx.server.addDocument("custom_root_doc", "Custom Root", "folder_a", [
+      ctx.server.makeNode("my_root", "Custom Root", ["cr1"]),
+      ctx.server.makeNode("cr1", "Child", []),
+    ]);
+
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "custom_root_doc",
+      moves: [{ node_id: "my_root", reference_node_id: "cr1", position: "after" }],
+      expected_version: 1,
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("root node");
+  });
+
+  test("root node mixed into bulk moves fails entire batch", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1", reference_node_id: "n2", position: "after" },
+        { node_id: "root", reference_node_id: "n1", position: "first_child" },
+      ],
+      expected_version: version,
+    });
+    expect(err.error).toBe("InvalidInput");
+
+    // Verify n1 was NOT moved (entire batch rejected).
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children![0]).toBe("n1");
+  });
+
   // ─── Sibling reordering ───────────────────────────────────────────
 
   test("reorder sibling: move node before its own sibling", async () => {
