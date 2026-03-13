@@ -175,7 +175,7 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
 
 - **Deletes only the specified node.** Children become orphaned (exist in `nodes` array
   but are unreachable from the root tree). This differs from the Dynalist web UI, which
-  does recursive deletion.
+  does recursive deletion. See [forum discussion](https://talk.dynalist.io/t/api-node-deletion-orphans-the-child-nodes/10071).
 - Orphaned nodes are invisible from root traversal, but are searchable (they exist in the
   raw `nodes` array) and readable by direct node ID.
 - Orphans persist indefinitely. No evidence of server-side garbage collection.
