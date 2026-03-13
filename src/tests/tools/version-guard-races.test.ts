@@ -96,11 +96,11 @@ describe("insert_nodes race simulation", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// Race simulation: delete_node
+// Race simulation: delete_nodes
 // ═════════════════════════════════════════════════════════════════════
-describe("delete_node race simulation", () => {
+describe("delete_nodes race simulation", () => {
   test("subtree race: new child added during subtree enumeration", async () => {
-    // After delete_node reads to enumerate the subtree but before the
+    // After delete_nodes reads to enumerate the subtree but before the
     // delete call, another client adds a child under the target.
     ctx.server.onNextEdit((fileId) => {
       const doc = ctx.server.documents.get(fileId)!;
@@ -111,9 +111,9 @@ describe("delete_node race simulation", () => {
       doc.version++;
     });
 
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n2",
+      node_ids: ["n2"],
     });
 
     // The delete succeeded but missed the new child (orphaned).

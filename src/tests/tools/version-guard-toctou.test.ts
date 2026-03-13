@@ -74,17 +74,17 @@ describe("move_nodes TOCTOU", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// TOCTOU race detection: delete_node
+// TOCTOU race detection: delete_nodes
 // ═════════════════════════════════════════════════════════════════════
-describe("delete_node TOCTOU", () => {
+describe("delete_nodes TOCTOU", () => {
   test("with children: concurrent edit during planning read emits warning", async () => {
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
     });
 
     expect(result.version_warning).toBeDefined();
@@ -96,9 +96,9 @@ describe("delete_node TOCTOU", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
     });
 
@@ -107,18 +107,18 @@ describe("delete_node TOCTOU", () => {
   });
 
   test("no concurrent edit has no version_warning", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
     });
 
     expect(result.version_warning).toBeUndefined();
   });
 
   test("cannot delete root inside guard returns proper error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "root",
+      node_ids: ["root"],
     });
 
     expect(err.error).toBe("InvalidInput");

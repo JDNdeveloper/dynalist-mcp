@@ -256,30 +256,30 @@ describe("insert_nodes with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3h. delete_node with ACL
+// 3h. delete_nodes with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("delete_node with ACL", () => {
+describe("delete_nodes with ACL", () => {
   test("denied document returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "denied_doc",
-      node_id: "dn1",
+      node_ids: ["dn1"],
     });
     expect(err.error).toBe("NotFound");
   });
 
   test("read-policy document returns ReadOnly error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "readonly_doc",
-      node_id: "rn1",
+      node_ids: ["rn1"],
     });
     expect(err.error).toBe("ReadOnly");
   });
 
   test("allow-policy document delete succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "allowed_doc",
-      node_id: "an1a",
+      node_ids: ["an1a"],
     });
     expect(result.file_id).toBe("allowed_doc");
     expect(result.deleted_count).toBe(1);

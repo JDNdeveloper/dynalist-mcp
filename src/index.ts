@@ -159,7 +159,7 @@ first node always starts at the root indent level. Example:
 
 ## Version tracking
 
-Write tools (\`edit_nodes\`, \`insert_nodes\`, \`delete_node\`, \`move_nodes\`) accept an optional \
+Write tools (\`edit_nodes\`, \`insert_nodes\`, \`delete_nodes\`, \`move_nodes\`) accept an optional \
 \`expected_version\` parameter. Pass the \`version\` from your most recent \`read_document\` \
 response. If the document has been modified since that read, the tool will abort with a \
 \`VersionMismatch\` error and ask you to re-read.

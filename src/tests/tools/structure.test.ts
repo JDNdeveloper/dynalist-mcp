@@ -17,13 +17,15 @@ afterEach(async () => {
   await ctx.cleanup();
 });
 
-// ─── delete_node ─────────────────────────────────────────────────────
+// ─── delete_nodes ─────────────────────────────────────────────────────
 
-describe("delete_node", () => {
+describe("delete_nodes", () => {
+  // ─── Single-node subtree deletion ──────────────────────────────────
+
   test("deletes a leaf node", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
     });
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
@@ -35,9 +37,9 @@ describe("delete_node", () => {
 
   test("default behavior deletes entire subtree", async () => {
     // n1 has children n1a, n1b. Default (include_children: true) deletes all.
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
     });
     expect(result.deleted_count).toBe(3); // n1, n1a, n1b
 
@@ -47,58 +49,231 @@ describe("delete_node", () => {
     expect(doc.nodes.find((n) => n.id === "n1b")).toBeUndefined();
   });
 
-  test("include_children: false promotes children up to parent", async () => {
-    // n1 has children n1a, n1b. include_children: false promotes them.
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+  test("deleted_count includes all descendants in subtree deletion", async () => {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
+      include_children: true,
+    });
+    expect(result.deleted_count).toBe(3);
+  });
+
+  test("deeply nested subtree deletion removes all levels", async () => {
+    ctx.server.addDocument("deep_doc", "Deep Document", "folder_a", [
+      ctx.server.makeNode("root", "Deep Document", ["d1"]),
+      ctx.server.makeNode("d1", "Level 1", ["d2"]),
+      ctx.server.makeNode("d2", "Level 2", ["d3"]),
+      ctx.server.makeNode("d3", "Level 3", ["d4"]),
+      ctx.server.makeNode("d4", "Level 4", []),
+    ]);
+
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "deep_doc",
+      node_ids: ["d1"],
+    });
+    expect(result.deleted_count).toBe(4);
+
+    const doc = ctx.server.documents.get("deep_doc")!;
+    expect(doc.nodes.find((n) => n.id === "d1")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "d2")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "d3")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "d4")).toBeUndefined();
+
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual([]);
+  });
+
+  test("deleting root's only child leaves root with empty children", async () => {
+    // doc2 has root -> [m1]. Delete m1.
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc2",
+      node_ids: ["m1"],
+    });
+    expect(result.deleted_count).toBe(1);
+
+    const doc = ctx.server.documents.get("doc2")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual([]);
+  });
+
+  // ─── Bulk subtree deletion ─────────────────────────────────────────
+
+  test("bulk: deletes multiple disjoint subtrees", async () => {
+    // n1 has children [n1a, n1b], n2 has child [n2a]. Delete both subtrees.
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "n2"],
+    });
+    // n1 (3 nodes) + n2 (2 nodes) = 5.
+    expect(result.deleted_count).toBe(5);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n1a")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n1b")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n2")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n2a")).toBeUndefined();
+
+    // n3 should survive.
+    expect(doc.nodes.find((n) => n.id === "n3")).toBeDefined();
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n3"]);
+  });
+
+  test("bulk: overlapping subtrees are deduplicated", async () => {
+    // Delete n1 (subtree of 3) and n1a (descendant of n1). n1a is covered by n1.
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "n1a"],
+    });
+    // n1's subtree is 3 nodes. n1a is a subset, so total is still 3.
+    expect(result.deleted_count).toBe(3);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n1a")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n1b")).toBeUndefined();
+  });
+
+  test("bulk: overlapping subtrees with descendant listed first", async () => {
+    // Order reversed: descendant before ancestor.
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1a", "n1"],
+    });
+    expect(result.deleted_count).toBe(3);
+  });
+
+  test("bulk: multi-level ancestor deduplication (grandparent dominates grandchild)", async () => {
+    ctx.server.addDocument("dedup_deep", "Dedup Deep", "folder_a", [
+      ctx.server.makeNode("root", "Dedup Deep", ["a"]),
+      ctx.server.makeNode("a", "A", ["b"]),
+      ctx.server.makeNode("b", "B", ["c"]),
+      ctx.server.makeNode("c", "C", []),
+    ]);
+
+    // Delete "a" and "c". "c" is a grandchild of "a", so it should be
+    // deduplicated. The ancestor walk must traverse multiple levels.
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "dedup_deep",
+      node_ids: ["a", "c"],
+    });
+    expect(result.deleted_count).toBe(3); // a, b, c (c not double-counted)
+  });
+
+  test("bulk: deletes all children of same parent", async () => {
+    // Delete n1, n2, n3 (all children of root).
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "n2", "n3"],
+    });
+    // n1 (3) + n2 (2) + n3 (1) = 6.
+    expect(result.deleted_count).toBe(6);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual([]);
+  });
+
+  test("bulk: deeply nested subtree alongside another node", async () => {
+    ctx.server.addDocument("deep_bulk", "Deep Bulk", "folder_a", [
+      ctx.server.makeNode("root", "Deep Bulk", ["a", "b"]),
+      ctx.server.makeNode("a", "A", ["a1"]),
+      ctx.server.makeNode("a1", "A1", ["a2"]),
+      ctx.server.makeNode("a2", "A2", ["a3"]),
+      ctx.server.makeNode("a3", "A3", []),
+      ctx.server.makeNode("b", "B", []),
+    ]);
+
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "deep_bulk",
+      node_ids: ["a", "b"],
+    });
+    // a (4 nodes) + b (1 node) = 5.
+    expect(result.deleted_count).toBe(5);
+
+    const doc = ctx.server.documents.get("deep_bulk")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual([]);
+  });
+
+  test("bulk: delete multiple leaf nodes", async () => {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1a", "n1b", "n2a"],
+    });
+    expect(result.deleted_count).toBe(3);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1a")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n1b")).toBeUndefined();
+    expect(doc.nodes.find((n) => n.id === "n2a")).toBeUndefined();
+
+    // Parents should still exist with empty children.
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children).toEqual([]);
+    const n2 = doc.nodes.find((n) => n.id === "n2")!;
+    expect(n2.children).toEqual([]);
+  });
+
+  test("bulk: promoted_children absent for subtree deletion", async () => {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "n2"],
+    });
+    expect(result.promoted_children).toBeUndefined();
+  });
+
+  // ─── State round-trip ──────────────────────────────────────────────
+
+  test("state round-trip: bulk delete then read_document", async () => {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "n3"],
+    });
+
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+    const tree = result.node as Record<string, unknown>;
+    const children = tree.children as Record<string, unknown>[];
+
+    // Only n2 and its subtree should remain.
+    expect(children).toHaveLength(1);
+    expect(children[0].node_id).toBe("n2");
+  });
+
+  // ─── Child promotion (single node only) ────────────────────────────
+
+  test("include_children: false promotes children up to parent", async () => {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1"],
       include_children: false,
     });
     expect(result.deleted_count).toBe(1);
 
-    // n1 is gone but n1a, n1b still exist.
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
     expect(doc.nodes.find((n) => n.id === "n1a")).toBeDefined();
     expect(doc.nodes.find((n) => n.id === "n1b")).toBeDefined();
 
-    // n1a and n1b should now be children of root.
     const root = doc.nodes.find((n) => n.id === "root")!;
     expect(root.children).toContain("n1a");
     expect(root.children).toContain("n1b");
   });
 
-  test("cannot delete root node", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
-      file_id: "doc1",
-      node_id: "root",
-    });
-    expect(err.error).toBe("InvalidInput");
-  });
-
-  test("nonexistent file returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
-      file_id: "nonexistent",
-      node_id: "n1",
-    });
-    expect(err.error).toBe("NotFound");
-  });
-
-  // ─── 14b: Child promotion details ──────────────────────────────────
-
   test("promoted children appear at the deleted node's position in parent", async () => {
     // Root children are [n1, n2, n3]. Delete n1 which has children [n1a, n1b].
-    // After promotion, n1a and n1b should appear at n1's former position.
-    await callToolOk(ctx.mcpClient, "delete_node", {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
-
-    // n1a should be at index 0, n1b at index 1, then n2, n3.
     expect(root.children![0]).toBe("n1a");
     expect(root.children![1]).toBe("n1b");
     expect(root.children).toContain("n2");
@@ -106,9 +281,6 @@ describe("delete_node", () => {
   });
 
   test("promoted children of 3+ preserve relative order", async () => {
-    // Build a document with siblings before and after the target.
-    //   root -> [before, target, after]
-    //   target -> [a, b, c]
     ctx.server.addDocument("promo_doc", "Promotion Order", "folder_a", [
       ctx.server.makeNode("root", "Promotion Order", ["before", "target", "after"]),
       ctx.server.makeNode("before", "Sibling Before", []),
@@ -119,9 +291,9 @@ describe("delete_node", () => {
       ctx.server.makeNode("after", "Sibling After", []),
     ]);
 
-    await callToolOk(ctx.mcpClient, "delete_node", {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "promo_doc",
-      node_id: "target",
+      node_ids: ["target"],
       include_children: false,
     });
 
@@ -131,8 +303,6 @@ describe("delete_node", () => {
   });
 
   test("promoted children when target is first child", async () => {
-    // root -> [target, sibling]
-    // target -> [a, b, c]
     ctx.server.addDocument("promo_first", "Promotion First", "folder_a", [
       ctx.server.makeNode("root", "Promotion First", ["target", "sibling"]),
       ctx.server.makeNode("target", "Target", ["a", "b", "c"]),
@@ -142,9 +312,9 @@ describe("delete_node", () => {
       ctx.server.makeNode("sibling", "Sibling", []),
     ]);
 
-    await callToolOk(ctx.mcpClient, "delete_node", {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "promo_first",
-      node_id: "target",
+      node_ids: ["target"],
       include_children: false,
     });
 
@@ -154,8 +324,6 @@ describe("delete_node", () => {
   });
 
   test("promoted children when target is last child", async () => {
-    // root -> [sibling, target]
-    // target -> [a, b, c]
     ctx.server.addDocument("promo_last", "Promotion Last", "folder_a", [
       ctx.server.makeNode("root", "Promotion Last", ["sibling", "target"]),
       ctx.server.makeNode("sibling", "Sibling", []),
@@ -165,9 +333,9 @@ describe("delete_node", () => {
       ctx.server.makeNode("c", "Child C", []),
     ]);
 
-    await callToolOk(ctx.mcpClient, "delete_node", {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "promo_last",
-      node_id: "target",
+      node_ids: ["target"],
       include_children: false,
     });
 
@@ -177,9 +345,9 @@ describe("delete_node", () => {
   });
 
   test("promoted children preserve their content", async () => {
-    await callToolOk(ctx.mcpClient, "delete_node", {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
     });
 
@@ -192,109 +360,178 @@ describe("delete_node", () => {
   });
 
   test("promoted_children count matches actual promoted count", async () => {
-    // n1 has 2 children (n1a, n1b).
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
     });
     expect(result.promoted_children).toBe(2);
   });
 
-  // ─── 14c: Subtree deletion details ────────────────────────────────
-
-  test("deleted_count includes all descendants in subtree deletion", async () => {
-    // n1 has children n1a and n1b, so the subtree has 3 nodes total.
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+  test("promoted_children is 0 for leaf with include_children: false", async () => {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      include_children: true,
+      node_ids: ["n1a"],
+      include_children: false,
     });
-    expect(result.deleted_count).toBe(3);
+    expect(result.deleted_count).toBe(1);
+    expect(result.promoted_children).toBe(0);
   });
 
-  test("deeply nested subtree deletion removes all levels", async () => {
-    // Build a document with 4+ levels of nesting for this test.
-    ctx.server.addDocument("deep_doc", "Deep Document", "folder_a", [
-      ctx.server.makeNode("root", "Deep Document", ["d1"]),
-      ctx.server.makeNode("d1", "Level 1", ["d2"]),
-      ctx.server.makeNode("d2", "Level 2", ["d3"]),
-      ctx.server.makeNode("d3", "Level 3", ["d4"]),
-      ctx.server.makeNode("d4", "Level 4", []),
-    ]);
-
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
-      file_id: "deep_doc",
-      node_id: "d1",
-      include_children: true,
-    });
-
-    // All 4 nodes should be deleted (d1, d2, d3, d4).
-    expect(result.deleted_count).toBe(4);
-
-    const doc = ctx.server.documents.get("deep_doc")!;
-    expect(doc.nodes.find((n) => n.id === "d1")).toBeUndefined();
-    expect(doc.nodes.find((n) => n.id === "d2")).toBeUndefined();
-    expect(doc.nodes.find((n) => n.id === "d3")).toBeUndefined();
-    expect(doc.nodes.find((n) => n.id === "d4")).toBeUndefined();
-
-    // Root should have no children left.
-    const root = doc.nodes.find((n) => n.id === "root")!;
-    expect(root.children).toEqual([]);
-  });
-
-  test("promoted_children field absent when include_children is true", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+  test("promoted_children absent when include_children is true", async () => {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: true,
     });
     expect(result.promoted_children).toBeUndefined();
   });
 
-  // ─── 14d: Edge cases ──────────────────────────────────────────────
-
-  test("deleting root's only child leaves root with empty children", async () => {
-    // doc2 has root -> [m1]. Delete m1.
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
-      file_id: "doc2",
-      node_id: "m1",
+  test("state round-trip: promote then read_document", async () => {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1"],
+      include_children: false,
     });
-    expect(result.deleted_count).toBe(1);
 
-    const doc = ctx.server.documents.get("doc2")!;
-    const root = doc.nodes.find((n) => n.id === "root")!;
-    expect(root.children).toEqual([]);
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+    const tree = result.node as Record<string, unknown>;
+    const children = tree.children as Record<string, unknown>[];
+
+    // Root should have [n1a, n1b, n2, n3].
+    expect(children).toHaveLength(4);
+    expect(children[0].node_id).toBe("n1a");
+    expect(children[1].node_id).toBe("n1b");
   });
 
-  test("rejects deletion of root by actual root node ID", async () => {
-    // The standard setup uses "root" as the root node ID for doc1.
-    // This test confirms it is rejected even when matched by findRootNodeId.
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
+  // ─── Validation and error cases ────────────────────────────────────
+
+  test("cannot delete root node", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "root",
+      node_ids: ["root"],
     });
     expect(err.error).toBe("InvalidInput");
   });
 
-  // ─── 14e: Response shape ──────────────────────────────────────────
+  test("rejects deletion of root by actual root node ID (non-literal)", async () => {
+    // The fast-path check catches the literal string "root". This test
+    // exercises the findRootNodeId check inside the version guard by
+    // using a document whose root node has a different ID.
+    ctx.server.addDocument("custom_root_doc", "Custom Root", "folder_a", [
+      ctx.server.makeNode("my_root", "Custom Root", ["cr1"]),
+      ctx.server.makeNode("cr1", "Child", []),
+    ]);
+
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "custom_root_doc",
+      node_ids: ["my_root"],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("root node mixed into bulk array fails entire batch", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "root"],
+    });
+    expect(err.error).toBe("InvalidInput");
+
+    // Verify n1 was NOT deleted.
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1")).toBeDefined();
+  });
+
+  test("nonexistent file returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "nonexistent",
+      node_ids: ["n1"],
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
+  test("nonexistent node_id returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["nonexistent"],
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
+
+  test("nonexistent node_id with include_children returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["nonexistent"],
+      include_children: true,
+    });
+    expect(err.error).toBe("NodeNotFound");
+  });
+
+  test("nonexistent node_id mixed with valid ones fails entire batch", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "nonexistent"],
+    });
+    expect(err.error).toBe("NodeNotFound");
+
+    // Verify n1 was NOT deleted (no partial application).
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1")).toBeDefined();
+  });
+
+  test("empty node_ids array returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: [],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("duplicate node_id in array returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "n1"],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("include_children: false with multiple nodes returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+      file_id: "doc1",
+      node_ids: ["n1", "n2"],
+      include_children: false,
+    });
+    expect(err.error).toBe("InvalidInput");
+
+    // Verify no nodes or descendants were deleted.
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1")).toBeDefined();
+    expect(doc.nodes.find((n) => n.id === "n1a")).toBeDefined();
+    expect(doc.nodes.find((n) => n.id === "n1b")).toBeDefined();
+    expect(doc.nodes.find((n) => n.id === "n2")).toBeDefined();
+    expect(doc.nodes.find((n) => n.id === "n2a")).toBeDefined();
+  });
+
+  // ─── Response shape ────────────────────────────────────────────────
 
   test("response includes file_id and deleted_count", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
     });
     expect(result.file_id).toBe("doc1");
     expect(typeof result.deleted_count).toBe("number");
   });
 
   test("response includes promoted_children when children were promoted", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n2",
+      node_ids: ["n2"],
       include_children: false,
     });
-    // n2 has one child (n2a), so promoted_children should be 1.
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
     expect(result.promoted_children).toBe(1);
@@ -856,26 +1093,5 @@ describe("move_nodes", () => {
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
     expect(root.children).toEqual(["n1", "n2", "n3", "n1a", "n1b", "n2a"]);
-  });
-});
-
-// ─── delete_node: nonexistent node validation ────────────────────────
-
-describe("delete_node nonexistent node", () => {
-  test("nonexistent node_id returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
-      file_id: "doc1",
-      node_id: "nonexistent",
-    });
-    expect(err.error).toBe("NodeNotFound");
-  });
-
-  test("nonexistent node_id with include_children returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
-      file_id: "doc1",
-      node_id: "nonexistent",
-      include_children: true,
-    });
-    expect(err.error).toBe("NodeNotFound");
   });
 });

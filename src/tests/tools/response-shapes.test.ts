@@ -358,13 +358,13 @@ describe("send_to_inbox response shape", () => {
   });
 });
 
-// ─── delete_node ────────────────────────────────────────────────────
+// ─── delete_nodes ───────────────────────────────────────────────────
 
-describe("delete_node response shape", () => {
+describe("delete_nodes response shape", () => {
   test("success response for leaf deletion has correct envelope and fields", async () => {
-    const raw = await callTool(ctx.mcpClient, "delete_node", {
+    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -373,9 +373,9 @@ describe("delete_node response shape", () => {
   });
 
   test("success response for deletion with promotion has promoted_children", async () => {
-    const raw = await callTool(ctx.mcpClient, "delete_node", {
+    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
     });
     const data = assertSuccessEnvelope(raw);
@@ -386,18 +386,18 @@ describe("delete_node response shape", () => {
   });
 
   test("error response for deleting root node has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "delete_node", {
+    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "root",
+      node_ids: ["root"],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidInput");
   });
 
   test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "delete_node", {
+    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "nonexistent",
-      node_id: "n1",
+      node_ids: ["n1"],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");

@@ -109,13 +109,13 @@ describe("insert_nodes version guard", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// delete_node version guard wiring
+// delete_nodes version guard wiring
 // ═════════════════════════════════════════════════════════════════════
-describe("delete_node version guard", () => {
+describe("delete_nodes version guard", () => {
   test("stale expected_version aborts with VersionMismatch", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
       expected_version: 999,
     });
     expect(err.error).toBe("VersionMismatch");
@@ -129,9 +129,9 @@ describe("delete_node version guard", () => {
     const doc = ctx.server.documents.get("doc1")!;
     const version = doc.version;
 
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
       expected_version: version,
     });
     expect(result.deleted_count).toBe(1);
@@ -139,18 +139,18 @@ describe("delete_node version guard", () => {
   });
 
   test("omitted expected_version succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
     });
     expect(result.deleted_count).toBe(1);
     expect(result.version_warning).toBeUndefined();
   });
 
   test("stale expected_version aborts child promotion path", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_node", {
+    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
       expected_version: 999,
     });
@@ -165,9 +165,9 @@ describe("delete_node version guard", () => {
     const doc = ctx.server.documents.get("doc1")!;
     const version = doc.version;
 
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
       expected_version: version,
     });
@@ -267,9 +267,9 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
+      node_ids: ["n1a"],
     });
 
     expect(result.version_warning).toBeDefined();
@@ -292,17 +292,17 @@ describe("post-write concurrent modification detection", () => {
     expect(result.version_warning).toContain("expected 1");
   });
 
-  test("concurrent edit during multi-batch delete_node with child promotion", async () => {
-    // delete_node with include_children: false makes 2 editDocument calls.
+  test("concurrent edit during multi-batch delete_nodes with child promotion", async () => {
+    // delete_nodes with include_children: false makes 2 editDocument calls.
     // Inject a concurrent edit on the first call. Total expected delta = 2
     // (move batch + delete batch), actual delta = 3 (2 + concurrent).
     ctx.server.onNextEdit((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const result = await callToolOk(ctx.mcpClient, "delete_node", {
+    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      node_ids: ["n1"],
       include_children: false,
     });
 

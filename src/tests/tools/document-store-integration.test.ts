@@ -76,9 +76,9 @@ describe("document store cache invalidation", () => {
     const serializedBefore = JSON.stringify(before.node);
     expect(serializedBefore).toContain("Third item");
 
-    await callToolOk(ctx.mcpClient, "delete_node", {
+    await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
-      node_id: "n3",
+      node_ids: ["n3"],
     });
 
     const after = await callToolOk(ctx.mcpClient, "read_document", {

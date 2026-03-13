@@ -1,11 +1,10 @@
 /**
- * Structure tools: delete_node, move_nodes.
+ * Structure tools: delete_nodes, move_nodes.
  */
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
-import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
 import { withVersionGuard } from "../version-guard";
@@ -20,25 +19,29 @@ import { FILE_ID_DESCRIPTION, CONFIRM_GUIDANCE, EXPECTED_VERSION_DESCRIPTION } f
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
-  // TOOL: delete_node
+  // TOOL: delete_nodes
   // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
-    "delete_node",
+    "delete_nodes",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Delete a node from a Dynalist document. By default, the node and its entire subtree " +
-        "are deleted. Set include_children: false to promote children up to the deleted node's " +
-        "parent instead (the node is removed but its children survive in place).\n\n" +
-        "Examples:\n" +
-        "- Delete a section and everything under it: include_children: true (default).\n" +
-        "- Delete a header but keep its items: include_children: false.",
+        "Delete one or more nodes from a Dynalist document. By default, each node and its " +
+        "entire subtree are deleted. For a single node, pass a one-element array.\n\n" +
+        "If two nodes in the array overlap (one is an ancestor of the other), the descendant " +
+        "is automatically deduplicated.\n\n" +
+        "include_children: false is a niche option that promotes (unwraps) a single node's " +
+        "children up to its parent instead of deleting them. This is only supported when " +
+        "deleting a single node. The vast majority of deletions should use the default " +
+        "(include_children: true). Only use include_children: false when the user explicitly " +
+        "wants to remove a grouping node (e.g. a header) while keeping its items.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().describe("Node ID to delete"),
+        node_ids: z.array(z.string()).describe("Node IDs to delete. For a single deletion, pass a one-element array."),
         include_children: z.boolean().optional().default(true).describe(
-          "If true (default), delete the node and all its descendants (entire subtree). " +
-          "If false, promote children up to the deleted node's parent."
+          "If true (default), delete each node and all its descendants (entire subtree). " +
+          "If false, promote children up to the deleted node's parent. " +
+          "Only supported for single-node deletions (node_ids must have exactly one element)."
         ),
         expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
       },
@@ -51,15 +54,35 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     },
     wrapToolHandler(async ({
       file_id,
-      node_id,
+      node_ids,
       include_children,
       expected_version,
     }: {
       file_id: string;
-      node_id: string;
+      node_ids: string[];
       include_children: boolean;
       expected_version?: number;
     }) => {
+      if (node_ids.length === 0) {
+        return makeErrorResponse("InvalidInput", "No nodes to delete (empty array).");
+      }
+
+      if (!include_children && node_ids.length > 1) {
+        return makeErrorResponse(
+          "InvalidInput",
+          "include_children: false is only supported for single-node deletions (node_ids must have exactly one element).",
+        );
+      }
+
+      // Reject duplicates.
+      const seen = new Set<string>();
+      for (const id of node_ids) {
+        if (seen.has(id)) {
+          return makeErrorResponse("InvalidInput", `Duplicate node_id '${id}' in array.`);
+        }
+        seen.add(id);
+      }
+
       const config = getConfig();
 
       // Access check: requires write (allow) policy.
@@ -68,7 +91,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       // Reject deleting the root node (literal "root" string check, no read needed).
-      if (node_id === "root") {
+      if (node_ids.includes("root")) {
         return makeErrorResponse("InvalidInput", "Cannot delete the root node of a document.");
       }
 
@@ -77,62 +100,93 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         async (): Promise<{ result: { deleted_count: number; promoted_children?: number }; apiCallCount: number }> => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
-          if (node_id === rootId) {
-            throw new ToolInputError("InvalidInput", "Cannot delete the root node of a document.");
-          }
-
           const nodeMap = buildNodeMap(doc.nodes);
           const parentMap = buildParentMap(doc.nodes);
-          const targetNode = nodeMap.get(node_id);
 
-          if (!targetNode) {
-            throw new ToolInputError("NodeNotFound", `Node '${node_id}' not found in document.`);
+          // Validate all node IDs exist and none are the root.
+          for (const id of node_ids) {
+            if (id === rootId) {
+              throw new ToolInputError("InvalidInput", "Cannot delete the root node of a document.");
+            }
+            if (!nodeMap.has(id)) {
+              throw new ToolInputError("NodeNotFound", `Node '${id}' not found in document.`);
+            }
           }
 
-          if (!include_children && targetNode.children && targetNode.children.length > 0) {
-            // Promote children: move them to the deleted node's parent at the same position.
-            const parentInfo = parentMap.get(node_id);
-            if (!parentInfo) {
-              throw new ToolInputError("NodeNotFound", "Could not find parent of node to delete.");
+          // Child promotion path (single node only).
+          if (!include_children) {
+            const node_id = node_ids[0];
+            const targetNode = nodeMap.get(node_id)!;
+
+            if (targetNode.children && targetNode.children.length > 0) {
+              const parentInfo = parentMap.get(node_id);
+              if (!parentInfo) {
+                throw new ToolInputError("NodeNotFound", "Could not find parent of node to delete.");
+              }
+
+              // Capture count before mutations, since editDocument mutates the in-memory node.
+              const promotedCount = targetNode.children.length;
+
+              // Move each child to be a sibling of the node being deleted,
+              // placed at the node's index. Each successive child goes after
+              // the previous one, so we increment the index.
+              const moveChanges = targetNode.children.map((childId, i) => ({
+                action: "move" as const,
+                node_id: childId,
+                parent_id: parentInfo.parentId,
+                index: parentInfo.index + i,
+              }));
+              const moveResponse = await client.editDocument(file_id, moveChanges);
+
+              // Now delete just the (now childless) node.
+              const deleteResponse = await client.editDocument(file_id, [{ action: "delete", node_id }]);
+
+              return {
+                result: { deleted_count: 1, promoted_children: promotedCount },
+                apiCallCount: moveResponse.batches_sent + deleteResponse.batches_sent,
+              };
             }
 
-            // Capture count before mutations, since editDocument mutates the in-memory node.
-            const promotedCount = targetNode.children.length;
-
-            // Move each child to be a sibling of the node being deleted,
-            // placed at the node's index. Each successive child goes after
-            // the previous one, so we increment the index.
-            const moveChanges = targetNode.children.map((childId, i) => ({
-              action: "move" as const,
-              node_id: childId,
-              parent_id: parentInfo.parentId,
-              index: parentInfo.index + i,
-            }));
-            const moveResponse = await client.editDocument(file_id, moveChanges);
-
-            // Now delete just the (now childless) node.
-            const deleteResponse = await client.editDocument(file_id, [{ action: "delete", node_id }]);
-
+            // Leaf node with include_children: false. Just delete it.
+            const response = await client.editDocument(file_id, [{ action: "delete", node_id }]);
             return {
-              result: { deleted_count: 1, promoted_children: promotedCount },
-              apiCallCount: moveResponse.batches_sent + deleteResponse.batches_sent,
+              result: { deleted_count: 1, promoted_children: 0 },
+              apiCallCount: response.batches_sent,
             };
           }
 
-          // Collect the target node and all descendants via depth-first traversal.
-          // The Dynalist API's delete action only removes the specified node and
-          // orphans its children, so we must enumerate the full subtree ourselves.
-          const nodesToDelete: string[] = [];
-          function collectDescendants(id: string) {
-            nodesToDelete.push(id);
+          // Subtree deletion path (one or more nodes).
+          const deleteSet = new Set(node_ids);
+
+          // Deduplicate: skip nodes whose ancestor is also in deleteSet.
+          const deduped: string[] = [];
+          for (const id of node_ids) {
+            let dominated = false;
+            let cursor = parentMap.get(id);
+            while (cursor) {
+              if (deleteSet.has(cursor.parentId)) {
+                dominated = true;
+                break;
+              }
+              cursor = parentMap.get(cursor.parentId);
+            }
+            if (!dominated) deduped.push(id);
+          }
+
+          // Collect full subtrees via DFS.
+          const allToDelete: string[] = [];
+          function collectSubtree(id: string) {
+            allToDelete.push(id);
             const node = nodeMap.get(id);
             if (node?.children) {
               for (const childId of node.children) {
-                collectDescendants(childId);
+                collectSubtree(childId);
               }
             }
           }
-          collectDescendants(node_id);
+          for (const id of deduped) {
+            collectSubtree(id);
+          }
 
           // Delete in reverse (children before parents). This ordering makes the
           // operation idempotent on partial failure: if batching is interrupted
@@ -141,11 +195,11 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           // tree. Retrying the tool call re-reads the document, re-collects the
           // surviving subtree, and deletes the rest. Parent-first ordering would
           // orphan children on partial failure with no way to recover them.
-          const changes = nodesToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
+          const changes = allToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
 
           const response = await client.editDocument(file_id, changes);
           return {
-            result: { deleted_count: nodesToDelete.length },
+            result: { deleted_count: allToDelete.length },
             apiCallCount: response.batches_sent,
           };
         },

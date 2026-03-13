@@ -322,15 +322,17 @@ Example input:
 
 ## Structure tools
 
-### `delete_node`
+### `delete_nodes`
 
-Delete a node from a document. By default, the node and its entire subtree are deleted. Set `include_children: false` to promote children up to the deleted node's parent instead (the node is removed but its children survive in place).
+Delete one or more nodes from a document. By default, each node and its entire subtree are deleted. For a single deletion, pass a one-element array. If two nodes in the array overlap (one is an ancestor of the other), the descendant is automatically deduplicated.
+
+`include_children: false` is a **niche option** that promotes (unwraps) a single node's children up to its parent instead of deleting them. This is only supported when deleting a single node (`node_ids` must have exactly one element). The vast majority of deletions should use the default. Only use `include_children: false` when the user explicitly wants to remove a grouping node (e.g. a section header) while keeping its items.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
-| `node_id` | string | yes | | Node ID to delete |
-| `include_children` | boolean | no | `true` | Delete entire subtree if true; promote children if false |
+| `node_ids` | string[] | yes | | Node IDs to delete. For a single deletion, pass a one-element array. |
+| `include_children` | boolean | no | `true` | Delete entire subtree if true; promote children if false (single node only) |
 | `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
 
 **Response**:
@@ -343,7 +345,7 @@ Delete a node from a document. By default, the node and its entire subtree are d
 }
 ```
 
-`promoted_children` is present only when children were promoted. `version_warning` is present only when a concurrent edit was detected during the write (i.e. `include_children` was set to false and the node had children).
+`promoted_children` is present only when children were promoted (`include_children: false`). `version_warning` is present only when a concurrent edit was detected during the write.
 
 ### `move_nodes`
 

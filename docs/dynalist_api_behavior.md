@@ -369,7 +369,7 @@ Nodes whose parent has been deleted via the raw API (single-node delete) become 
 - Persist indefinitely (no server-side garbage collection observed).
 - Can be deleted by node ID but cannot be moved back into the tree.
 
-Our `delete_node` tool avoids creating orphans by doing recursive deletion (children
+Our `delete_nodes` tool avoids creating orphans by doing recursive deletion (children
 before parents). This ordering also makes the operation idempotent on partial failure:
 if interrupted mid-batch, surviving nodes remain connected to the tree and can be
 re-collected and deleted on retry.
