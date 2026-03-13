@@ -25,7 +25,8 @@ afterEach(async () => {
 describe("list_documents", () => {
   test("returns all documents and folders", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    expect(result.count).toBe(3); // doc1, doc2, inbox_doc
+    // Three documents: doc1, doc2, inbox_doc.
+    expect(result.count).toBe(3);
     expect(result.documents).toBeInstanceOf(Array);
     expect(result.folders).toBeInstanceOf(Array);
     expect(result.root_file_id).toBe("root_folder");
@@ -1269,6 +1270,14 @@ describe("search_in_document", () => {
     expect(Array.isArray(result.matches)).toBe(true);
   });
 
+  test("response includes version as a number", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "First",
+    });
+    expect(typeof result.version).toBe("number");
+  });
+
   test("plain node omits checked, checkbox, heading, color from match", async () => {
     // n1a is a plain node with no checkbox, heading, or color.
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
@@ -1561,6 +1570,14 @@ describe("get_recent_changes", () => {
     expect(typeof result.url).toBe("string");
     expect(typeof result.count).toBe("number");
     expect(Array.isArray(result.matches)).toBe(true);
+  });
+
+  test("response includes version as a number", async () => {
+    const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
+      file_id: "doc1",
+      since: 0,
+    });
+    expect(typeof result.version).toBe("number");
   });
 
   test("each match includes node_id, content, created, modified, change_type, url", async () => {
@@ -1891,6 +1908,31 @@ describe("read_document size warning content", () => {
     expect(warning).toContain("max_depth");
     expect(warning).toContain("node_id");
   });
+
+  test("size warning response includes file_id, title, and version", async () => {
+    function bigSetup(server: DummyDynalistServer): void {
+      const childIds: string[] = [];
+      const nodes = [server.makeNode("root", "Big Doc", [] as string[])];
+      for (let i = 0; i < 20; i++) {
+        const id = `w2_${i}`;
+        childIds.push(id);
+        nodes.push(server.makeNode(id, "x".repeat(50), []));
+      }
+      nodes[0].children = childIds;
+      server.addDocument("warn_doc2", "Big Doc", "root_folder", nodes);
+    }
+
+    cfgCtx = await createTestContext(bigSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
+
+    const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
+      file_id: "warn_doc2",
+      max_depth: 10,
+    });
+    expect(result.warning).toBeDefined();
+    expect(result.file_id).toBe("warn_doc2");
+    expect(result.title).toBe("Big Doc");
+    expect(typeof result.version).toBe("number");
+  });
 });
 
 // ─── 5d. search_in_document size warnings ─────────────────────────────
@@ -1958,6 +2000,19 @@ describe("search_in_document size warnings", () => {
     expect(second.warning).toBeUndefined();
     expect(second.matches).toBeDefined();
     expect(second.count).toBeGreaterThan(0);
+  });
+
+  test("size warning response includes file_id, title, and version", async () => {
+    cfgCtx = await createTestContext(manyNodesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
+
+    const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
+      file_id: "search_warn_doc",
+      query: "searchable",
+    });
+    expect(result.warning).toBeDefined();
+    expect(result.file_id).toBe("search_warn_doc");
+    expect(result.title).toBe("Search Doc");
+    expect(typeof result.version).toBe("number");
   });
 });
 
@@ -2146,6 +2201,19 @@ describe("get_recent_changes size warnings", () => {
     expect(warning).toContain("time period");
     expect(warning).toContain("parent_levels: 0");
     expect(warning).toContain("type");
+  });
+
+  test("size warning response includes file_id, title, and version", async () => {
+    cfgCtx = await createTestContext(manyChangesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
+
+    const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
+      file_id: "changes_doc",
+      since: 0,
+    });
+    expect(result.warning).toBeDefined();
+    expect(result.file_id).toBe("changes_doc");
+    expect(result.title).toBe("Changes Doc");
+    expect(typeof result.version).toBe("number");
   });
 });
 

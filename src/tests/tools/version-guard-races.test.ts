@@ -29,7 +29,7 @@ afterEach(async () => {
 // Race simulation: insert_nodes
 // ═════════════════════════════════════════════════════════════════════
 describe("insert_nodes race simulation", () => {
-  test("as_last_child multi-item race: concurrent child added", async () => {
+  test("last_child multi-item race: concurrent child added", async () => {
     // After insert_nodes reads the parent's child count but before the
     // write, another client adds a child. The version guard detects the
     // concurrent modification.
@@ -46,15 +46,16 @@ describe("insert_nodes race simulation", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      node_id: "n1",
+      parent_node_id: "n1",
       nodes: [{ content: "Item A" }, { content: "Item B" }],
+      position: "last_child",
     });
 
     expect(result.version_warning).toBeDefined();
     expect(result.total_created).toBe(2);
   });
 
-  test("as_first_child multi-item race: concurrent insert at position 0", async () => {
+  test("first_child multi-item race: concurrent insert at position 0", async () => {
     ctx.server.onNextEdit((fileId) => {
       const doc = ctx.server.documents.get(fileId)!;
       const n1 = doc.nodes.find(n => n.id === "n1")!;
@@ -68,9 +69,9 @@ describe("insert_nodes race simulation", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      node_id: "n1",
+      parent_node_id: "n1",
       nodes: [{ content: "First A" }, { content: "First B" }],
-      position: "as_first_child",
+      position: "first_child",
     });
 
     expect(result.version_warning).toBeDefined();
@@ -207,7 +208,8 @@ describe("version guard edge cases", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      node_id: "n1",
+      parent_node_id: "n1",
+      position: "last_child",
       nodes: [{
         content: "Level 1",
         children: [{
@@ -232,7 +234,8 @@ describe("version guard edge cases", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      node_id: "n1",
+      parent_node_id: "n1",
+      position: "last_child",
       nodes: [{
         content: "Level 1",
         children: [{
@@ -266,7 +269,8 @@ describe("version guard edge cases", () => {
     const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      node_id: "n1",
+      parent_node_id: "n1",
+      position: "last_child",
       nodes: [{
         content: "Partial parent",
         children: [{ content: "Partial child" }],

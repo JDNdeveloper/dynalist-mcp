@@ -99,6 +99,15 @@ rename_* tools to organize.
 the file tree. Node tools (insert_nodes, edit_nodes, etc.) operate within a document. \
 Do not confuse file IDs with node IDs.
 
+## API limitations
+
+- Cross-document moves: use the Dynalist web or mobile client to preserve smart links. \
+Do not attempt a read-insert-delete workaround.
+- Collapsed state: the API cannot change a node's collapsed state. The edit action silently \
+ignores the collapsed field.
+- Document and folder deletion: the API does not support deleting documents or folders. \
+Use the Dynalist web or mobile UI.
+
 ## Presenting document content
 
 Render document content as indented bullet points mirroring Dynalist's structure. Use exactly \

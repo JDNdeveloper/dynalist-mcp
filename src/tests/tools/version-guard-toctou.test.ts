@@ -110,7 +110,7 @@ describe("delete_nodes TOCTOU", () => {
       file_id: "doc1",
       expected_version: version,
       node_ids: ["n1"],
-      include_children: false,
+      children: "promote",
     });
 
     expect(result.version_warning).toBeDefined();
@@ -162,7 +162,7 @@ describe("insert_nodes TOCTOU", () => {
     expect(result.total_created).toBe(1);
   });
 
-  test("as_last_child multiple items: concurrent edit during planning read emits warning", async () => {
+  test("last_child multiple items: concurrent edit during planning read emits warning", async () => {
     const version = ctx.server.documents.get("doc1")!.version;
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
@@ -171,8 +171,9 @@ describe("insert_nodes TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      node_id: "root",
+      parent_node_id: "root",
       nodes: [{ content: "A" }, { content: "B" }, { content: "C" }],
+      position: "last_child",
     });
 
     expect(result.version_warning).toBeDefined();
@@ -189,6 +190,7 @@ describe("insert_nodes TOCTOU", () => {
       file_id: "doc1",
       expected_version: version,
       nodes: [{ content: "Root child" }],
+      position: "last_child",
     });
 
     expect(result.version_warning).toBeDefined();
@@ -200,8 +202,9 @@ describe("insert_nodes TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      node_id: "n1",
+      parent_node_id: "n1",
       nodes: [{ content: "New child" }],
+      position: "last_child",
     });
 
     expect(result.version_warning).toBeUndefined();

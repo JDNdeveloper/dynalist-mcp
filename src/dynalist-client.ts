@@ -53,7 +53,8 @@ export interface DynalistFile {
   id: string;
   title: string;
   type: "document" | "folder";
-  permission: number; // 0=none, 1=read, 2=edit, 3=manage, 4=owner
+  // 0=none, 1=read, 2=edit, 3=manage, 4=owner.
+  permission: number;
   collapsed?: boolean;
   children?: string[];
 }
@@ -67,9 +68,11 @@ export interface DynalistNode {
   children?: string[];
   checked?: boolean;
   checkbox?: boolean;
-  heading?: number; // 0-3
-  color?: number;   // 0-6
-  collapsed?: boolean;
+  // Heading level from 0 (none) to 3 (H3).
+  heading?: number;
+  // Color label from 0 (none) to 6 (purple).
+  color?: number;
+  collapsed: boolean;
 }
 
 export interface ListFilesResponse {

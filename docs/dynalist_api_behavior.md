@@ -158,9 +158,9 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
 - Moving a node to be a child of itself: API silently accepts but the node becomes
   orphaned (unreachable from the root tree). Our tool validates and rejects this.
 - Moving the root node: API returns a non-JSON response or `LockFail`, and the
-  document may become permanently locked (all subsequent reads/writes return
-  `LockFail`). Verified (2026-03-13) against the live API. Our tool validates and
-  rejects this.
+  entire account becomes permanently locked (all subsequent API calls across all
+  documents return `LockFail`). Verified (2026-03-13) against the live API. Our
+  tool validates and rejects this.
 - **Cross-document moves are not supported.** Node IDs are scoped to their document,
   not global. Verified (2026-03-13) against the live API with two approaches:
   - Source-anchored (`file_id` = source doc, `parent_id` = root of dest doc): API

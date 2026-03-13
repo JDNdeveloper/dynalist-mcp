@@ -239,6 +239,7 @@ describe("insert_nodes with ACL", () => {
       file_id: "denied_doc",
       expected_version: 1,
       nodes: [{ content: "hacked" }],
+      position: "last_child",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -248,6 +249,7 @@ describe("insert_nodes with ACL", () => {
       file_id: "readonly_doc",
       expected_version: 1,
       nodes: [{ content: "hacked" }],
+      position: "last_child",
     });
     expect(err.error).toBe("ReadOnly");
   });
@@ -258,6 +260,7 @@ describe("insert_nodes with ACL", () => {
       file_id: "allowed_doc",
       expected_version: version,
       nodes: [{ content: "New item" }, { content: "Another item" }],
+      position: "last_child",
     });
     expect(result.file_id).toBe("allowed_doc");
     expect(result.total_created).toBe(2);

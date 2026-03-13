@@ -172,9 +172,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "include_collapsed_children does NOT bypass the depth limit.\n\n" +
         "The starting node always shows its children regardless of collapsed state.\n\n" +
         "Hidden children are signaled distinctly:\n" +
-        "- depth_limited: true — max_depth cut off traversal. " +
+        "- depth_limited: true means max_depth cut off traversal. " +
         "Fix: read_document with that node_id.\n" +
-        "- collapsed: true + children_count > 0 — user-collapsed in UI. " +
+        "- collapsed: true + children_count > 0 means user-collapsed in UI. " +
         "Fix: include_collapsed_children: true, or pass its node_id.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -279,7 +279,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       );
 
       if (sizeCheck) {
-        return makeResponse({ warning: sizeCheck.warning });
+        return makeResponse({
+          file_id,
+          title: doc.title,
+          version: doc.version,
+          warning: sizeCheck.warning,
+        });
       }
 
       const url = node_id
@@ -316,6 +321,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         file_id: z.string().optional().describe("Document file ID"),
         title: z.string().optional().describe("Document title"),
+        version: z.number().optional().describe(
+          "Document version. Pass as expected_version to write tools."
+        ),
         url: z.string().optional().describe("Dynalist URL"),
         count: z.number().optional().describe("Number of matches found"),
         query: z.string().optional().describe("The search query that was used"),
@@ -401,6 +409,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const result = {
         file_id,
         title: doc.title,
+        version: doc.version,
         url: buildDynalistUrl(file_id),
         count: matches.length,
         query,
@@ -421,7 +430,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       );
 
       if (sizeCheck) {
-        return makeResponse({ warning: sizeCheck.warning });
+        return makeResponse({
+          file_id,
+          title: doc.title,
+          version: doc.version,
+          warning: sizeCheck.warning,
+        });
       }
 
       return makeResponse(result);
@@ -452,6 +466,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         file_id: z.string().optional().describe("Document file ID"),
         title: z.string().optional().describe("Document title"),
+        version: z.number().optional().describe(
+          "Document version. Pass as expected_version to write tools."
+        ),
         url: z.string().optional().describe("Dynalist URL"),
         count: z.number().optional().describe("Number of changes found"),
         matches: z.array(z.any()).optional().describe(
@@ -563,6 +580,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const result = {
         file_id,
         title: doc.title,
+        version: doc.version,
         url: buildDynalistUrl(file_id),
         count: matches.length,
         matches,
@@ -582,7 +600,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       );
 
       if (sizeCheck) {
-        return makeResponse({ warning: sizeCheck.warning });
+        return makeResponse({
+          file_id,
+          title: doc.title,
+          version: doc.version,
+          warning: sizeCheck.warning,
+        });
       }
 
       return makeResponse(result);

@@ -473,7 +473,7 @@ export async function insertTreeUnderParent(
       };
 
       if (node.note !== undefined) change.note = node.note;
-      if (node.checkbox) change.checkbox = node.checkbox;
+      if (node.checkbox !== undefined) change.checkbox = node.checkbox;
       if (node.checked !== undefined) change.checked = node.checked;
       if (node.heading !== undefined && node.heading > 0) change.heading = node.heading;
       if (node.color !== undefined && node.color > 0) change.color = node.color;

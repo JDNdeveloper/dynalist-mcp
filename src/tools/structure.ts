@@ -28,44 +28,48 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         `${CONFIRM_GUIDANCE} ` +
         "Delete nodes and their subtrees from a document. Overlapping nodes " +
         "(ancestor/descendant) are deduplicated.\n\n" +
-        "include_children: false promotes children to the parent instead of deleting them. " +
+        "children: 'promote' re-parents children to the deleted node's parent instead of deleting them. " +
         "Only for single-node deletions. Use only when the user wants to remove a grouping " +
         "node while keeping its items.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_ids: z.array(z.string()).describe("Node IDs to delete."),
-        include_children: z.boolean().optional().default(true).describe(
-          "true (default): delete entire subtree. false: promote children to parent. " +
-          "Single-node only."
+        children: z.enum(["delete", "promote"]).optional().describe(
+          "What to do with children of deleted nodes. 'delete': remove entire subtree (default). " +
+          "'promote': re-parent children to the deleted node's parent. Only valid with a single node_id."
         ),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
         deleted_count: z.number().describe("Number of nodes deleted"),
-        promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when include_children is false)"),
+        deleted_ids: z.array(z.string()).describe("IDs of all deleted nodes (targets and descendants)."),
+        promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
         version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
       },
     },
     wrapToolHandler(async ({
       file_id,
       node_ids,
-      include_children,
+      children: childrenMode,
       expected_version,
     }: {
       file_id: string;
       node_ids: string[];
-      include_children: boolean;
+      children?: "delete" | "promote";
       expected_version: number;
     }) => {
       if (node_ids.length === 0) {
         return makeErrorResponse("InvalidInput", "No nodes to delete (empty array).");
       }
 
-      if (!include_children && node_ids.length > 1) {
+      // Default to "delete" when omitted.
+      const effectiveMode = childrenMode ?? "delete";
+
+      if (effectiveMode === "promote" && node_ids.length > 1) {
         return makeErrorResponse(
           "InvalidInput",
-          "include_children: false is only supported for single-node deletions (node_ids must have exactly one element).",
+          "children: 'promote' is only supported for single-node deletions (node_ids must have exactly one element).",
         );
       }
 
@@ -92,7 +96,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
-        async (): Promise<{ result: { deleted_count: number; promoted_children?: number }; apiCallCount: number }> => {
+        async (): Promise<{ result: { deleted_count: number; deleted_ids: string[]; promoted_children?: number }; apiCallCount: number }> => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
           const nodeMap = buildNodeMap(doc.nodes);
@@ -109,7 +113,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           }
 
           // Child promotion path (single node only).
-          if (!include_children) {
+          if (effectiveMode === "promote") {
             const node_id = node_ids[0];
             const targetNode = nodeMap.get(node_id)!;
 
@@ -137,15 +141,15 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
               const deleteResponse = await client.editDocument(file_id, [{ action: "delete", node_id }]);
 
               return {
-                result: { deleted_count: 1, promoted_children: promotedCount },
+                result: { deleted_count: 1, deleted_ids: [node_id], promoted_children: promotedCount },
                 apiCallCount: moveResponse.batches_sent + deleteResponse.batches_sent,
               };
             }
 
-            // Leaf node with include_children: false. Just delete it.
+            // Leaf node with children: 'promote'. Just delete it.
             const response = await client.editDocument(file_id, [{ action: "delete", node_id }]);
             return {
-              result: { deleted_count: 1, promoted_children: 0 },
+              result: { deleted_count: 1, deleted_ids: [node_id], promoted_children: 0 },
               apiCallCount: response.batches_sent,
             };
           }
@@ -183,6 +187,9 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             collectSubtree(id);
           }
 
+          // Save the IDs before reversing for the response.
+          const deletedIds = [...allToDelete];
+
           // Delete in reverse (children before parents). This ordering makes the
           // operation idempotent on partial failure: if batching is interrupted
           // mid-way (rate limit exhaustion, server restart, etc.), only leaf nodes
@@ -194,7 +201,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
           const response = await client.editDocument(file_id, changes);
           return {
-            result: { deleted_count: allToDelete.length },
+            result: { deleted_count: deletedIds.length, deleted_ids: deletedIds },
             apiCallCount: response.batches_sent,
           };
         },
@@ -203,6 +210,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const data: Record<string, unknown> = {
         file_id,
         deleted_count: guard.result.deleted_count,
+        deleted_ids: guard.result.deleted_ids,
       };
       if (guard.result.promoted_children !== undefined) {
         data.promoted_children = guard.result.promoted_children;

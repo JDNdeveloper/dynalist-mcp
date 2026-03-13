@@ -14,6 +14,7 @@ function makeNode(id: string, children: string[] = [], content = ""): DynalistNo
     created: 0,
     modified: 0,
     children,
+    collapsed: false,
   };
 }
 

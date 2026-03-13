@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, FileEditResponse } from "../dynalist-client";
+import { DynalistClient } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";

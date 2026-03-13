@@ -315,6 +315,7 @@ describe("insert_nodes response shape", () => {
       file_id: "doc1",
       expected_version: version,
       nodes: [{ content: "Item A" }, { content: "Item B" }],
+      position: "last_child",
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -329,6 +330,7 @@ describe("insert_nodes response shape", () => {
       file_id: "doc1",
       expected_version: 1,
       nodes: [],
+      position: "last_child",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidInput");
@@ -339,6 +341,7 @@ describe("insert_nodes response shape", () => {
       file_id: "nonexistent",
       expected_version: 1,
       nodes: [{ content: "test" }],
+      position: "last_child",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");
@@ -390,7 +393,7 @@ describe("delete_nodes response shape", () => {
       file_id: "doc1",
       expected_version: version,
       node_ids: ["n1"],
-      include_children: false,
+      children: "promote",
     });
     const data = assertSuccessEnvelope(raw);
 

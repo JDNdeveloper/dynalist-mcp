@@ -16,7 +16,7 @@ if [ "$(git branch --show-current)" != "main" ]; then
 fi
 
 if git rev-parse "$tag" >/dev/null 2>&1; then
-  echo "error: tag $tag already exists -- bump version in package.json first" >&2
+  echo "error: tag $tag already exists. Bump version in package.json first." >&2
   exit 1
 fi
 

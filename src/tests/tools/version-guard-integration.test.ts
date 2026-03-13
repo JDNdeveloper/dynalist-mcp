@@ -73,8 +73,9 @@ describe("insert_nodes version guard", () => {
   test("stale expected_version aborts with VersionMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      parent_node_id: "n1",
       nodes: [{ content: "New child" }],
+      position: "last_child",
       expected_version: 999,
     });
     expect(err.error).toBe("VersionMismatch");
@@ -91,8 +92,9 @@ describe("insert_nodes version guard", () => {
 
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      parent_node_id: "n1",
       nodes: [{ content: "New child" }],
+      position: "last_child",
       expected_version: version,
     });
     expect(result.total_created).toBe(1);
@@ -102,8 +104,9 @@ describe("insert_nodes version guard", () => {
   test("omitted expected_version returns schema validation error", async () => {
     const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      parent_node_id: "n1",
       nodes: [{ content: "New child" }],
+      position: "last_child",
     });
     expect(result.isError).toBe(true);
     expect(JSON.stringify(result.content)).toContain("expected_version");
@@ -153,7 +156,7 @@ describe("delete_nodes version guard", () => {
     const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
       node_ids: ["n1"],
-      include_children: false,
+      children: "promote",
       expected_version: 999,
     });
     expect(err.error).toBe("VersionMismatch");
@@ -170,7 +173,7 @@ describe("delete_nodes version guard", () => {
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
       node_ids: ["n1"],
-      include_children: false,
+      children: "promote",
       expected_version: version,
     });
     expect(result.deleted_count).toBe(1);
@@ -260,8 +263,9 @@ describe("post-write concurrent modification detection", () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      node_id: "n1",
+      parent_node_id: "n1",
       nodes: [{ content: "New" }],
+      position: "last_child",
       expected_version: version,
     });
 
@@ -305,7 +309,7 @@ describe("post-write concurrent modification detection", () => {
   });
 
   test("concurrent edit during multi-batch delete_nodes with child promotion", async () => {
-    // delete_nodes with include_children: false makes 2 editDocument calls.
+    // delete_nodes with children: "promote" makes 2 editDocument calls.
     // Inject a concurrent edit on the first call. Total expected delta = 2
     // (move batch + delete batch), actual delta = 3 (2 + concurrent).
     ctx.server.onNextEdit((fileId) => {
@@ -316,7 +320,7 @@ describe("post-write concurrent modification detection", () => {
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
       node_ids: ["n1"],
-      include_children: false,
+      children: "promote",
       expected_version: version,
     });
 

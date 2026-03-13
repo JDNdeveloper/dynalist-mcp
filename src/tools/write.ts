@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, EditDocumentChange, buildParentMap, findRootNodeId, type ReadDocumentResponse } from "../dynalist-client";
+import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId, type ReadDocumentResponse } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
@@ -63,6 +63,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         checkbox: z.boolean().optional().describe(
           `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
         ),
+        heading: z.number().optional().describe("Heading level. 0 = no heading (default), 1 = H1, 2 = H2, 3 = H3."),
+        color: z.number().optional().describe("Color label. 0 = none (default), 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple."),
+        checked: z.boolean().optional().describe("Check state. Only meaningful when checkbox is true."),
       },
       outputSchema: {
         file_id: z.string().describe("Inbox document file ID"),
@@ -70,7 +73,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         url: z.string().describe("Dynalist URL for the created node"),
       },
     },
-    wrapToolHandler(async ({ content, note, checkbox }: { content: string; note?: string; checkbox?: boolean }) => {
+    wrapToolHandler(async ({ content, note, checkbox, heading, color, checked }: { content: string; note?: string; checkbox?: boolean; heading?: number; color?: number; checked?: boolean }) => {
       const config = getConfig();
 
       if (config.readOnly) {
@@ -97,6 +100,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         content,
         note,
         checkbox: effectiveCheckbox,
+        heading,
+        color,
+        checked,
       });
 
       // Invalidate the inbox document's cache entry since its content changed.
@@ -187,9 +193,32 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         return change;
       });
 
+      // Validate that each entry has at least one mutable field.
+      for (const entry of nodes) {
+        const hasMutable =
+          entry.content !== undefined ||
+          entry.note !== undefined ||
+          entry.checked !== undefined ||
+          entry.checkbox !== undefined ||
+          entry.heading !== undefined ||
+          entry.color !== undefined;
+        if (!hasMutable) {
+          return makeErrorResponse("InvalidInput", `Node '${entry.node_id}' has no fields to edit.`);
+        }
+      }
+
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
+          // Pre-validate that all node IDs exist in the document.
+          const doc = await store.read(file_id);
+          const nodeMap = buildNodeMap(doc.nodes);
+          for (const entry of nodes) {
+            if (!nodeMap.has(entry.node_id)) {
+              throw new ToolInputError("NodeNotFound", `Node '${entry.node_id}' not found in document.`);
+            }
+          }
+
           const response = await client.editDocument(file_id, changes);
           return { result: undefined, apiCallCount: response.batches_sent };
         },
@@ -240,13 +269,15 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Insert nodes into a document as a JSON tree. Supports nested children and " +
-        "per-node metadata.",
+        "per-node metadata. " +
+        "position is required. Use last_child to append under a parent (most common). " +
+        "Use first_child to prepend. Use after/before with reference_node_id for sibling-relative placement.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().optional().describe("Parent node. Omit for root. Inferred from reference_node_id for after/before."),
+        parent_node_id: z.string().optional().describe("Parent node. Omit for root. Must be omitted for after/before (inferred from reference_node_id)."),
         nodes: z.array(jsonInputNodeSchema).describe("Array of nodes to insert"),
-        position: z.enum(["as_first_child", "as_last_child", "after", "before"]).optional().default("as_last_child")
-          .describe("'as_first_child'/'as_last_child': under parent. 'after'/'before': relative to reference_node_id."),
+        position: z.enum(["first_child", "last_child", "after", "before"])
+          .describe("Insertion target. 'first_child'/'last_child': child of parent_node_id. 'after'/'before': sibling of reference_node_id."),
         index: z.number().optional().describe(
           "Exact child index. Overrides position. 0 = first, -1 = last. " +
           "Cannot combine with reference_node_id."
@@ -267,7 +298,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     },
     wrapToolHandler(async ({
       file_id,
-      node_id,
+      parent_node_id,
       nodes,
       position,
       index,
@@ -275,7 +306,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       expected_version,
     }: {
       file_id: string;
-      node_id?: string;
+      parent_node_id?: string;
       nodes: unknown[];
       position: string;
       index?: number;
@@ -296,7 +327,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       if ((position === "after" || position === "before") && reference_node_id === undefined) {
         return makeErrorResponse("InvalidInput", `Position '${position}' requires reference_node_id.`);
       }
-      if (reference_node_id !== undefined && (position === "as_first_child" || position === "as_last_child")) {
+      if ((position === "after" || position === "before") && parent_node_id !== undefined) {
+        return makeErrorResponse("InvalidInput", "Omit parent_node_id for sibling positions; parent is inferred from reference_node_id.");
+      }
+      if (reference_node_id !== undefined && (position === "first_child" || position === "last_child")) {
         return makeErrorResponse("InvalidInput", `Cannot use reference_node_id with position '${position}'.`);
       }
 
@@ -309,7 +343,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
-          let parentNodeId = node_id;
+          let parentNodeId = parent_node_id;
           let startIndex: number | undefined;
 
           if (position === "after" || position === "before") {
@@ -322,15 +356,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
               throw new ToolInputError("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
             }
 
-            // If node_id was provided, validate it matches the reference node's parent.
-            if (node_id !== undefined && node_id !== refInfo.parentId) {
-              throw new ToolInputError("InvalidInput", "node_id does not match the parent of reference_node_id.");
-            }
-
             parentNodeId = refInfo.parentId;
             startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
           } else {
-            // Child positioning (as_first_child / as_last_child / index).
+            // Child positioning (first_child / last_child / index).
             // The Dynalist API snapshots parent state before processing a batch,
             // so sending index -1 for every item in a batch causes them to all
             // resolve to the same position and reverse. For multi-item inserts we
@@ -343,13 +372,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
             if (index !== undefined && index !== -1) {
               startIndex = index;
-            } else if (position === "as_first_child") {
+            } else if (position === "first_child") {
               startIndex = 0;
             } else if (nodes.length <= 1) {
               // Single item: index -1 is unambiguous, no read needed.
               startIndex = undefined;
             } else {
-              // as_last_child (default) or index: -1 with multiple items.
+              // last_child or index: -1 with multiple items.
               // Resolve to the parent's current child count so each item gets
               // a distinct index instead of all resolving to the same position.
               if (!doc) doc = await store.read(file_id);
