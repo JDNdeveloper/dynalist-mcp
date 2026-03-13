@@ -7,8 +7,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, EditDocumentChange, findRootNodeId } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { parseMarkdownBullets } from "../utils/markdown-parser";
-import { getConfig } from "../config";
-import { AccessController, requireAccess } from "../access-control";
+import { getConfig, type Config } from "../config";
+import { AccessController, requireAccess, type Policy } from "../access-control";
 import {
   makeResponse,
   makeErrorResponse,
@@ -16,6 +16,32 @@ import {
   insertTreeUnderParent,
 } from "../utils/dynalist-helpers";
 import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE, CONTENT_MULTILINE_GUIDANCE } from "./descriptions";
+
+/**
+ * Check whether the global access policy blocks all write operations.
+ * Used by send_to_inbox, where the target document's file_id is not known
+ * ahead of time (the Dynalist inbox API only reveals it upon sending).
+ *
+ * Returns an error descriptor if writes are globally blocked, or null if
+ * at least some documents could be writable (meaning inbox might be too).
+ */
+function checkGlobalWriteBlock(
+  access: NonNullable<Config["access"]>,
+): { error: string; message: string } | null {
+  // If any path-specific rule grants allow, the inbox could be covered by
+  // it, so we cannot preemptively block.
+  const hasNonGlobalAllow = access.rules.some(
+    r => r.policy === "allow" && r.path !== "/**" && r.path !== "/*",
+  );
+  if (hasNonGlobalAllow) return null;
+
+  // No path-specific allow rules. A global rule (/** or /*) overrides the
+  // default for all top-level documents, which includes the inbox.
+  const globalRule = access.rules.find(r => r.path === "/**" || r.path === "/*");
+  const effectivePolicy: Policy = globalRule?.policy ?? access.default;
+
+  return requireAccess(effectivePolicy, "write", false);
+}
 
 export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -26,85 +52,55 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Send items to your Dynalist inbox. The target document is the user's configured inbox " +
-        "in Dynalist settings and cannot be changed via this tool. For inserting into a specific " +
-        "document, use insert_node or insert_nodes instead. Supports indented markdown/bullets " +
-        "for hierarchical content.",
+        "Send a single item to your Dynalist inbox. The target document is the user's configured " +
+        "inbox in Dynalist settings and cannot be changed via this tool. For inserting into a " +
+        "specific document or inserting hierarchical content, use insert_node or insert_nodes instead.",
       inputSchema: {
-        content: z.string().describe("The text content. Can be single line or indented markdown with '- bullets'."),
-        note: z.string().optional().describe("Optional note for the first/root item"),
+        content: z.string().describe("The text content for the inbox item."),
+        note: z.string().optional().describe("Optional note for the item."),
         checkbox: z.boolean().optional().describe(
-          `Whether to add checkboxes to items. ${CHECKBOX_DESCRIPTION}`
+          `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
         ),
       },
       outputSchema: {
         file_id: z.string().describe("Inbox document file ID"),
-        first_node_id: z.string().describe("ID of the first created node"),
-        url: z.string().describe("Dynalist URL for the first created node"),
-        total_created: z.number().describe("Total number of nodes created"),
+        node_id: z.string().describe("ID of the created node"),
+        url: z.string().describe("Dynalist URL for the created node"),
       },
     },
     wrapToolHandler(async ({ content, note, checkbox }: { content: string; note?: string; checkbox?: boolean }) => {
       const config = getConfig();
 
-      // send_to_inbox always allowed, but respect global readOnly.
       if (config.readOnly) {
         return makeErrorResponse("ReadOnly", "Server is in read-only mode.");
       }
 
-      const effectiveCheckbox = checkbox ?? config.inbox.defaultCheckbox;
-      const tree = parseMarkdownBullets(content);
+      // The Dynalist inbox API does not expose the inbox file_id without
+      // actually sending an item, so we cannot resolve the inbox document's
+      // path for a per-document ACL check. Instead, check whether the global
+      // access policy makes it impossible for any document to be writable.
+      // If no document can be writable, the inbox cannot be either.
+      if (config.access) {
+        const accessError = checkGlobalWriteBlock(config.access);
+        if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+      }
 
-      if (tree.length === 0) {
+      if (!content.trim()) {
         return makeErrorResponse("InvalidInput", "No content to add (empty input)");
       }
 
-      // Step 1: Add first top-level item via inbox API (to get inbox file_id).
-      const firstResponse = await client.sendToInbox({
-        content: tree[0].content,
+      const effectiveCheckbox = checkbox ?? config.inbox.defaultCheckbox;
+
+      const response = await client.sendToInbox({
+        content,
         note,
         checkbox: effectiveCheckbox,
       });
 
-      const inboxFileId = firstResponse.file_id;
-      const firstNodeId = firstResponse.node_id;
-      let totalCreated = 1;
-
-      // Step 2: Insert children of first node (if any).
-      if (tree[0].children.length > 0) {
-        const result = await insertTreeUnderParent(client, inboxFileId, firstNodeId, tree[0].children, { checkbox: effectiveCheckbox });
-        totalCreated += result.totalCreated;
-      }
-
-      // Step 3: Insert remaining top-level items with their children.
-      if (tree.length > 1) {
-        const inboxDoc = await client.readDocument(inboxFileId);
-        const inboxRootId = findRootNodeId(inboxDoc.nodes);
-        const rootNode = inboxDoc.nodes.find(n => n.id === inboxRootId);
-        const firstNodeIndex = rootNode?.children?.indexOf(firstNodeId) ?? -1;
-
-        const remainingTopLevel = tree.slice(1).map(n => ({ content: n.content, children: [] }));
-        const topResult = await insertTreeUnderParent(client, inboxFileId, inboxRootId, remainingTopLevel, {
-          startIndex: firstNodeIndex + 1,
-          checkbox: effectiveCheckbox,
-        });
-        totalCreated += topResult.totalCreated;
-
-        for (let i = 0; i < topResult.rootNodeIds.length; i++) {
-          const parentId = topResult.rootNodeIds[i];
-          const children = tree[i + 1].children;
-          if (children.length > 0) {
-            const childResult = await insertTreeUnderParent(client, inboxFileId, parentId, children, { checkbox: effectiveCheckbox });
-            totalCreated += childResult.totalCreated;
-          }
-        }
-      }
-
       return makeResponse({
-        file_id: inboxFileId,
-        first_node_id: firstNodeId,
-        url: buildDynalistUrl(inboxFileId, firstNodeId),
-        total_created: totalCreated,
+        file_id: response.file_id,
+        node_id: response.node_id,
+        url: buildDynalistUrl(response.file_id, response.node_id),
       });
     })
   );

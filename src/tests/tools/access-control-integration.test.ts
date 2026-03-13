@@ -417,7 +417,64 @@ describe("send_to_inbox with ACL", () => {
       content: "Inbox item",
     });
     expect(result.file_id).toBe("inbox_doc");
-    expect(result.total_created).toBe(1);
+    expect(result.node_id).toBeDefined();
+  });
+
+  test("deny-all default blocks inbox when no explicit inbox rule", async () => {
+    writeTestConfig({
+      access: {
+        default: "deny",
+        rules: [],
+      },
+    });
+    const err = await callToolError(ctx.mcpClient, "send_to_inbox", {
+      content: "Should be blocked",
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
+  test("read-all default blocks inbox when no explicit inbox rule", async () => {
+    writeTestConfig({
+      access: {
+        default: "read",
+        rules: [],
+      },
+    });
+    const err = await callToolError(ctx.mcpClient, "send_to_inbox", {
+      content: "Should be blocked",
+    });
+    expect(err.error).toBe("ReadOnly");
+  });
+
+  test("global read rule blocks inbox even with allow default", async () => {
+    writeTestConfig({
+      access: {
+        default: "allow",
+        rules: [
+          { path: "/**", policy: "read" },
+        ],
+      },
+    });
+    const err = await callToolError(ctx.mcpClient, "send_to_inbox", {
+      content: "Should be blocked",
+    });
+    expect(err.error).toBe("ReadOnly");
+  });
+
+  test("explicit inbox allow overrides global read rule", async () => {
+    writeTestConfig({
+      access: {
+        default: "read",
+        rules: [
+          { path: "/Inbox", policy: "allow" },
+        ],
+      },
+    });
+    const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
+      content: "Should succeed",
+    });
+    expect(result.file_id).toBe("inbox_doc");
+    expect(result.node_id).toBeDefined();
   });
 });
 

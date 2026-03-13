@@ -376,9 +376,8 @@ describe("send_to_inbox response shape", () => {
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
-    expect(typeof data.first_node_id).toBe("string");
+    expect(typeof data.node_id).toBe("string");
     expect(typeof data.url).toBe("string");
-    expect(typeof data.total_created).toBe("number");
   });
 
   test("error response for empty content has correct envelope", async () => {

@@ -201,21 +201,20 @@ A version of `-1` means the document was not found. `denied` lists file IDs reje
 
 ### `send_to_inbox`
 
-Send items to your Dynalist inbox. The target document is the user's configured inbox and cannot be changed via this tool. For inserting into a specific document, use `insert_node` or `insert_nodes`.
+Send a single item to your Dynalist inbox. The target document is the user's configured inbox and cannot be changed via this tool. For inserting into a specific document or inserting hierarchical content, use `insert_node` or `insert_nodes`.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `content` | string | yes | | Text content (single line or indented markdown with `- bullets`) |
-| `note` | string | no | | Note for the first/root item |
-| `checkbox` | boolean | no | config | Whether to add checkboxes |
+| `content` | string | yes | | Text content for the inbox item |
+| `note` | string | no | | Note for the item |
+| `checkbox` | boolean | no | config | Whether to add a checkbox |
 
 **Response**:
 ```json
 {
   "file_id": "...",
-  "first_node_id": "...",
-  "url": "...",
-  "total_created": 5
+  "node_id": "...",
+  "url": "..."
 }
 ```
 

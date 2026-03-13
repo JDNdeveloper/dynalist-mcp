@@ -945,16 +945,8 @@ describe("send_to_inbox", () => {
       content: "Inbox item",
     });
     expect(result.file_id).toBe("inbox_doc");
-    expect(result.first_node_id).toBeDefined();
+    expect(result.node_id).toBeDefined();
     expect(result.url).toContain("inbox_doc");
-    expect(result.total_created).toBe(1);
-  });
-
-  test("sends multi-line markdown to inbox", async () => {
-    const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "- parent\n    - child1\n    - child2",
-    });
-    expect(result.total_created).toBe(3);
   });
 
   test("empty content returns error", async () => {
@@ -969,8 +961,6 @@ describe("send_to_inbox", () => {
       content: "Item with note",
       note: "This is a note",
     });
-    expect(result.total_created).toBe(1);
-
     // Verify note was set on the inbox item.
     const doc = ctx.server.documents.get("inbox_doc")!;
     const node = doc.nodes.find((n) => n.content === "Item with note")!;
@@ -1067,102 +1057,16 @@ describe("send_to_inbox", () => {
     }
   });
 
-  // ─── 13c: hierarchy preservation ───────────────────────────────────
+  // ─── 13c: response shape ───────────────────────────────────────────
 
-  test("indented markdown with nested items preserves parent-child relationships", async () => {
+  test("response includes file_id, node_id, and url", async () => {
     const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "- root item\n  - child item\n    - grandchild item",
-    });
-    expect(result.total_created).toBe(3);
-
-    const doc = ctx.server.documents.get("inbox_doc")!;
-    const rootItem = doc.nodes.find((n) => n.content === "root item")!;
-    expect(rootItem.children.length).toBe(1);
-
-    const childItem = doc.nodes.find((n) => n.id === rootItem.children[0])!;
-    expect(childItem.content).toBe("child item");
-    expect(childItem.children.length).toBe(1);
-
-    const grandchild = doc.nodes.find((n) => n.id === childItem.children[0])!;
-    expect(grandchild.content).toBe("grandchild item");
-  });
-
-  test("multiple top-level items with children under each", async () => {
-    const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "- top A\n  - child A1\n- top B\n  - child B1",
-    });
-    expect(result.total_created).toBe(4);
-
-    const doc = ctx.server.documents.get("inbox_doc")!;
-    const topA = doc.nodes.find((n) => n.content === "top A")!;
-    expect(topA.children.length).toBe(1);
-    const childA1 = doc.nodes.find((n) => n.id === topA.children[0])!;
-    expect(childA1.content).toBe("child A1");
-
-    const topB = doc.nodes.find((n) => n.content === "top B")!;
-    expect(topB.children.length).toBe(1);
-    const childB1 = doc.nodes.find((n) => n.id === topB.children[0])!;
-    expect(childB1.content).toBe("child B1");
-  });
-
-  // ─── 13d: partial failure ──────────────────────────────────────────
-
-  test("partial failure returns PartialInsert error with context", async () => {
-    // Send a hierarchy to inbox. The first item is added via sendToInbox,
-    // then children are inserted via editDocument. Fail the first
-    // editDocument call so only the root inbox item persists.
-    const content = "- Inbox parent\n  - Inbox child\n    - Inbox grandchild";
-
-    // The handler calls sendToInbox for the first item (not affected by
-    // this fault), then calls insertTreeUnderParent for children which
-    // uses editDocument. Fail after 1 successful editDocument call so
-    // "Inbox child" is inserted but "Inbox grandchild" fails.
-    ctx.server.failEditAfterNCalls(1);
-
-    const result = await callTool(ctx.mcpClient, "send_to_inbox", {
-      content,
-    });
-
-    expect(result.isError).toBe(true);
-    const structured = result.structuredContent as Record<string, unknown>;
-    expect(structured.error).toBe("PartialInsert");
-    expect(structured.inserted_count).toBeDefined();
-    expect(structured.total_count).toBeDefined();
-    expect(typeof structured.url).toBe("string");
-  });
-
-  test("partial failure persists nodes inserted before the fault", async () => {
-    // Same hierarchy. Fail after 1 editDocument call.
-    const content = "- Persist inbox parent\n  - Persist inbox child\n    - Persist inbox grandchild";
-
-    ctx.server.failEditAfterNCalls(1);
-
-    await callTool(ctx.mcpClient, "send_to_inbox", { content });
-
-    // The first item was created via sendToInbox (unaffected by fault).
-    // The first editDocument call (level 0 children) succeeded.
-    // The second editDocument call (level 1 children) failed.
-    const doc = ctx.server.documents.get("inbox_doc")!;
-    const parent = doc.nodes.find((n) => n.content === "Persist inbox parent");
-    const child = doc.nodes.find((n) => n.content === "Persist inbox child");
-    const grandchild = doc.nodes.find((n) => n.content === "Persist inbox grandchild");
-
-    expect(parent).toBeDefined();
-    expect(child).toBeDefined();
-    expect(grandchild).toBeUndefined();
-  });
-
-  // ─── 13e: response shape ───────────────────────────────────────────
-
-  test("response includes file_id, first_node_id, url, and total_created", async () => {
-    const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "- shape item 1\n- shape item 2",
+      content: "shape item",
     });
 
     expect(result.file_id).toBe("inbox_doc");
-    expect(typeof result.first_node_id).toBe("string");
+    expect(typeof result.node_id).toBe("string");
     expect(typeof result.url).toBe("string");
     expect(result.url).toContain("inbox_doc");
-    expect(result.total_created).toBe(2);
   });
 });
