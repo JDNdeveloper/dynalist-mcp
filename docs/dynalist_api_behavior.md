@@ -97,6 +97,16 @@ against the Dynalist UI (2026-03-13):
 | 5 | Blue |
 | 6 | Purple |
 
+## Multiline content
+
+Both `content` and `note` fields support literal newline characters. The API stores and
+returns them faithfully. In the Dynalist web UI, newlines in `content` render as line breaks
+within the same node (equivalent to Cmd+Shift+Enter on macOS / Ctrl+Shift+Enter on Windows),
+and newlines in `note` render as line breaks in the note area. Code blocks (triple-backtick
+fences) in notes also render correctly.
+
+Verified against the Dynalist UI (2026-03-13).
+
 ## `/doc/edit`: node actions
 
 ### Insert

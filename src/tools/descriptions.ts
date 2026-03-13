@@ -21,6 +21,11 @@ export const CHECKED_CHILDREN_GUIDANCE =
   "Do not check off children when checking a parent unless explicitly asked. " +
   "Dynalist already greys out descendants of checked nodes visually.";
 
+export const MULTILINE_GUIDANCE =
+  "Supports multiline.";
+export const CONTENT_MULTILINE_GUIDANCE =
+  "Supports multiline, but prefer notes for longer multiline text.";
+
 // Shared input parameter descriptions.
 export const FILE_ID_DESCRIPTION = "Document file ID";
 export const BYPASS_WARNING_DESCRIPTION =

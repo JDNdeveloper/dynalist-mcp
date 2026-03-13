@@ -15,7 +15,7 @@ import {
   wrapToolHandler,
   insertTreeUnderParent,
 } from "../utils/dynalist-helpers";
-import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE } from "./descriptions";
+import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE, CONTENT_MULTILINE_GUIDANCE } from "./descriptions";
 
 export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -122,8 +122,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().describe("Node ID to edit"),
-        content: z.string().optional().describe("New content text"),
-        note: z.string().optional().describe("New note text. Supports multiline (use \\n). Set to '' to clear."),
+        content: z.string().optional().describe(`New content text. ${CONTENT_MULTILINE_GUIDANCE}`),
+        note: z.string().optional().describe(`New note text. ${MULTILINE_GUIDANCE} Set to '' to clear.`),
         checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
         checkbox: z.boolean().optional().describe(
           `Whether to show a checkbox on this node. ${CHECKBOX_DESCRIPTION}`
@@ -199,8 +199,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         parent_id: z.string().describe("Parent node ID to insert under"),
-        content: z.string().describe("Content text for the new node"),
-        note: z.string().optional().describe("Note text. Supports multiline (use \\n)."),
+        content: z.string().describe(`Content text for the new node. ${CONTENT_MULTILINE_GUIDANCE}`),
+        note: z.string().optional().describe(`Note text. ${MULTILINE_GUIDANCE}`),
         index: z.number().optional().default(-1).describe(
           "Position under parent. 0 = first child, -1 = last child (default)."
         ),
