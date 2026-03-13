@@ -159,6 +159,19 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
   const errors: string[] = [];
   const allPaths = new Set(pathMap.values());
 
+  // Reject rules with unsupported glob patterns. Only trailing /** and /*
+  // are recognized; a * anywhere else silently produces wrong behavior.
+  for (const rule of rules) {
+    const base = rule.path.replace(/\/\*\*?$/, "");
+    if (base.includes("*")) {
+      errors.push(
+        `Access rule path '${rule.path}' contains an unsupported interior glob. ` +
+        `Only trailing '/**' and '/*' patterns are supported.`
+      );
+    }
+  }
+  if (errors.length > 0) return errors;
+
   // Check that every rule matches at least one valid path.
   for (const rule of rules) {
     if (rule.id) {

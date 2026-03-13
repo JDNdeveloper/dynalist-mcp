@@ -809,6 +809,87 @@ describe("validateRules (via getPolicy)", () => {
   });
 });
 
+// ─── Rule validation: interior globs ─────────────────────────────────
+
+describe("validateRules: interior globs", () => {
+  test("interior glob /foo/*/bar causes fail-closed", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A/*/Doc A", policy: "deny" }],
+      },
+    });
+    // Interior glob is unsupported. Validation fails, fail-closed.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("interior glob with ID anchor causes fail-closed", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/*/Secret", policy: "deny", id: "fp" }],
+      },
+    });
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("multiple glob segments /foo/**/bar/* causes fail-closed", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A/**/Sub/*", policy: "deny" }],
+      },
+    });
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+  });
+
+  test("trailing /** with ID anchor passes validation", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/**", policy: "deny", id: "fp" }],
+      },
+    });
+    // Valid pattern. Should not fail-closed.
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+  });
+
+  test("trailing /* with ID anchor passes validation", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Folder A/*", policy: "read", id: "fa" }],
+      },
+    });
+    expect(await ac.getPolicy("da", config)).toBe("read");
+    expect(await ac.getPolicy("fa", config)).toBe("allow");
+  });
+
+  test("no glob with ID anchor passes validation", async () => {
+    const { client } = setupServer();
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Private/Secret", policy: "deny", id: "ds" }],
+      },
+    });
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+  });
+});
+
 // ─── Cache invalidation ─────────────────────────────────────────────
 
 describe("cache invalidation", () => {
