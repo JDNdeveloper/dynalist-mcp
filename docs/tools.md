@@ -118,7 +118,7 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
 | `file_id` | string | yes | | Document file ID |
 | `query` | string | yes | | Text to search for (case-insensitive) |
 | `search_notes` | boolean | no | `true` | Also search in notes |
-| `parent_levels` | number | no | `1` | How many parent levels to include (0 = none) |
+| `parent_levels` | string | no | `"immediate"` | `"none"`, `"immediate"` (direct parent only), or `"all"` (full ancestor chain to root) |
 | `include_children` | boolean | no | `false` | Include direct children of each match |
 | `bypass_warning` | boolean | no | `false` | Only set after receiving a size warning |
 
@@ -145,7 +145,7 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
 }
 ```
 
-`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist. `children` is present only when `include_children: true` and the node has children.
+`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels` is not `"none"` and ancestors exist. `children` is present only when `include_children: true` and the node has children.
 
 If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the match results.
 
@@ -159,7 +159,7 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
 | `since` | string \| number | yes | | Start date (ISO string or ms timestamp) |
 | `until` | string \| number | no | now | End date |
 | `type` | string | no | `"both"` | `"created"`, `"modified"`, or `"both"` |
-| `parent_levels` | number | no | `1` | Parent context levels (0 = none) |
+| `parent_levels` | string | no | `"immediate"` | `"none"`, `"immediate"` (direct parent only), or `"all"` (full ancestor chain to root) |
 | `sort` | string | no | `"newest_first"` | `"newest_first"` or `"oldest_first"` |
 | `bypass_warning` | boolean | no | `false` | Only set after receiving a size warning |
 
@@ -187,7 +187,7 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
 }
 ```
 
-`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels > 0` and ancestors exist.
+`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels` is not `"none"` and ancestors exist.
 
 If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the match results.
 

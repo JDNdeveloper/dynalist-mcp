@@ -1059,7 +1059,7 @@ describe("search_in_document", () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "Child A",
-      parent_levels: 1,
+      parent_levels: "immediate",
     });
     const matches = result.matches as Record<string, unknown>[];
     const match = matches.find((m) => m.node_id === "n1a")!;
@@ -1155,22 +1155,22 @@ describe("search_in_document", () => {
 
   // ─── Section 5b: parent context ────────────────────────────────────
 
-  test("parent_levels 0: no parents field", async () => {
+  test("parent_levels none: no parents field", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "Child A",
-      parent_levels: 0,
+      parent_levels: "none",
     });
     const matches = result.matches as Record<string, unknown>[];
     const match = matches.find((m) => m.node_id === "n1a")!;
     expect(match.parents).toBeUndefined();
   });
 
-  test("parent_levels 1: one parent returned", async () => {
+  test("parent_levels immediate: one parent returned", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "Child A",
-      parent_levels: 1,
+      parent_levels: "immediate",
     });
     const matches = result.matches as Record<string, unknown>[];
     const match = matches.find((m) => m.node_id === "n1a")!;
@@ -1179,11 +1179,11 @@ describe("search_in_document", () => {
     expect(parents[0].node_id).toBe("n1");
   });
 
-  test("parent_levels 2: two parents returned", async () => {
+  test("parent_levels all: full ancestor chain returned", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "Child A",
-      parent_levels: 2,
+      parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
     const match = matches.find((m) => m.node_id === "n1a")!;
@@ -1199,7 +1199,7 @@ describe("search_in_document", () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "Child A",
-      parent_levels: 5,
+      parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
     const match = matches.find((m) => m.node_id === "n1a")!;
@@ -1211,7 +1211,7 @@ describe("search_in_document", () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "Test Document",
-      parent_levels: 5,
+      parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
     const rootMatch = matches.find((m) => m.node_id === "root");
@@ -1519,11 +1519,11 @@ describe("get_recent_changes", () => {
 
   // ─── Section 6d: parent context ───────────────────────────────────
 
-  test("parent_levels 0: no parent context", async () => {
+  test("parent_levels none: no parent context", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
       since: 0,
-      parent_levels: 0,
+      parent_levels: "none",
     });
     const matches = result.matches as Record<string, unknown>[];
     for (const match of matches) {
@@ -1531,11 +1531,11 @@ describe("get_recent_changes", () => {
     }
   });
 
-  test("parent_levels 1 (default): one parent", async () => {
+  test("parent_levels immediate (default): one parent", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
       since: 0,
-      parent_levels: 1,
+      parent_levels: "immediate",
     });
     const matches = result.matches as Record<string, unknown>[];
     // n1a should have parent n1.
@@ -1547,11 +1547,11 @@ describe("get_recent_changes", () => {
     }
   });
 
-  test("parent_levels 2: two parents", async () => {
+  test("parent_levels all: full ancestor chain", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
       since: 0,
-      parent_levels: 2,
+      parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
     const n1a = matches.find((m) => m.node_id === "n1a");
@@ -1985,7 +1985,7 @@ describe("search_in_document size warnings", () => {
     expect(result.warning).toBeDefined();
   });
 
-  test("warning suggests narrowing query, parent_levels 0, include_children false", async () => {
+  test("warning suggests narrowing query, parent_levels none, include_children false", async () => {
     cfgCtx = await createTestContext(manyNodesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
@@ -1994,7 +1994,7 @@ describe("search_in_document size warnings", () => {
     });
     const warning = result.warning as string;
     expect(warning).toContain("query");
-    expect(warning).toContain("parent_levels: 0");
+    expect(warning).toContain("parent_levels: \"none\"");
     expect(warning).toContain("include_children: false");
   });
 
@@ -2208,7 +2208,7 @@ describe("get_recent_changes size warnings", () => {
     expect(result.warning).toBeDefined();
   });
 
-  test("warning suggests narrowing time period, filtering by type, parent_levels 0", async () => {
+  test("warning suggests narrowing time period, filtering by type, parent_levels none", async () => {
     cfgCtx = await createTestContext(manyChangesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
@@ -2217,7 +2217,7 @@ describe("get_recent_changes size warnings", () => {
     });
     const warning = result.warning as string;
     expect(warning).toContain("time period");
-    expect(warning).toContain("parent_levels: 0");
+    expect(warning).toContain("parent_levels: \"none\"");
     expect(warning).toContain("type");
   });
 

@@ -84,9 +84,9 @@ first request.
 ## Compositional patterns
 
 - Parent chain / hierarchy: no ancestors tool. Use search_in_document with the node's text \
-(or a unique substring) and parent_levels set to the desired depth. Each match includes a \
-parents array for breadcrumb context. Fallback: read_document with just file_id, then search \
-the tree for the target node_id. Use max_depth to limit output.
+(or a unique substring) and parent_levels: "all" to get the full ancestor chain. Each match \
+includes a parents array for breadcrumb context. Fallback: read_document with just file_id, \
+then search the tree for the target node_id. Use max_depth to limit output.
 - Sibling context: call read_document with the parent's node_id and max_depth: 1.
 - Expanding collapsed sections: if a node has collapsed: true and children_count > 0 but \
 empty children, pass the node's node_id to read_document (the starting node always expands) \

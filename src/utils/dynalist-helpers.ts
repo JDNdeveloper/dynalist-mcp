@@ -235,22 +235,26 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
   };
 }
 
+/** Accepted values for the parent_levels parameter. */
+export type ParentLevels = "none" | "immediate" | "all";
+
 /**
- * Get ancestor nodes (parents) up to N levels.
+ * Get ancestor nodes (parents) for a node.
  * Returns array with nearest parent first.
  */
 export function getAncestors(
   nodeMap: Map<string, DynalistNode>,
   parentMap: Map<string, { parentId: string; index: number }>,
   nodeId: string,
-  levels: number
+  levels: ParentLevels,
 ): NodeSummary[] {
-  if (levels <= 0) return [];
+  if (levels === "none") return [];
 
+  const limit = levels === "immediate" ? 1 : 1000;
   const ancestors: NodeSummary[] = [];
   let currentId = nodeId;
 
-  for (let i = 0; i < levels; i++) {
+  for (let i = 0; i < limit; i++) {
     const parentInfo = parentMap.get(currentId);
     if (!parentInfo) break;
 

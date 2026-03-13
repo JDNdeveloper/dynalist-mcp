@@ -30,7 +30,7 @@ export const FILE_ID_DESCRIPTION = "Document file ID";
 export const BYPASS_WARNING_DESCRIPTION =
   "ONLY set true AFTER receiving a size warning. Do NOT set true on first request.";
 export const PARENT_LEVELS_DESCRIPTION =
-  "How many parent levels to include for context (0 = none)";
+  "Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root.";
 export const CHECKED_DESCRIPTION =
   `Checked (completed) state. ${CHECKED_GUIDANCE} ${CHECKED_CHILDREN_GUIDANCE}`;
 export const CHECKBOX_DESCRIPTION = CHECKBOX_GUIDANCE;

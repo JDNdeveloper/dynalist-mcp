@@ -19,6 +19,7 @@ import {
   buildNodeTree,
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
+import type { ParentLevels } from "../utils/dynalist-helpers";
 import { FILE_ID_DESCRIPTION, BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION } from "./descriptions";
 
 export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
@@ -316,7 +317,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         query: z.string().describe("Text to search for (case-insensitive)"),
         search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
-        parent_levels: z.number().optional().default(1).describe(PARENT_LEVELS_DESCRIPTION),
+        parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
         include_children: z.boolean().optional().default(false).describe("Include direct children of each match"),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
@@ -348,7 +349,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       file_id: string;
       query: string;
       search_notes: boolean;
-      parent_levels: number;
+      parent_levels: ParentLevels;
       include_children: boolean;
       bypass_warning: boolean;
     }) => {
@@ -389,7 +390,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             match.note = node.note;
           }
 
-          if (parent_levels > 0) {
+          if (parent_levels !== "none") {
             const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {
               match.parents = parents.map(p => ({ node_id: p.id, content: p.content }));
@@ -424,7 +425,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning,
         [
           "Use a more specific query to reduce matches",
-          "Use parent_levels: 0 to exclude parent context",
+          "Use parent_levels: \"none\" to exclude parent context",
           "Use include_children: false to exclude children",
         ],
         config.sizeWarning.warningTokenThreshold,
@@ -461,7 +462,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         type: z.enum(["created", "modified", "both"]).optional().default("both").describe(
           "'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all (default)."
         ),
-        parent_levels: z.number().optional().default(1).describe(PARENT_LEVELS_DESCRIPTION),
+        parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
         sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
@@ -494,7 +495,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       since: string | number;
       until?: string | number;
       type: string;
-      parent_levels: number;
+      parent_levels: ParentLevels;
       sort: string;
       bypass_warning: boolean;
     }) => {
@@ -562,7 +563,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             match.note = node.note;
           }
 
-          if (parent_levels > 0) {
+          if (parent_levels !== "none") {
             const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {
               match.parents = parents.map(p => ({ node_id: p.id, content: p.content }));
@@ -594,7 +595,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning,
         [
           "Use a shorter time period (narrower since/until range)",
-          "Use parent_levels: 0 to exclude parent context",
+          "Use parent_levels: \"none\" to exclude parent context",
           "Filter by type: 'created' or 'modified' instead of 'both'",
         ],
         config.sizeWarning.warningTokenThreshold,
