@@ -55,35 +55,41 @@ export async function withVersionGuard<T>(
     );
   }
 
-  // Execute the guarded function (planning reads + write).
-  const { result, apiCallCount } = await guardedFn();
+  // Execute the guarded function (planning reads + write). The finally
+  // block ensures the cache is invalidated even on partial failure (e.g.
+  // PartialInsertError after some writes succeeded).
+  try {
+    const { result, apiCallCount } = await guardedFn();
 
-  // Invalidate cached document content since the write changed it.
-  if (store) {
-    store.invalidate(fileId);
+    // Post-write: check for concurrent modifications.
+    const postCheck = await client.checkForUpdates([fileId]);
+    const postWriteVersion = postCheck.versions[fileId] ?? preWriteVersion;
+
+    const actualDelta = postWriteVersion - preWriteVersion;
+    let versionWarning: string | undefined;
+
+    if (actualDelta !== apiCallCount) {
+      versionWarning =
+        `Write succeeded, but document version advanced by ${actualDelta} ` +
+        `(expected ${apiCallCount}). Another edit may have occurred concurrently. ` +
+        `Re-read the document and verify the result before making further changes.`;
+    }
+
+    return {
+      result,
+      apiCallCount,
+      preWriteVersion,
+      postWriteVersion,
+      versionWarning,
+    };
+  } finally {
+    // Invalidate cached document content. On success, the write changed
+    // the document. On failure, partial writes may have occurred. Either
+    // way, the cached version is potentially stale.
+    if (store) {
+      store.invalidate(fileId);
+    }
   }
-
-  // Post-write: check for concurrent modifications.
-  const postCheck = await client.checkForUpdates([fileId]);
-  const postWriteVersion = postCheck.versions[fileId] ?? preWriteVersion;
-
-  const actualDelta = postWriteVersion - preWriteVersion;
-  let versionWarning: string | undefined;
-
-  if (actualDelta !== apiCallCount) {
-    versionWarning =
-      `Write succeeded, but document version advanced by ${actualDelta} ` +
-      `(expected ${apiCallCount}). Another edit may have occurred concurrently. ` +
-      `Re-read the document and verify the result before making further changes.`;
-  }
-
-  return {
-    result,
-    apiCallCount,
-    preWriteVersion,
-    postWriteVersion,
-    versionWarning,
-  };
 }
 
 /**

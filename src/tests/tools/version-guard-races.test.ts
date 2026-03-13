@@ -7,6 +7,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   createTestContext,
+  callTool,
   callToolOk,
   callToolError,
   standardSetup,
@@ -229,6 +230,45 @@ describe("version guard edge cases", () => {
     expect(result.version_warning).toBeDefined();
     expect(result.version_warning).toContain("advanced by 4");
     expect(result.version_warning).toContain("expected 3");
+  });
+
+  test("partial insert failure does not prevent reading partial writes", async () => {
+    // Warm the cache so the store has a cached version.
+    await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
+
+    // Insert a 3-level hierarchy, failing after 1 successful batch. Level
+    // 0 succeeds (creates 1 node), level 1 fails. The PartialInsertError
+    // propagates through the version guard, which invalidates the cache in
+    // its finally block so subsequent reads see the partial writes.
+    //
+    // NOTE: the document store's warm-path version check also self-heals
+    // stale cache entries, so this test passes even without explicit
+    // invalidation. It documents the expected behavior rather than
+    // regressing on the finally-block fix specifically.
+    ctx.server.failEditAfterNCalls(1);
+
+    const result = await callTool(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "n1",
+      nodes: [{
+        content: "Partial parent",
+        children: [{ content: "Partial child" }],
+      }],
+    });
+
+    expect(result.isError).toBe(true);
+    const structured = result.structuredContent as Record<string, unknown>;
+    expect(structured.error).toBe("PartialInsert");
+
+    // A subsequent read should reflect the partial write (the level-0
+    // node was created even though the level-1 insert failed).
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      node_id: "n1",
+    });
+    const children = (readResult.node as Record<string, unknown>).children as Record<string, unknown>[];
+    const contents = children.map(c => c.content);
+    expect(contents).toContain("Partial parent");
   });
 
   test("expected_version with concurrent edit: abort before write", async () => {
