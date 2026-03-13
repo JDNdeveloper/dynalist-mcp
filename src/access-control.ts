@@ -196,11 +196,19 @@ function buildPathMap(files: DynalistFile[], rootFileId: string): Map<string, st
   // Recursively walk a file's children, computing each child's path
   // as parentPath + "/" + escaped title. The root is never passed as
   // fileId; instead, its children are seeded with parentPath = "".
+  const visited = new Set<string>();
   function walkChildren(parentId: string, parentPath: string) {
     const parent = fileById.get(parentId);
     if (!parent?.children) return;
 
     for (const childId of parent.children) {
+      // Guard against cycles in the file tree data.
+      if (visited.has(childId)) {
+        log("warn", `Cycle detected in file tree: '${childId}' already visited. Skipping.`);
+        continue;
+      }
+      visited.add(childId);
+
       const child = fileById.get(childId);
       if (!child) continue;
 

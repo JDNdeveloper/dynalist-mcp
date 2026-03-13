@@ -284,6 +284,10 @@ export function buildParentMap(nodes: DynalistNode[]): Map<string, { parentId: s
  * Find the root node (the one not referenced as a child by any other node).
  */
 export function findRootNodeId(nodes: DynalistNode[]): string {
+  if (nodes.length === 0) {
+    throw new DynalistApiError("Invalid", "Document has no nodes.");
+  }
+
   const childIds = new Set<string>();
   for (const node of nodes) {
     for (const childId of node.children || []) {
@@ -297,6 +301,7 @@ export function findRootNodeId(nodes: DynalistNode[]): string {
     }
   }
 
-  // Fallback to first node.
-  return nodes[0]?.id ?? "";
+  // Fallback to first node when all nodes are referenced as children
+  // (e.g. circular or broken tree data).
+  return nodes[0].id;
 }

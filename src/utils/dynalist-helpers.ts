@@ -292,9 +292,14 @@ export function buildNodeTree(
     includeChecked: boolean;
   },
   currentDepth: number = 0,
+  visited: Set<string> = new Set(),
 ): OutputNode | null {
   const node = nodeMap.get(nodeId);
   if (!node) return null;
+
+  // Guard against cycles in the node tree data.
+  if (visited.has(nodeId)) return null;
+  visited.add(nodeId);
 
   // Skip checked items if disabled.
   if (!options.includeChecked && node.checked) {
@@ -318,7 +323,7 @@ export function buildNodeTree(
 
   if (!shouldOmitChildren) {
     for (const childId of childIds) {
-      const childNode = buildNodeTree(nodeMap, childId, options, currentDepth + 1);
+      const childNode = buildNodeTree(nodeMap, childId, options, currentDepth + 1, visited);
       if (childNode) {
         outputChildren.push(childNode);
       }

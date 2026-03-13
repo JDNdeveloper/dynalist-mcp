@@ -80,6 +80,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           children: (f.children ?? []).filter((childId) => policies.get(childId) !== "deny"),
         }));
 
+      // root_file_id is always returned regardless of ACL. It is structural
+      // metadata agents need to navigate the folder hierarchy, not content.
       return makeResponse({
         count: documents.length,
         documents,

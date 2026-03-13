@@ -3,6 +3,7 @@ import {
   buildNodeMap,
   buildParentMap,
   findRootNodeId,
+  DynalistApiError,
   type DynalistNode,
 } from "../dynalist-client";
 
@@ -86,6 +87,11 @@ describe("findRootNodeId", () => {
 
   test("single node", () => {
     expect(findRootNodeId([makeNode("only")])).toBe("only");
+  });
+
+  test("throws DynalistApiError on empty nodes array", () => {
+    expect(() => findRootNodeId([])).toThrow(DynalistApiError);
+    expect(() => findRootNodeId([])).toThrow("Document has no nodes.");
   });
 
   test("fallback to first node when all are children", () => {

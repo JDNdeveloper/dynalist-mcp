@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { groupByLevel, type ParsedNode } from "../utils/dynalist-helpers";
+import { groupByLevel, buildNodeTree, type ParsedNode } from "../utils/dynalist-helpers";
+import type { DynalistNode } from "../dynalist-client";
 
 // ─── groupByLevel ─────────────────────────────────────────────────────
 
@@ -121,5 +122,57 @@ describe("groupByLevel", () => {
     const levels = groupByLevel([]);
     expect(levels).toHaveLength(1);
     expect(levels[0]).toHaveLength(0);
+  });
+});
+
+// ─── buildNodeTree ────────────────────────────────────────────────────
+
+function makeNode(id: string, children: string[] = [], content = ""): DynalistNode {
+  return {
+    id,
+    content,
+    note: "",
+    created: 0,
+    modified: 0,
+    children,
+    collapsed: false,
+  };
+}
+
+const defaultOptions = {
+  maxDepth: null,
+  includeCollapsedChildren: true,
+  includeNotes: true,
+  includeChecked: true,
+};
+
+describe("buildNodeTree", () => {
+  test("handles cyclic node data without infinite loop", () => {
+    // Node A references B, B references A.
+    const nodes = [
+      makeNode("a", ["b"], "Node A"),
+      makeNode("b", ["a"], "Node B"),
+    ];
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    const tree = buildNodeTree(nodeMap, "a", defaultOptions);
+    expect(tree).not.toBeNull();
+    expect(tree!.node_id).toBe("a");
+
+    // B should appear as child of A, but A should not appear again under B.
+    expect(tree!.children).toHaveLength(1);
+    expect(tree!.children[0].node_id).toBe("b");
+    expect(tree!.children[0].children).toHaveLength(0);
+  });
+
+  test("handles self-referencing node without infinite loop", () => {
+    const nodes = [makeNode("a", ["a"], "Self ref")];
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    const tree = buildNodeTree(nodeMap, "a", defaultOptions);
+    expect(tree).not.toBeNull();
+    expect(tree!.node_id).toBe("a");
+    // The self-reference should be skipped by the visited guard.
+    expect(tree!.children).toHaveLength(0);
   });
 });

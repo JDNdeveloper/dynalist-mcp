@@ -314,13 +314,18 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             }
           }
 
-          // Check descendancy using the mutable childrenMap.
-          function isDescendant(ancestorId: string, targetId: string): boolean {
+          // Check descendancy using the mutable childrenMap. Depth is
+          // capped at 1000 as a safety guard against corrupted cyclic data.
+          // If the limit is hit, we conservatively return true (rejects the
+          // move rather than allowing a potentially cyclic one).
+          const MAX_DESCENDANT_DEPTH = 1000;
+          function isDescendant(ancestorId: string, targetId: string, depth: number = 0): boolean {
+            if (depth >= MAX_DESCENDANT_DEPTH) return true;
             const children = childrenMap.get(ancestorId);
             if (!children) return false;
             for (const childId of children) {
               if (childId === targetId) return true;
-              if (isDescendant(childId, targetId)) return true;
+              if (isDescendant(childId, targetId, depth + 1)) return true;
             }
             return false;
           }
