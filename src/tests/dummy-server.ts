@@ -35,6 +35,7 @@ export class DummyDynalistServer {
   private nodeCounter = 0;
   private fileCounter = 0;
   private editDocFailAfter: number | null = null;
+  private editDocHook: ((fileId: string) => void) | null = null;
 
   // ─── Setup helpers ───────────────────────────────────────────────
 
@@ -118,6 +119,32 @@ export class DummyDynalistServer {
   }
 
   /**
+   * Bump a document's version without changing any nodes.
+   * Simulates another client editing the document concurrently.
+   */
+  simulateConcurrentEdit(fileId: string): void {
+    const doc = this.documents.get(fileId);
+    if (!doc) throw new Error(`simulateConcurrentEdit: document '${fileId}' not found.`);
+    doc.version++;
+  }
+
+  /**
+   * Register a one-shot hook that fires before the next editDocument
+   * call processes its changes. The hook can mutate the document to
+   * simulate a concurrent edit during the race window.
+   */
+  onNextEdit(hook: (fileId: string) => void): void {
+    this.editDocHook = hook;
+  }
+
+  /**
+   * Clear any pending edit hook.
+   */
+  clearEditHook(): void {
+    this.editDocHook = null;
+  }
+
+  /**
    * Create a DynalistNode with sensible defaults.
    */
   makeNode(
@@ -172,6 +199,13 @@ export class DummyDynalistServer {
     const doc = this.documents.get(fileId);
     if (!doc) {
       throw new DynalistApiError("NotFound", "Document not found.");
+    }
+
+    // One-shot hook: fire before processing to simulate concurrent edits.
+    if (this.editDocHook) {
+      const hook = this.editDocHook;
+      this.editDocHook = null;
+      hook(fileId);
     }
 
     // Fault injection: decrement counter and throw when it reaches zero.
@@ -316,7 +350,10 @@ export class DummyDynalistServer {
     }
 
     doc.version++;
-    return { new_node_ids: newNodeIds.length > 0 ? newNodeIds : undefined };
+    return {
+      new_node_ids: newNodeIds.length > 0 ? newNodeIds : undefined,
+      batches_sent: 1,
+    };
   }
 
   async sendToInbox(options: {

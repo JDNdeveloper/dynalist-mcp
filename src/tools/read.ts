@@ -204,6 +204,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         file_id: z.string().optional().describe("Document file ID"),
         title: z.string().optional().describe("Document title"),
+        version: z.number().optional().describe(
+          "Document version number. Pass this as expected_version to write tools to detect concurrent edits."
+        ),
         url: z.string().optional().describe("Dynalist URL"),
         node: z.any().optional().describe(
           "Root of the node tree. Each node has: node_id (string), content (string), " +
@@ -292,6 +295,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       return makeResponse({
         file_id,
         title: doc.title,
+        version: doc.version,
         url,
         node: tree,
       });

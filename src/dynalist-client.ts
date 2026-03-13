@@ -99,6 +99,7 @@ export interface EditDocumentChange {
 
 export interface EditDocumentResponse {
   new_node_ids?: string[];
+  batches_sent: number;
 }
 
 export interface InboxAddResponse {
@@ -182,10 +183,11 @@ export class DynalistClient {
    */
   async editDocument(fileId: string, changes: EditDocumentChange[]): Promise<EditDocumentResponse> {
     if (changes.length <= CHANGES_BATCH_SIZE) {
-      return this.request<EditDocumentResponse>("/doc/edit", {
+      const response = await this.request<EditDocumentResponse>("/doc/edit", {
         file_id: fileId,
         changes,
       });
+      return { ...response, batches_sent: 1 };
     }
 
     // Batch large change sets.
@@ -211,7 +213,10 @@ export class DynalistClient {
       }
     }
 
-    return { new_node_ids: allNewNodeIds.length > 0 ? allNewNodeIds : undefined };
+    return {
+      new_node_ids: allNewNodeIds.length > 0 ? allNewNodeIds : undefined,
+      batches_sent: totalBatches,
+    };
   }
 
   /**

@@ -8,12 +8,13 @@ import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "..
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
+import { withVersionGuard } from "../version-guard";
 import {
   makeResponse,
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
-import { FILE_ID_DESCRIPTION, CONFIRM_GUIDANCE } from "./descriptions";
+import { FILE_ID_DESCRIPTION, CONFIRM_GUIDANCE, EXPECTED_VERSION_DESCRIPTION } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -37,21 +38,25 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           "If true (default), delete the node and all its descendants (entire subtree). " +
           "If false, promote children up to the deleted node's parent."
         ),
+        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
         deleted_count: z.number().describe("Number of nodes deleted"),
         promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when include_children is false)"),
+        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
       },
     },
     wrapToolHandler(async ({
       file_id,
       node_id,
       include_children,
+      expected_version,
     }: {
       file_id: string;
       node_id: string;
       include_children: boolean;
+      expected_version?: number;
     }) => {
       const config = getConfig();
 
@@ -89,25 +94,38 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         // Capture count before mutations, since editDocument mutates the in-memory node.
         const promotedCount = targetNode.children.length;
 
-        // Move each child to be a sibling of the node being deleted,
-        // placed at the node's index. Each successive child goes after
-        // the previous one, so we increment the index.
-        const moveChanges = targetNode.children.map((childId, i) => ({
-          action: "move" as const,
-          node_id: childId,
-          parent_id: parentInfo.parentId,
-          index: parentInfo.index + i,
-        }));
-        await client.editDocument(file_id, moveChanges);
+        const guard = await withVersionGuard(
+          { client, fileId: file_id, expectedVersion: expected_version },
+          async () => {
+            // Move each child to be a sibling of the node being deleted,
+            // placed at the node's index. Each successive child goes after
+            // the previous one, so we increment the index.
+            const moveChanges = targetNode.children.map((childId, i) => ({
+              action: "move" as const,
+              node_id: childId,
+              parent_id: parentInfo.parentId,
+              index: parentInfo.index + i,
+            }));
+            const moveResponse = await client.editDocument(file_id, moveChanges);
 
-        // Now delete just the (now childless) node.
-        await client.editDocument(file_id, [{ action: "delete", node_id }]);
+            // Now delete just the (now childless) node.
+            const deleteResponse = await client.editDocument(file_id, [{ action: "delete", node_id }]);
 
-        return makeResponse({
+            return {
+              result: { promotedCount },
+              apiCallCount: moveResponse.batches_sent + deleteResponse.batches_sent,
+            };
+          },
+        );
+
+        const data: Record<string, unknown> = {
           file_id,
           deleted_count: 1,
-          promoted_children: promotedCount,
-        });
+          promoted_children: guard.result.promotedCount,
+        };
+        if (guard.versionWarning) data.version_warning = guard.versionWarning;
+
+        return makeResponse(data);
       }
 
       // Collect the target node and all descendants via depth-first traversal.
@@ -133,12 +151,22 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       // surviving subtree, and deletes the rest. Parent-first ordering would
       // orphan children on partial failure with no way to recover them.
       const changes = nodesToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
-      await client.editDocument(file_id, changes);
 
-      return makeResponse({
+      const guard = await withVersionGuard(
+        { client, fileId: file_id, expectedVersion: expected_version },
+        async () => {
+          const response = await client.editDocument(file_id, changes);
+          return { result: undefined, apiCallCount: response.batches_sent };
+        },
+      );
+
+      const data: Record<string, unknown> = {
         file_id,
         deleted_count: nodesToDelete.length,
-      });
+      };
+      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+
+      return makeResponse(data);
     })
   );
 
@@ -166,11 +194,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           "'first_child' = as first child of reference, " +
           "'last_child' = as last child of reference."
         ),
+        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("Moved node ID"),
         url: z.string().describe("Dynalist URL for the moved node"),
+        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
       },
     },
     wrapToolHandler(async ({
@@ -178,11 +208,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       node_id,
       reference_node_id,
       position,
+      expected_version,
     }: {
       file_id: string;
       node_id: string;
       reference_node_id: string;
       position: string;
+      expected_version?: number;
     }) => {
       const config = getConfig();
 
@@ -256,15 +288,24 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         return makeErrorResponse("InvalidInput", "Cannot move a node into one of its own descendants.");
       }
 
-      await client.editDocument(file_id, [
-        { action: "move", node_id, parent_id: targetParentId, index: targetIndex },
-      ]);
+      const guard = await withVersionGuard(
+        { client, fileId: file_id, expectedVersion: expected_version },
+        async () => {
+          const response = await client.editDocument(file_id, [
+            { action: "move", node_id, parent_id: targetParentId, index: targetIndex },
+          ]);
+          return { result: undefined, apiCallCount: response.batches_sent };
+        },
+      );
 
-      return makeResponse({
+      const data: Record<string, unknown> = {
         file_id,
         node_id,
         url: buildDynalistUrl(file_id, node_id),
-      });
+      };
+      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+
+      return makeResponse(data);
     })
   );
 }

@@ -8,6 +8,7 @@ import { DynalistClient, EditDocumentChange, buildParentMap, findRootNodeId, typ
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
+import { withVersionGuard } from "../version-guard";
 import {
   makeResponse,
   makeErrorResponse,
@@ -15,7 +16,7 @@ import {
   insertTreeUnderParent,
   type ParsedNode,
 } from "../utils/dynalist-helpers";
-import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE, CONTENT_MULTILINE_GUIDANCE } from "./descriptions";
+import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE, CONTENT_MULTILINE_GUIDANCE, EXPECTED_VERSION_DESCRIPTION } from "./descriptions";
 
 /**
  * Check whether the global access policy blocks all write operations.
@@ -126,11 +127,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         ),
         heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
         color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
+        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
         node_id: z.string().describe("Edited node ID"),
         url: z.string().describe("Dynalist URL for the edited node"),
+        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
       },
     },
     wrapToolHandler(async ({
@@ -142,6 +145,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       checkbox,
       heading,
       color,
+      expected_version,
     }: {
       file_id: string;
       node_id: string;
@@ -151,6 +155,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       checkbox?: boolean;
       heading?: number;
       color?: number;
+      expected_version?: number;
     }) => {
       const config = getConfig();
 
@@ -172,13 +177,22 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       if (heading !== undefined) change.heading = heading;
       if (color !== undefined) change.color = color;
 
-      await client.editDocument(file_id, [change]);
+      const guard = await withVersionGuard(
+        { client, fileId: file_id, expectedVersion: expected_version },
+        async () => {
+          const response = await client.editDocument(file_id, [change]);
+          return { result: undefined, apiCallCount: response.batches_sent };
+        },
+      );
 
-      return makeResponse({
+      const data: Record<string, unknown> = {
         file_id,
         node_id,
         url: buildDynalistUrl(file_id, node_id),
-      });
+      };
+      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+
+      return makeResponse(data);
     })
   );
 
@@ -231,12 +245,14 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "Sibling node to insert relative to. Required when position is 'after' or 'before'. " +
           "Cannot be combined with 'as_first_child'/'as_last_child' or index."
         ),
+        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
         total_created: z.number().describe("Total number of nodes created"),
         root_node_ids: z.array(z.string()).describe("IDs of all top-level inserted nodes"),
         url: z.string().describe("Dynalist URL for the first created node"),
+        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
       },
     },
     wrapToolHandler(async ({
@@ -246,6 +262,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       position,
       index,
       reference_node_id,
+      expected_version,
     }: {
       file_id: string;
       node_id?: string;
@@ -253,6 +270,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       position: string;
       index?: number;
       reference_node_id?: string;
+      expected_version?: number;
     }) => {
       const config = getConfig();
 
@@ -327,21 +345,31 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         return makeErrorResponse("InvalidInput", "No nodes to insert (empty array)");
       }
 
-      const result = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
-        startIndex,
-      });
+      const guard = await withVersionGuard(
+        { client, fileId: file_id, expectedVersion: expected_version },
+        async () => {
+          const result = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
+            startIndex,
+          });
+          return { result, apiCallCount: result.batchesSent };
+        },
+      );
 
+      const result = guard.result;
       const firstNodeId = result.rootNodeIds[0] ?? null;
       const url = firstNodeId
         ? buildDynalistUrl(file_id, firstNodeId)
         : buildDynalistUrl(file_id);
 
-      return makeResponse({
+      const data: Record<string, unknown> = {
         file_id,
         total_created: result.totalCreated,
         root_node_ids: result.rootNodeIds,
         url,
-      });
+      };
+      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+
+      return makeResponse(data);
     })
   );
 }

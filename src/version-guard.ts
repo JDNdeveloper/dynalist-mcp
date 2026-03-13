@@ -1,0 +1,90 @@
+/**
+ * Version guard for document writes. Wraps write operations with
+ * pre-write and post-write version checks to detect race conditions.
+ */
+
+import { DynalistApiError, type DynalistClient } from "./dynalist-client";
+
+export interface VersionGuardOptions {
+  client: DynalistClient;
+  fileId: string;
+  expectedVersion?: number;
+}
+
+export interface VersionGuardResult<T> {
+  result: T;
+  apiCallCount: number;
+  preWriteVersion: number;
+  postWriteVersion: number;
+  versionWarning?: string;
+}
+
+/**
+ * Execute a write operation with pre-write and post-write version checks.
+ *
+ * Pre-write: if expectedVersion is provided and the current document
+ * version differs, abort immediately with an error. This is the CAS
+ * (compare-and-swap) mechanism for inter-turn race detection.
+ *
+ * Post-write: compare version delta against the number of API calls
+ * made. A mismatch indicates a concurrent edit occurred during the
+ * write window.
+ */
+export async function withVersionGuard<T>(
+  options: VersionGuardOptions,
+  writeFn: () => Promise<{ result: T; apiCallCount: number }>,
+): Promise<VersionGuardResult<T>> {
+  const { client, fileId, expectedVersion } = options;
+
+  // Pre-write: get current version.
+  const preCheck = await client.checkForUpdates([fileId]);
+  const preWriteVersion = preCheck.versions[fileId];
+  if (preWriteVersion === undefined) {
+    // checkForUpdates silently drops unknown file IDs. Surface this as
+    // a NotFound error consistent with readDocument/editDocument behavior.
+    throw new DynalistApiError("NotFound", "Document not found.");
+  }
+
+  // CAS check: abort if the document changed since the agent's last read.
+  if (expectedVersion !== undefined && expectedVersion !== preWriteVersion) {
+    throw new VersionMismatchError(
+      `Document version mismatch: expected ${expectedVersion}, current is ${preWriteVersion}. ` +
+      `Re-read the document before retrying.`,
+    );
+  }
+
+  // Execute the write.
+  const { result, apiCallCount } = await writeFn();
+
+  // Post-write: check for concurrent modifications.
+  const postCheck = await client.checkForUpdates([fileId]);
+  const postWriteVersion = postCheck.versions[fileId] ?? preWriteVersion;
+
+  const actualDelta = postWriteVersion - preWriteVersion;
+  let versionWarning: string | undefined;
+
+  if (actualDelta !== apiCallCount) {
+    versionWarning =
+      `Write succeeded, but document version advanced by ${actualDelta} ` +
+      `(expected ${apiCallCount}). Another edit may have occurred concurrently. ` +
+      `Re-read the document and verify the result before making further changes.`;
+  }
+
+  return {
+    result,
+    apiCallCount,
+    preWriteVersion,
+    postWriteVersion,
+    versionWarning,
+  };
+}
+
+/**
+ * Error thrown when the pre-write version check fails (stale expected_version).
+ */
+export class VersionMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VersionMismatchError";
+  }
+}

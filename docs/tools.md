@@ -68,6 +68,7 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 {
   "file_id": "...",
   "title": "My Document",
+  "version": 42,
   "url": "https://dynalist.io/d/...",
   "node": {
     "node_id": "...",
@@ -104,6 +105,7 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 - `note`: omitted when empty (not present in JSON, saves tokens).
 - `depth_limited`: true when the depth limit caused children to be hidden.
 - `children_count`: always present, shows total direct children regardless of visibility.
+- `version`: document version number. Pass this as `expected_version` to write tools to detect concurrent edits.
 
 ### `search_in_document`
 
@@ -232,15 +234,19 @@ Edit an existing node. Only specified fields are updated. Omitted fields are lef
 | `checkbox` | boolean | no | | Whether to show checkbox |
 | `heading` | number | no | | 0 = none, 1 = H1, 2 = H2, 3 = H3 |
 | `color` | number | no | | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
 
 **Response**:
 ```json
 {
   "file_id": "...",
   "node_id": "...",
-  "url": "..."
+  "url": "...",
+  "version_warning": "..."
 }
 ```
+
+`version_warning` is present only when a concurrent edit was detected during the write.
 
 ### `insert_nodes`
 
@@ -254,6 +260,7 @@ Insert one or more nodes into a Dynalist document as a JSON tree. Supports neste
 | `position` | string | no | `"as_last_child"` | `"as_first_child"`, `"as_last_child"`, `"after"`, or `"before"` |
 | `index` | number | no | | Exact child index for root-level nodes. Overrides `position`. 0 = first, -1 = last. Cannot be combined with `reference_node_id`. |
 | `reference_node_id` | string | no | | Sibling node to insert relative to. Required when position is `"after"` or `"before"`. Cannot be combined with `"as_first_child"`/`"as_last_child"` or `index`. |
+| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
 
 **Node object fields:**
 
@@ -290,9 +297,12 @@ Example input:
   "file_id": "...",
   "total_created": 4,
   "root_node_ids": ["...", "..."],
-  "url": "..."
+  "url": "...",
+  "version_warning": "..."
 }
 ```
+
+`version_warning` is present only when a concurrent edit was detected during the write.
 
 ## Structure tools
 
@@ -305,17 +315,19 @@ Delete a node from a document. By default, the node and its entire subtree are d
 | `file_id` | string | yes | | Document file ID |
 | `node_id` | string | yes | | Node ID to delete |
 | `include_children` | boolean | no | `true` | Delete entire subtree if true; promote children if false |
+| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
 
 **Response**:
 ```json
 {
   "file_id": "...",
   "deleted_count": 5,
-  "promoted_children": 3
+  "promoted_children": 3,
+  "version_warning": "..."
 }
 ```
 
-`promoted_children` is present only when children were promoted (i.e. `include_children` was set to false and the node had children).
+`promoted_children` is present only when children were promoted. `version_warning` is present only when a concurrent edit was detected during the write (i.e. `include_children` was set to false and the node had children).
 
 ### `move_node`
 
@@ -327,6 +339,7 @@ Move a node and its entire subtree to a new position relative to a reference nod
 | `node_id` | string | yes | | Node to move |
 | `reference_node_id` | string | yes | | Reference node for positioning |
 | `position` | string | yes | | `"after"`, `"before"`, `"first_child"`, `"last_child"` |
+| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
 
 **Position values:**
 - `after`: immediately after the reference (same parent).
@@ -339,9 +352,12 @@ Move a node and its entire subtree to a new position relative to a reference nod
 {
   "file_id": "...",
   "node_id": "...",
-  "url": "..."
+  "url": "...",
+  "version_warning": "..."
 }
 ```
+
+`version_warning` is present only when a concurrent edit was detected during the write.
 
 ## File management tools
 

@@ -40,3 +40,6 @@ export const HEADING_DESCRIPTION =
 export const COLOR_DESCRIPTION =
   "Color label. 0 = no color (removes color), 1 = red, 2 = orange, 3 = yellow, " +
   "4 = green, 5 = blue, 6 = purple.";
+export const EXPECTED_VERSION_DESCRIPTION =
+  "Expected document version from your most recent read_document response. " +
+  "If the document has been modified since that read, the tool aborts and asks you to re-read.";

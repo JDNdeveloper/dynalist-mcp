@@ -4,6 +4,7 @@
 
 import type { DynalistNode } from "../dynalist-client";
 import { DynalistClient, DynalistApiError } from "../dynalist-client";
+import { VersionMismatchError } from "../version-guard";
 import { ConfigError } from "../config";
 import type { EditDocumentChange } from "../dynalist-client";
 import { buildDynalistUrl } from "./url-parser";
@@ -203,6 +204,9 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
     } catch (error) {
       if (error instanceof PartialInsertError) {
         return error.toStructuredResponse();
+      }
+      if (error instanceof VersionMismatchError) {
+        return makeErrorResponse("VersionMismatch", error.message);
       }
       if (error instanceof ConfigError) {
         return makeErrorResponse("ConfigError", error.message);
@@ -405,14 +409,15 @@ export async function insertTreeUnderParent(
   parentId: string,
   tree: ParsedNode[],
   options: InsertTreeOptions = {}
-): Promise<{ totalCreated: number; rootNodeIds: string[] }> {
+): Promise<{ totalCreated: number; rootNodeIds: string[]; batchesSent: number }> {
   if (tree.length === 0) {
-    return { totalCreated: 0, rootNodeIds: [] };
+    return { totalCreated: 0, rootNodeIds: [], batchesSent: 0 };
   }
 
   const levels = groupByLevel(tree);
   const totalCount = levels.reduce((sum, level) => sum + level.length, 0);
   let totalCreated = 0;
+  let batchesSent = 0;
   let rootNodeIds: string[] = [];
   let previousLevelIds: string[] = [];
 
@@ -469,6 +474,7 @@ export async function insertTreeUnderParent(
       }
 
       totalCreated += newIds.length;
+      batchesSent += response.batches_sent;
       previousLevelIds = newIds;
     } catch (error) {
       throw new PartialInsertError({
@@ -482,5 +488,5 @@ export async function insertTreeUnderParent(
     }
   }
 
-  return { totalCreated, rootNodeIds };
+  return { totalCreated, rootNodeIds, batchesSent };
 }
