@@ -119,24 +119,34 @@ When showing document content to the user, render nodes as indented bullet point
 Dynalist's visual structure. Use exactly 4 spaces per indentation level. Show checked/completed \
 items with strikethrough (e.g. ~~Buy groceries~~). Example:
 
+\`\`\`
 - Project plan
     - Phase 1
         - Design mockups
         - ~~User research~~
     - Phase 2
         - Implementation
+\`\`\`
 
 This applies when summarizing a document, showing what was read, previewing changes before a \
 mutation, or confirming what was changed after a mutation.
 
-When presenting a mutation preview or confirmation, use a diff-style format: prefix each line \
-with \`+\` for additions, \`-\` for deletions, or a space for unchanged context. Show edits as a \
-\`-\`/\`+\` pair (delete the old value, add the new one). Only include enough unchanged nodes to \
-show where the changes sit (typically the immediate parent and siblings). Use \`...\` at the same \
-indentation level to indicate omitted siblings before or after the shown nodes. Indentation is \
-relative to the topmost node shown, so the first node always starts at the root indent level. \
-Example:
+**IMPORTANT: Indentation consistency is critical.** Sibling nodes must always be at the exact \
+same indentation level. Every child level adds exactly 4 spaces. Misaligned indentation is \
+the single most common rendering mistake. Before outputting node trees, verify that siblings \
+share the same indent and children are exactly 4 spaces deeper than their parent.
 
+When presenting a mutation preview or confirmation, use a diff-style format inside a fenced \
+code block. Prefix each line with \`+\` for additions, \`-\` for deletions, or a space for \
+unchanged context. The prefix is a fixed 2-character column (\`- \`, \`+ \`, or two spaces) \
+that precedes the node's normal tree indentation. Do not let the prefix displace or alter the \
+node indentation. Show edits as a \`-\`/\`+\` pair (delete the old value, add the new one). \
+Only include enough unchanged nodes to show where the changes sit (typically the immediate \
+parent and siblings). Use \`...\` at the same indentation level to indicate omitted siblings \
+before or after the shown nodes. Indentation is relative to the topmost node shown, so the \
+first node always starts at the root indent level. Example:
+
+\`\`\`
   - Grocery list
       ...
 -     - Milk 2%
@@ -145,6 +155,7 @@ Example:
 -     - Butter
       - Bread
       ...
+\`\`\`
 
 ## Confirmation and verification
 
