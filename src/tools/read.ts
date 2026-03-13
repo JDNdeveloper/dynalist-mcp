@@ -601,8 +601,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         "Check version numbers for one or more documents without fetching their content. " +
-        "Useful for detecting whether a document has changed since the last read. The version " +
-        "number increases on every edit. Much cheaper than calling read_document.",
+        "Use this to detect whether a document has changed before doing an expensive " +
+        "read_document call. The version number increases on every edit.",
       inputSchema: {
         file_ids: z.array(z.string()).describe("Array of document file IDs to check"),
       },

@@ -15,7 +15,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DynalistClient } from "./dynalist-client";
 import { registerTools } from "./tools/index";
-import { CHECKED_GUIDANCE, CHECKBOX_GUIDANCE, CHECKED_CHILDREN_GUIDANCE } from "./tools/descriptions";
 import pkg from "../package.json";
 
 // Get API token from environment
@@ -61,30 +60,6 @@ specific document. A node ID is only meaningful in the context of its parent doc
 Dynalist URL, extract the file_id from the path segment after /d/ and the node_id from \
 the #z= fragment (if present).
 
-## Controlling output size (read_document)
-
-read_document has two independent mechanisms for controlling output size:
-1. max_depth (default 5): limits how many levels deep the tree is traversed. Set to null \
-for unlimited depth.
-2. include_collapsed_children (default false): controls whether children of collapsed nodes \
-are included. When false, collapsed nodes show children_count but children is empty.
-
-Exception: the starting node (the node_id you pass, or the document root if omitted) always \
-shows its children regardless of collapsed state. This matches the Dynalist UI, where zooming \
-into a collapsed node reveals its content. Only descendant collapsed nodes are filtered.
-
-These are independent and both apply simultaneously. Setting a high max_depth does NOT \
-expand collapsed nodes. Setting include_collapsed_children: true does NOT bypass the depth \
-limit.
-
-When children are hidden, two distinct signals indicate the cause (do not confuse these):
-- depth_limited: true means the max_depth limit cut off traversal. The node is NOT \
-collapsed. Fix: call read_document with this node's node_id as the starting point to zoom \
-into the subtree without re-fetching the entire document.
-- collapsed: true with children_count > 0 but empty children means the user collapsed this \
-node in the Dynalist UI. Fix: re-request with include_collapsed_children: true, or pass \
-the node's node_id directly to read_document to zoom in (the starting node always expands).
-
 ## Size warnings
 
 Read and search tools may return a warning instead of content when results exceed a token \
@@ -112,28 +87,9 @@ max_depth budget.
 - File organization: use list_documents to see the folder hierarchy, then use \
 create_document, create_folder, move_file, rename_document, and rename_folder to organize \
 the file tree.
-
-## Tool behavior notes
-
-- Bulk insert: insert_nodes should be preferred over insert_node for anything beyond a \
-single flat node. It parses indented markdown and creates the full hierarchy in batch.
-- Delete behavior: delete_node deletes the entire subtree by default (the node and all its \
-descendants are removed). Use include_children: false to promote children up to the parent \
-instead (the node is removed but its children survive).
-- Move: move_node uses relative positioning. Specify a reference node and a position \
-(after, before, first_child, last_child).
-- Inbox target: send_to_inbox sends to whatever document the user configured as their \
-inbox in Dynalist settings. For inserting into a specific document, use insert_node or \
-insert_nodes.
 - File vs node management: tools like create_document, rename_folder, and move_file \
 operate on the file tree. Tools like insert_node, edit_node, and move_node operate on \
 nodes within a single document. Do not confuse file IDs with node IDs.
-- Version checking: use check_document_versions to check if documents have changed before \
-doing expensive reads.
-- edit_node: omitted fields are left unchanged, not reset to defaults.
-- Checking items off: to mark an item as completed, set checked: true. ${CHECKED_GUIDANCE} \
-${CHECKED_CHILDREN_GUIDANCE}
-- Checkbox usage: ${CHECKBOX_GUIDANCE}
 
 ## Presenting document content
 
