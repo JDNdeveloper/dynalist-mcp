@@ -42,6 +42,8 @@ bun run typecheck    # Runs tsc --noEmit
 
 ## Project structure
 
+Only files of note are listed. Use the filesystem for a complete listing.
+
 ```
 src/
 ├── index.ts                      # Entry point, server identity, MCP instructions

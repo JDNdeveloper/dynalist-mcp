@@ -116,6 +116,7 @@ src/
 ├── tools/
 │   ├── index.ts                  # Aggregator - registers all tools
 │   ├── descriptions.ts           # Shared parameter descriptions and guidance constants
+│   ├── node-metadata.ts          # Heading/color string enums and API translation maps
 │   ├── read.ts                   # Read tools
 │   ├── write.ts                  # Write tools
 │   ├── structure.ts              # Structure tools (delete, move)
