@@ -69,6 +69,10 @@ for unlimited depth.
 2. include_collapsed_children (default false): controls whether children of collapsed nodes \
 are included. When false, collapsed nodes show children_count but children is empty.
 
+Exception: the starting node (the node_id you pass, or the document root if omitted) always \
+shows its children regardless of collapsed state. This matches the Dynalist UI, where zooming \
+into a collapsed node reveals its content. Only descendant collapsed nodes are filtered.
+
 These are independent and both apply simultaneously. Setting a high max_depth does NOT \
 expand collapsed nodes. Setting include_collapsed_children: true does NOT bypass the depth \
 limit.
@@ -78,7 +82,8 @@ When children are hidden, two distinct signals indicate the cause (do not confus
 collapsed. Fix: call read_document with this node's node_id as the starting point to zoom \
 into the subtree without re-fetching the entire document.
 - collapsed: true with children_count > 0 but empty children means the user collapsed this \
-node in the Dynalist UI. Fix: re-request with include_collapsed_children: true.
+node in the Dynalist UI. Fix: re-request with include_collapsed_children: true, or pass \
+the node's node_id directly to read_document to zoom in (the starting node always expands).
 
 ## Size warnings
 
@@ -98,8 +103,9 @@ output.
 - Sibling context: to see a node's siblings, call read_document with the parent's node_id \
 and max_depth: 1.
 - Expanding collapsed sections: if a node has collapsed: true and children_count > 0 but \
-empty children, re-request with include_collapsed_children: true (optionally scoped to the \
-specific node via node_id).
+empty children, either pass the node's node_id directly to read_document (the starting node \
+always expands, so no extra flags needed) or re-request with include_collapsed_children: true \
+to expand all collapsed nodes in the response.
 - Drilling into depth-limited nodes: if a node has depth_limited: true, call read_document \
 with that node's node_id as the starting point. This zooms into the subtree using the same \
 max_depth budget.

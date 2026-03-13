@@ -183,8 +183,11 @@ export function buildNodeTree(
   const effectiveMaxDepth = options.maxDepth ?? Infinity;
 
   // Determine whether to include children.
+  // The starting node (depth 0) always shows its children regardless of collapsed
+  // state, matching the Dynalist UI behavior where zooming into a node reveals its
+  // content even if the node is collapsed in the parent view.
   const atMaxDepth = currentDepth >= effectiveMaxDepth;
-  const collapsedHidesChildren = isCollapsed && !options.includeCollapsedChildren;
+  const collapsedHidesChildren = isCollapsed && !options.includeCollapsedChildren && currentDepth > 0;
   const shouldOmitChildren = atMaxDepth || collapsedHidesChildren;
 
   const outputChildren: OutputNode[] = [];

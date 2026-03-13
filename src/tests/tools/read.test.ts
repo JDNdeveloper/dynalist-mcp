@@ -495,6 +495,24 @@ describe("read_document", () => {
 
   // ─── collapsed children filtering ────────────────────────────────
 
+  test("starting node always shows children even when collapsed", async () => {
+    // Reading a collapsed node directly by node_id should always reveal its
+    // children, matching the Dynalist UI zoom behavior.
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    n1.collapsed = true;
+
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      node_id: "n1",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    expect(node.collapsed).toBe(true);
+    expect((node.children as unknown[]).length).toBe(2);
+    expect(node.children_count).toBe(2);
+  });
+
   test("collapsed node hides children by default", async () => {
     // Make n1 collapsed.
     const doc = ctx.server.documents.get("doc1")!;

@@ -93,8 +93,9 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 **Controlling output size:**
 - Response too large? Lower `max_depth` or rely on collapsed node filtering.
 - See `depth_limited: true`? Call `read_document` with that node's `node_id` to zoom in.
-- See `collapsed: true` with hidden children? Set `include_collapsed_children: true`.
+- See `collapsed: true` with hidden children? Pass the node's `node_id` to zoom in (the starting node always expands), or set `include_collapsed_children: true` to expand all collapsed nodes.
 - Need everything? Set `max_depth: null` and `include_collapsed_children: true`.
+- The starting node (the `node_id` you pass, or the document root) always shows its children regardless of collapsed state, matching the Dynalist UI zoom behavior.
 
 **Node properties:**
 - `checked`, `checkbox`: only present when the node has a checkbox. Omitted for plain nodes.

@@ -172,11 +172,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "- include_collapsed_children: includes children of collapsed nodes (default false).\n" +
         "These are orthogonal. Setting max_depth high does NOT expand collapsed nodes. Setting " +
         "include_collapsed_children: true does NOT bypass the depth limit.\n\n" +
+        "The starting node (the node_id you pass, or the document root) always shows its children " +
+        "regardless of collapsed state, matching the Dynalist UI zoom behavior.\n\n" +
         "When children are hidden, the response signals the cause (these are distinct):\n" +
         "- depth_limited: true means the max_depth limit cut off traversal. The node is NOT collapsed. " +
         "Fix: call read_document with that node's node_id to zoom in.\n" +
         "- collapsed: true with children_count > 0 means the user collapsed this node in the Dynalist UI. " +
-        "Fix: re-request with include_collapsed_children: true.",
+        "Fix: re-request with include_collapsed_children: true, or pass its node_id to zoom in.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().optional().describe(
