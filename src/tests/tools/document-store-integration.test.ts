@@ -7,6 +7,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   createTestContext,
   callToolOk,
+  getVersion,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -30,8 +31,10 @@ describe("document store cache invalidation", () => {
     expect(before.version).toBeDefined();
 
     // Edit a node.
+    const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
+      expected_version: version,
       nodes: [{ node_id: "n1", content: "Edited via integration test" }],
     });
 
@@ -54,8 +57,10 @@ describe("document store cache invalidation", () => {
       file_id: "doc1",
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "root",
       nodes: [{ content: "Newly inserted node" }],
     });
@@ -76,8 +81,10 @@ describe("document store cache invalidation", () => {
     const serializedBefore = JSON.stringify(before.node);
     expect(serializedBefore).toContain("Third item");
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_ids: ["n3"],
     });
 
@@ -96,8 +103,10 @@ describe("document store cache invalidation", () => {
     });
 
     // Move n3 to be the first child of root (before n1).
+    const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: version,
       moves: [{ node_id: "n3", reference_node_id: "n1", position: "before" }],
     });
 

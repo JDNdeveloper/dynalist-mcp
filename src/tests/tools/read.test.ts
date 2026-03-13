@@ -4,6 +4,7 @@ import {
   callToolOk,
   callToolError,
   callTool,
+  getVersion,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -1639,9 +1640,11 @@ describe("check_document_versions", () => {
     const v1 = (before.versions as Record<string, number>).doc1;
 
     // Edit the document.
+    const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       nodes: [{ node_id: "n1", content: "Updated" }],
+      expected_version: version,
     });
 
     const after = await callToolOk(ctx.mcpClient, "check_document_versions", {

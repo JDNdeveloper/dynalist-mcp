@@ -7,8 +7,10 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   createTestContext,
+  callTool,
   callToolOk,
   callToolError,
+  getVersion,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -54,13 +56,13 @@ describe("edit_nodes version guard", () => {
     expect(result.version_warning).toBeUndefined();
   });
 
-  test("omitted expected_version succeeds without abort", async () => {
-    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+  test("omitted expected_version returns schema validation error", async () => {
+    const result = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       nodes: [{ node_id: "n1", content: "Updated" }],
     });
-    expect((result.node_ids as string[])).toEqual(["n1"]);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain("expected_version");
   });
 });
 
@@ -97,14 +99,14 @@ describe("insert_nodes version guard", () => {
     expect(result.version_warning).toBeUndefined();
   });
 
-  test("omitted expected_version succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  test("omitted expected_version returns schema validation error", async () => {
+    const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "n1",
       nodes: [{ content: "New child" }],
     });
-    expect(result.total_created).toBe(1);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain("expected_version");
   });
 });
 
@@ -138,13 +140,13 @@ describe("delete_nodes version guard", () => {
     expect(result.version_warning).toBeUndefined();
   });
 
-  test("omitted expected_version succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+  test("omitted expected_version returns schema validation error", async () => {
+    const result = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
       node_ids: ["n1a"],
     });
-    expect(result.deleted_count).toBe(1);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain("expected_version");
   });
 
   test("stale expected_version aborts child promotion path", async () => {
@@ -208,13 +210,13 @@ describe("move_nodes version guard", () => {
     expect(result.version_warning).toBeUndefined();
   });
 
-  test("omitted expected_version succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
+  test("omitted expected_version returns schema validation error", async () => {
+    const result = await callTool(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
       moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
     });
-    expect(result.node_ids).toEqual(["n1a"]);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain("expected_version");
   });
 });
 
@@ -223,9 +225,11 @@ describe("move_nodes version guard", () => {
 // ═════════════════════════════════════════════════════════════════════
 describe("post-write concurrent modification detection", () => {
   test("clean write has no version_warning", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       nodes: [{ node_id: "n1", content: "Updated" }],
+      expected_version: version,
     });
     expect(result.version_warning).toBeUndefined();
   });
@@ -236,9 +240,11 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       nodes: [{ node_id: "n1", content: "Updated" }],
+      expected_version: version,
     });
 
     expect(result.version_warning).toBeDefined();
@@ -251,10 +257,12 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "n1",
       nodes: [{ content: "New" }],
+      expected_version: version,
     });
 
     expect(result.version_warning).toBeDefined();
@@ -267,9 +275,11 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
       node_ids: ["n1a"],
+      expected_version: version,
     });
 
     expect(result.version_warning).toBeDefined();
@@ -282,9 +292,11 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
       moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
+      expected_version: version,
     });
 
     expect(result.version_warning).toBeDefined();
@@ -300,15 +312,33 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
       node_ids: ["n1"],
       include_children: false,
+      expected_version: version,
     });
 
     expect(result.version_warning).toBeDefined();
     expect(result.version_warning).toContain("advanced by 3");
     expect(result.version_warning).toContain("expected 2");
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// CAS check fires with version 0
+// ═════════════════════════════════════════════════════════════════════
+describe("CAS check fires with version 0", () => {
+  test("expected_version 0 aborts with VersionMismatch on fresh document", async () => {
+    // A freshly created document starts at version 1, so passing 0
+    // should trigger the version mismatch guard.
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      nodes: [{ node_id: "n1", content: "Updated" }],
+      expected_version: 0,
+    });
+    expect(err.error).toBe("VersionMismatch");
   });
 });
 
@@ -324,9 +354,11 @@ describe("read_document version", () => {
   });
 
   test("version increments after edits", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       nodes: [{ node_id: "n1", content: "Updated" }],
+      expected_version: version,
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {

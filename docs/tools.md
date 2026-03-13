@@ -227,7 +227,7 @@ Edit one or more existing nodes. Only specified fields are updated per node. Omi
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
 | `nodes` | array | yes | | Array of node edit objects (see below) |
-| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
+| `expected_version` | number | yes | | Document version from `read_document`. Aborts if stale. |
 
 **Node edit object fields:**
 
@@ -245,6 +245,7 @@ Example input:
 ```json
 {
   "file_id": "abc123",
+  "expected_version": 42,
   "nodes": [
     { "node_id": "node1", "content": "Updated text", "color": 3 },
     { "node_id": "node2", "checked": true }
@@ -276,7 +277,7 @@ Insert one or more nodes into a Dynalist document as a JSON tree. Supports neste
 | `position` | string | no | `"as_last_child"` | `"as_first_child"`, `"as_last_child"`, `"after"`, or `"before"` |
 | `index` | number | no | | Exact child index for root-level nodes. Overrides `position`. 0 = first, -1 = last. Cannot be combined with `reference_node_id`. |
 | `reference_node_id` | string | no | | Sibling node to insert relative to. Required when position is `"after"` or `"before"`. Cannot be combined with `"as_first_child"`/`"as_last_child"` or `index`. |
-| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
+| `expected_version` | number | yes | | Document version from `read_document`. Aborts if stale. |
 
 **Node object fields:**
 
@@ -294,6 +295,7 @@ Example input:
 ```json
 {
   "file_id": "abc123",
+  "expected_version": 42,
   "nodes": [
     {
       "content": "Top level item",
@@ -333,7 +335,7 @@ Delete one or more nodes from a document. By default, each node and its entire s
 | `file_id` | string | yes | | Document file ID |
 | `node_ids` | string[] | yes | | Node IDs to delete. For a single deletion, pass a one-element array. |
 | `include_children` | boolean | no | `true` | Delete entire subtree if true; promote children if false (single node only) |
-| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
+| `expected_version` | number | yes | | Document version from `read_document`. Aborts if stale. |
 
 **Response**:
 ```json
@@ -355,7 +357,7 @@ Move one or more nodes (and their subtrees) to new positions within a document. 
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
 | `moves` | array | yes | | Array of move objects (see below) |
-| `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
+| `expected_version` | number | yes | | Document version from `read_document`. Aborts if stale. |
 
 **Move object fields:**
 
@@ -375,6 +377,7 @@ Example input:
 ```json
 {
   "file_id": "abc123",
+  "expected_version": 42,
   "moves": [
     { "node_id": "node1", "reference_node_id": "node3", "position": "after" },
     { "node_id": "node2", "reference_node_id": "node1", "position": "after" }

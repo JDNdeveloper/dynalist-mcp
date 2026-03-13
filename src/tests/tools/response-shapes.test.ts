@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   createTestContext,
   callTool,
+  getVersion,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -270,8 +271,10 @@ describe("check_document_versions response shape", () => {
 
 describe("edit_nodes response shape", () => {
   test("success response has correct envelope and fields", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
+      expected_version: version,
       nodes: [{ node_id: "n1", content: "Updated content" }],
     });
     const data = assertSuccessEnvelope(raw);
@@ -284,6 +287,7 @@ describe("edit_nodes response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "nonexistent",
+      expected_version: 1,
       nodes: [{ node_id: "n1", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
@@ -291,8 +295,10 @@ describe("edit_nodes response shape", () => {
   });
 
   test("error response for non-existent node has correct envelope", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
+      expected_version: version,
       nodes: [{ node_id: "bad_node", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
@@ -304,8 +310,10 @@ describe("edit_nodes response shape", () => {
 
 describe("insert_nodes response shape", () => {
   test("success response has correct envelope and fields", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       nodes: [{ content: "Item A" }, { content: "Item B" }],
     });
     const data = assertSuccessEnvelope(raw);
@@ -319,6 +327,7 @@ describe("insert_nodes response shape", () => {
   test("error response for empty nodes array has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: 1,
       nodes: [],
     });
     const err = assertErrorEnvelope(raw);
@@ -328,6 +337,7 @@ describe("insert_nodes response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "nonexistent",
+      expected_version: 1,
       nodes: [{ content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
@@ -362,8 +372,10 @@ describe("send_to_inbox response shape", () => {
 
 describe("delete_nodes response shape", () => {
   test("success response for leaf deletion has correct envelope and fields", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_ids: ["n1a"],
     });
     const data = assertSuccessEnvelope(raw);
@@ -373,8 +385,10 @@ describe("delete_nodes response shape", () => {
   });
 
   test("success response for deletion with promotion has promoted_children", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_ids: ["n1"],
       include_children: false,
     });
@@ -388,6 +402,7 @@ describe("delete_nodes response shape", () => {
   test("error response for deleting root node has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: 1,
       node_ids: ["root"],
     });
     const err = assertErrorEnvelope(raw);
@@ -397,6 +412,7 @@ describe("delete_nodes response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "delete_nodes", {
       file_id: "nonexistent",
+      expected_version: 1,
       node_ids: ["n1"],
     });
     const err = assertErrorEnvelope(raw);
@@ -408,8 +424,10 @@ describe("delete_nodes response shape", () => {
 
 describe("move_nodes response shape", () => {
   test("success response has correct envelope and fields", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: version,
       moves: [{ node_id: "n2a", reference_node_id: "n1", position: "last_child" }],
     });
     const data = assertSuccessEnvelope(raw);
@@ -422,6 +440,7 @@ describe("move_nodes response shape", () => {
   test("error response for self-referential move has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: 1,
       moves: [{ node_id: "n1", reference_node_id: "n1", position: "last_child" }],
     });
     const err = assertErrorEnvelope(raw);
@@ -431,6 +450,7 @@ describe("move_nodes response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_nodes", {
       file_id: "nonexistent",
+      expected_version: 1,
       moves: [{ node_id: "n1", reference_node_id: "n2", position: "after" }],
     });
     const err = assertErrorEnvelope(raw);

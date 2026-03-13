@@ -10,6 +10,7 @@ import {
   callTool,
   callToolOk,
   callToolError,
+  getVersion,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -41,8 +42,10 @@ describe("insert_nodes race simulation", () => {
       doc.version++;
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "n1",
       nodes: [{ content: "Item A" }, { content: "Item B" }],
     });
@@ -61,8 +64,10 @@ describe("insert_nodes race simulation", () => {
       doc.version++;
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "n1",
       nodes: [{ content: "First A" }, { content: "First B" }],
       position: "as_first_child",
@@ -83,8 +88,10 @@ describe("insert_nodes race simulation", () => {
       doc.version++;
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       reference_node_id: "n1",
       nodes: [{ content: "After n1" }],
       position: "after",
@@ -111,8 +118,10 @@ describe("delete_nodes race simulation", () => {
       doc.version++;
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_ids: ["n2"],
     });
 
@@ -135,8 +144,10 @@ describe("move_nodes race simulation", () => {
       doc.version++;
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: version,
       moves: [{ node_id: "n1a", reference_node_id: "n2", position: "after" }],
     });
 
@@ -160,8 +171,10 @@ describe("version guard edge cases", () => {
       doc.version -= 5;
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
+      expected_version: version,
       nodes: [{ node_id: "n1", content: "test" }],
     });
 
@@ -174,8 +187,10 @@ describe("version guard edge cases", () => {
     const doc1Before = ctx.server.documents.get("doc1")!.version;
     const doc2Before = ctx.server.documents.get("doc2")!.version;
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
+      expected_version: version,
       nodes: [{ node_id: "n1", content: "Updated doc1" }],
     });
 
@@ -188,8 +203,10 @@ describe("version guard edge cases", () => {
 
   test("insert_nodes with nested tree counts batches across levels", async () => {
     // A 3-level tree should produce 3 editDocument calls.
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "n1",
       nodes: [{
         content: "Level 1",
@@ -211,8 +228,10 @@ describe("version guard edge cases", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "n1",
       nodes: [{
         content: "Level 1",
@@ -243,8 +262,10 @@ describe("version guard edge cases", () => {
     // regressing on the finally-block fix specifically.
     ctx.server.failEditAfterNCalls(1);
 
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "n1",
       nodes: [{
         content: "Partial parent",

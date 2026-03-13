@@ -82,27 +82,12 @@ describe("withVersionGuard", () => {
     }
   });
 
-  test("skips pre-write CAS check when expectedVersion is omitted", async () => {
-    const client = createMockClient({ preVersion: 42, postVersion: 43 });
-
-    // No expectedVersion provided. Should not abort regardless of current version.
-    const guard = await withVersionGuard(
-      { client, fileId: "test_doc" },
-      async () => ({ result: "done", apiCallCount: 1 }),
-    );
-
-    expect(guard.result).toBe("done");
-    expect(guard.preWriteVersion).toBe(42);
-    expect(guard.postWriteVersion).toBe(43);
-    expect(guard.versionWarning).toBeUndefined();
-  });
-
   test("detects concurrent edit when version delta exceeds apiCallCount", async () => {
     // Pre=10, post=13. With apiCallCount=1, delta=3 != 1.
     const client = createMockClient({ preVersion: 10, postVersion: 13 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc" },
+      { client, fileId: "test_doc", expectedVersion: 10 },
       async () => ({ result: "data", apiCallCount: 1 }),
     );
 
@@ -116,7 +101,7 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 10, postVersion: 13 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc" },
+      { client, fileId: "test_doc", expectedVersion: 10 },
       async () => ({ result: "data", apiCallCount: 3 }),
     );
 
@@ -128,7 +113,7 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 10, postVersion: 11 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc" },
+      { client, fileId: "test_doc", expectedVersion: 10 },
       async () => ({ result: "data", apiCallCount: 3 }),
     );
 
@@ -150,7 +135,7 @@ describe("withVersionGuard", () => {
 
     await expect(
       withVersionGuard(
-        { client, fileId: "test_doc" },
+        { client, fileId: "test_doc", expectedVersion: 5 },
         async () => {
           throw new Error("write failed");
         },
@@ -169,14 +154,14 @@ describe("withVersionGuard", () => {
 
     await expect(
       withVersionGuard(
-        { client, fileId: "nonexistent" },
+        { client, fileId: "nonexistent", expectedVersion: 1 },
         async () => ({ result: "ok", apiCallCount: 1 }),
       ),
     ).rejects.toThrow(DynalistApiError);
 
     try {
       await withVersionGuard(
-        { client, fileId: "nonexistent" },
+        { client, fileId: "nonexistent", expectedVersion: 1 },
         async () => ({ result: "ok", apiCallCount: 1 }),
       );
     } catch (e) {
@@ -189,7 +174,7 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 1, postVersion: 5 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc" },
+      { client, fileId: "test_doc", expectedVersion: 1 },
       async () => ({ result: "tree", apiCallCount: 4 }),
     );
 
@@ -201,7 +186,7 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 100, postVersion: 200 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc" },
+      { client, fileId: "test_doc", expectedVersion: 100 },
       async () => ({ result: "ok", apiCallCount: 1 }),
     );
 
@@ -218,7 +203,7 @@ describe("withVersionGuard", () => {
 
     await expect(
       withVersionGuard(
-        { client, fileId: "test_doc" },
+        { client, fileId: "test_doc", expectedVersion: 1 },
         async () => ({ result: "ok", apiCallCount: 1 }),
       ),
     ).rejects.toThrow(DynalistApiError);

@@ -43,7 +43,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           "If false, promote children up to the deleted node's parent. " +
           "Only supported for single-node deletions (node_ids must have exactly one element)."
         ),
-        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -61,7 +61,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       file_id: string;
       node_ids: string[];
       include_children: boolean;
-      expected_version?: number;
+      expected_version: number;
     }) => {
       if (node_ids.length === 0) {
         return makeErrorResponse("InvalidInput", "No nodes to delete (empty array).");
@@ -246,7 +246,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             "'last_child' = as last child of reference."
           ),
         })).describe("Array of moves to apply sequentially."),
-        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -266,7 +266,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         reference_node_id: string;
         position: string;
       }>;
-      expected_version?: number;
+      expected_version: number;
     }) => {
       if (moves.length === 0) {
         return makeErrorResponse("InvalidInput", "No moves to apply (empty array).");

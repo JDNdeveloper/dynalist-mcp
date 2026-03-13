@@ -125,6 +125,18 @@ export async function callToolError(
 }
 
 /**
+ * Read a document and return its current version number.
+ * Convenience for tests that need to supply expected_version.
+ */
+export async function getVersion(
+  client: Client,
+  fileId: string,
+): Promise<number> {
+  const result = await callToolOk(client, "read_document", { file_id: fileId });
+  return result.version as number;
+}
+
+/**
  * Standard test data setup used by most tool tests.
  */
 export function standardSetup(server: DummyDynalistServer): void {

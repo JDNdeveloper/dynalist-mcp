@@ -12,6 +12,7 @@ import {
   createTestContext,
   callToolOk,
   callToolError,
+  getVersion,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -31,12 +32,14 @@ afterEach(async () => {
 // ═════════════════════════════════════════════════════════════════════
 describe("move_nodes TOCTOU", () => {
   test("concurrent edit during planning read emits warning", async () => {
+    const version = ctx.server.documents.get("doc1")!.version;
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
     const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: version,
       moves: [{ node_id: "n1a", reference_node_id: "n2", position: "after" }],
     });
 
@@ -45,8 +48,10 @@ describe("move_nodes TOCTOU", () => {
   });
 
   test("no concurrent edit has no version_warning", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: version,
       moves: [{ node_id: "n1a", reference_node_id: "n2", position: "after" }],
     });
 
@@ -56,6 +61,7 @@ describe("move_nodes TOCTOU", () => {
   test("NodeNotFound inside guard returns proper error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: 1,
       moves: [{ node_id: "nonexistent", reference_node_id: "n2", position: "after" }],
     });
 
@@ -65,6 +71,7 @@ describe("move_nodes TOCTOU", () => {
   test("cycle detection inside guard returns proper error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
+      expected_version: 1,
       moves: [{ node_id: "n1", reference_node_id: "n1a", position: "last_child" }],
     });
 
@@ -78,12 +85,14 @@ describe("move_nodes TOCTOU", () => {
 // ═════════════════════════════════════════════════════════════════════
 describe("delete_nodes TOCTOU", () => {
   test("with children: concurrent edit during planning read emits warning", async () => {
+    const version = ctx.server.documents.get("doc1")!.version;
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_ids: ["n1"],
     });
 
@@ -92,12 +101,14 @@ describe("delete_nodes TOCTOU", () => {
   });
 
   test("promote children: concurrent edit during planning read emits warning", async () => {
+    const version = ctx.server.documents.get("doc1")!.version;
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_ids: ["n1"],
       include_children: false,
     });
@@ -107,8 +118,10 @@ describe("delete_nodes TOCTOU", () => {
   });
 
   test("no concurrent edit has no version_warning", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_ids: ["n1a"],
     });
 
@@ -118,6 +131,7 @@ describe("delete_nodes TOCTOU", () => {
   test("cannot delete root inside guard returns proper error", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "doc1",
+      expected_version: 1,
       node_ids: ["root"],
     });
 
@@ -131,12 +145,14 @@ describe("delete_nodes TOCTOU", () => {
 // ═════════════════════════════════════════════════════════════════════
 describe("insert_nodes TOCTOU", () => {
   test("after sibling: concurrent edit during planning read emits warning", async () => {
+    const version = ctx.server.documents.get("doc1")!.version;
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       reference_node_id: "n1",
       nodes: [{ content: "After n1" }],
       position: "after",
@@ -147,12 +163,14 @@ describe("insert_nodes TOCTOU", () => {
   });
 
   test("as_last_child multiple items: concurrent edit during planning read emits warning", async () => {
+    const version = ctx.server.documents.get("doc1")!.version;
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "root",
       nodes: [{ content: "A" }, { content: "B" }, { content: "C" }],
     });
@@ -162,12 +180,14 @@ describe("insert_nodes TOCTOU", () => {
   });
 
   test("root resolution: concurrent edit during planning read emits warning", async () => {
+    const version = ctx.server.documents.get("doc1")!.version;
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       nodes: [{ content: "Root child" }],
     });
 
@@ -176,8 +196,10 @@ describe("insert_nodes TOCTOU", () => {
   });
 
   test("no concurrent edit has no version_warning", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
+      expected_version: version,
       node_id: "n1",
       nodes: [{ content: "New child" }],
     });

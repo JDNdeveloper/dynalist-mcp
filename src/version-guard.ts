@@ -9,7 +9,7 @@ import type { DocumentStore } from "./document-store";
 export interface VersionGuardOptions {
   client: DynalistClient;
   fileId: string;
-  expectedVersion?: number;
+  expectedVersion: number;
   store?: DocumentStore;
 }
 
@@ -24,8 +24,8 @@ export interface VersionGuardResult<T> {
 /**
  * Execute a write operation with pre-write and post-write version checks.
  *
- * Pre-write: if expectedVersion is provided and the current document
- * version differs, abort immediately with an error. This is the CAS
+ * Pre-write: if the current document version differs from
+ * expectedVersion, abort immediately with an error. This is the CAS
  * (compare-and-swap) mechanism for inter-turn race detection.
  *
  * Post-write: compare version delta against the number of API calls
@@ -48,7 +48,7 @@ export async function withVersionGuard<T>(
   }
 
   // CAS check: abort if the document changed since the agent's last read.
-  if (expectedVersion !== undefined && expectedVersion !== preWriteVersion) {
+  if (expectedVersion !== preWriteVersion) {
     throw new VersionMismatchError(
       `Document version mismatch: expected ${expectedVersion}, current is ${preWriteVersion}. ` +
       `Re-read the document before retrying.`,

@@ -135,7 +135,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
           color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
         })).describe("Array of node edits to apply."),
-        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -159,7 +159,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         heading?: number;
         color?: number;
       }>;
-      expected_version?: number;
+      expected_version: number;
     }) => {
       if (nodes.length === 0) {
         return makeErrorResponse("InvalidInput", "No nodes to edit (empty array).");
@@ -258,7 +258,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "Sibling node to insert relative to. Required when position is 'after' or 'before'. " +
           "Cannot be combined with 'as_first_child'/'as_last_child' or index."
         ),
-        expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -283,7 +283,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       position: string;
       index?: number;
       reference_node_id?: string;
-      expected_version?: number;
+      expected_version: number;
     }) => {
       const config = getConfig();
 
