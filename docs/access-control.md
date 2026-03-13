@@ -42,7 +42,7 @@ Rules can include an `id` field to anchor to a specific file ID:
 { "path": "/Work/Notes", "policy": "deny", "id": "abc123" }
 ```
 
-When an `id` is present, the rule uses the ID-resolved path (authoritative) even if the file has been renamed or moved. If the file's current path no longer matches the rule's path, a warning is logged suggesting a config update.
+When an `id` is present, the rule tracks the file by ID even if it is renamed or moved. The ID pins the document or folder, not the glob pattern. A rule like `{ "path": "/Work/**", "policy": "deny", "id": "abc123" }` pins `/Work` to `abc123`; if that folder is later renamed to `/Projects`, the rule automatically applies to `/Projects/**`. If the file's current path no longer matches the rule's path, a warning is logged suggesting a config update.
 
 ## Fail-closed behavior
 
