@@ -119,49 +119,52 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Edit an existing node in a Dynalist document. Only specified fields are updated. " +
-        "Omitted fields are left unchanged (not reset to defaults). This is a partial update.",
+        "Edit one or more existing nodes in a Dynalist document. Only specified fields are " +
+        "updated per node. Omitted fields are left unchanged (not reset to defaults). " +
+        "For a single node, pass a one-element array.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().describe("Node ID to edit"),
-        content: z.string().optional().describe(`New content text. ${CONTENT_MULTILINE_GUIDANCE}`),
-        note: z.string().optional().describe(`New note text. ${MULTILINE_GUIDANCE} Set to '' to clear.`),
-        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
-        checkbox: z.boolean().optional().describe(
-          `Whether to show a checkbox on this node. ${CHECKBOX_DESCRIPTION}`
-        ),
-        heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
-        color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
+        nodes: z.array(z.object({
+          node_id: z.string().describe("Node ID to edit"),
+          content: z.string().optional().describe(`New content text. ${CONTENT_MULTILINE_GUIDANCE}`),
+          note: z.string().optional().describe(`New note text. ${MULTILINE_GUIDANCE} Set to '' to clear.`),
+          checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
+          checkbox: z.boolean().optional().describe(
+            `Whether to show a checkbox on this node. ${CHECKBOX_DESCRIPTION}`
+          ),
+          heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
+          color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
+        })).describe("Array of node edits to apply."),
         expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
-        node_id: z.string().describe("Edited node ID"),
-        url: z.string().describe("Dynalist URL for the edited node"),
+        edited_count: z.number().describe("Number of nodes edited"),
+        node_ids: z.array(z.string()).describe("IDs of all edited nodes"),
         version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      node_id,
-      content,
-      note,
-      checked,
-      checkbox,
-      heading,
-      color,
+      nodes,
       expected_version,
     }: {
       file_id: string;
-      node_id: string;
-      content?: string;
-      note?: string;
-      checked?: boolean;
-      checkbox?: boolean;
-      heading?: number;
-      color?: number;
+      nodes: Array<{
+        node_id: string;
+        content?: string;
+        note?: string;
+        checked?: boolean;
+        checkbox?: boolean;
+        heading?: number;
+        color?: number;
+      }>;
       expected_version?: number;
     }) => {
+      if (nodes.length === 0) {
+        return makeErrorResponse("InvalidInput", "No nodes to edit (empty array).");
+      }
+
       const config = getConfig();
 
       // Access check: requires write (allow) policy.
@@ -169,31 +172,36 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      const change: EditDocumentChange = {
-        action: "edit",
-        node_id,
-      };
+      const changes: EditDocumentChange[] = nodes.map((entry) => {
+        const change: EditDocumentChange = {
+          action: "edit",
+          node_id: entry.node_id,
+        };
 
-      // Only include fields that are explicitly set.
-      if (content !== undefined) change.content = content;
-      if (note !== undefined) change.note = note;
-      if (checked !== undefined) change.checked = checked;
-      if (checkbox !== undefined) change.checkbox = checkbox;
-      if (heading !== undefined) change.heading = heading;
-      if (color !== undefined) change.color = color;
+        // Only include fields that are explicitly set.
+        if (entry.content !== undefined) change.content = entry.content;
+        if (entry.note !== undefined) change.note = entry.note;
+        if (entry.checked !== undefined) change.checked = entry.checked;
+        if (entry.checkbox !== undefined) change.checkbox = entry.checkbox;
+        if (entry.heading !== undefined) change.heading = entry.heading;
+        if (entry.color !== undefined) change.color = entry.color;
+
+        return change;
+      });
 
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
-          const response = await client.editDocument(file_id, [change]);
+          const response = await client.editDocument(file_id, changes);
           return { result: undefined, apiCallCount: response.batches_sent };
         },
       );
 
+      const nodeIds = nodes.map((entry) => entry.node_id);
       const data: Record<string, unknown> = {
         file_id,
-        node_id,
-        url: buildDynalistUrl(file_id, node_id),
+        edited_count: nodes.length,
+        node_ids: nodeIds,
       };
       if (guard.versionWarning) data.version_warning = guard.versionWarning;
 

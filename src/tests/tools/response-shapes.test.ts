@@ -272,21 +272,19 @@ describe("edit_nodes response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated content",
+      nodes: [{ node_id: "n1", content: "Updated content" }],
     });
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
-    expect(typeof data.node_id).toBe("string");
-    expect(typeof data.url).toBe("string");
+    expect(typeof data.edited_count).toBe("number");
+    expect(Array.isArray(data.node_ids)).toBe(true);
   });
 
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "nonexistent",
-      node_id: "n1",
-      content: "test",
+      nodes: [{ node_id: "n1", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");
@@ -295,8 +293,7 @@ describe("edit_nodes response shape", () => {
   test("error response for non-existent node has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "bad_node",
-      content: "test",
+      nodes: [{ node_id: "bad_node", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NodeNotFound");

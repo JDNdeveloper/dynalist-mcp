@@ -32,8 +32,7 @@ describe("document store cache invalidation", () => {
     // Edit a node.
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Edited via integration test",
+      nodes: [{ node_id: "n1", content: "Edited via integration test" }],
     });
 
     // Read again. The cache should have been invalidated by the edit,

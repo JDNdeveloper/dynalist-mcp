@@ -1641,8 +1641,7 @@ describe("check_document_versions", () => {
     // Edit the document.
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated",
+      nodes: [{ node_id: "n1", content: "Updated" }],
     });
 
     const after = await callToolOk(ctx.mcpClient, "check_document_versions", {

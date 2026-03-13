@@ -221,26 +221,43 @@ Send a single item to your Dynalist inbox. The target document is the user's con
 
 ### `edit_nodes`
 
-Edit an existing node. Only specified fields are updated. Omitted fields are left unchanged (not reset to defaults). This is a partial update.
+Edit one or more existing nodes. Only specified fields are updated per node. Omitted fields are left unchanged (not reset to defaults). For a single node, pass a one-element array.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
-| `node_id` | string | yes | | Node ID to edit |
-| `content` | string | no | | New content text |
-| `note` | string | no | | New note text. Set to `""` to clear. Supports multiline. |
-| `checked` | boolean | no | | Checked state |
-| `checkbox` | boolean | no | | Whether to show checkbox |
-| `heading` | number | no | | 0 = none, 1 = H1, 2 = H2, 3 = H3 |
-| `color` | number | no | | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+| `nodes` | array | yes | | Array of node edit objects (see below) |
 | `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
+
+**Node edit object fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `node_id` | string | yes | Node ID to edit |
+| `content` | string | no | New content text |
+| `note` | string | no | New note text. Set to `""` to clear. Supports multiline. |
+| `checked` | boolean | no | Checked state |
+| `checkbox` | boolean | no | Whether to show checkbox |
+| `heading` | number | no | 0 = none, 1 = H1, 2 = H2, 3 = H3 |
+| `color` | number | no | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+
+Example input:
+```json
+{
+  "file_id": "abc123",
+  "nodes": [
+    { "node_id": "node1", "content": "Updated text", "color": 3 },
+    { "node_id": "node2", "checked": true }
+  ]
+}
+```
 
 **Response**:
 ```json
 {
   "file_id": "...",
-  "node_id": "...",
-  "url": "...",
+  "edited_count": 2,
+  "node_ids": ["node1", "node2"],
   "version_warning": "..."
 }
 ```

@@ -164,8 +164,7 @@ describe("version guard edge cases", () => {
 
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "test",
+      nodes: [{ node_id: "n1", content: "test" }],
     });
 
     // Negative delta != 1, so a warning should be produced.
@@ -179,8 +178,7 @@ describe("version guard edge cases", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated doc1",
+      nodes: [{ node_id: "n1", content: "Updated doc1" }],
     });
 
     const doc1After = ctx.server.documents.get("doc1")!.version;
@@ -283,8 +281,7 @@ describe("version guard edge cases", () => {
 
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Should not apply",
+      nodes: [{ node_id: "n1", content: "Should not apply" }],
       expected_version: staleVersion,
     });
 

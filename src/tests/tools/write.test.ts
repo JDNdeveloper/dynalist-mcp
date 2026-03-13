@@ -21,20 +21,60 @@ afterEach(async () => {
 // ─── edit_nodes ───────────────────────────────────────────────────────
 
 describe("edit_nodes", () => {
-  test("updates content", async () => {
+  test("updates content of a single node", async () => {
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated content",
+      nodes: [{ node_id: "n1", content: "Updated content" }],
     });
     expect(result.file_id).toBe("doc1");
-    expect(result.node_id).toBe("n1");
-    expect(result.url).toContain("doc1");
+    expect(result.edited_count).toBe(1);
+    expect((result.node_ids as string[])).toEqual(["n1"]);
 
     // Verify the change persisted.
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
     expect(node.content).toBe("Updated content");
+  });
+
+  test("edits multiple nodes in one call", async () => {
+    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      nodes: [
+        { node_id: "n1", content: "First updated" },
+        { node_id: "n2", content: "Second updated" },
+      ],
+    });
+    expect(result.edited_count).toBe(2);
+    expect((result.node_ids as string[])).toEqual(["n1", "n2"]);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    expect(doc.nodes.find((n) => n.id === "n1")!.content).toBe("First updated");
+    expect(doc.nodes.find((n) => n.id === "n2")!.content).toBe("Second updated");
+  });
+
+  test("edits multiple nodes with different fields per node", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    const n2 = doc.nodes.find((n) => n.id === "n2")!;
+    const n1OriginalContent = n1.content;
+    const n2OriginalContent = n2.content;
+
+    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      nodes: [
+        { node_id: "n1", heading: 2, color: 3 },
+        { node_id: "n2", note: "new note", checkbox: true },
+      ],
+    });
+    expect(result.edited_count).toBe(2);
+
+    // Verify each node only got the fields specified.
+    expect(n1.content).toBe(n1OriginalContent);
+    expect(n1.heading).toBe(2);
+    expect(n1.color).toBe(3);
+    expect(n2.content).toBe(n2OriginalContent);
+    expect(n2.note).toBe("new note");
+    expect(n2.checkbox).toBe(true);
   });
 
   test("partial update: only specified fields change", async () => {
@@ -46,8 +86,7 @@ describe("edit_nodes", () => {
     // Edit only content, not note.
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "New content",
+      nodes: [{ node_id: "n1", content: "New content" }],
     });
 
     expect(node.content).toBe("New content");
@@ -57,8 +96,7 @@ describe("edit_nodes", () => {
   test("empty content is allowed", async () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "",
+      nodes: [{ node_id: "n1", content: "" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
@@ -72,8 +110,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      note: "",
+      nodes: [{ node_id: "n1", note: "" }],
     });
     expect(node.note).toBe("");
   });
@@ -81,9 +118,7 @@ describe("edit_nodes", () => {
   test("sets heading and color", async () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      heading: 2,
-      color: 3,
+      nodes: [{ node_id: "n1", heading: 2, color: 3 }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
@@ -91,11 +126,18 @@ describe("edit_nodes", () => {
     expect(node.color).toBe(3);
   });
 
+  test("empty nodes array returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      nodes: [],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
   test("nonexistent document returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "nonexistent",
-      node_id: "n1",
-      content: "test",
+      nodes: [{ node_id: "n1", content: "test" }],
     });
     expect(err.error).toBe("NotFound");
   });
@@ -103,8 +145,7 @@ describe("edit_nodes", () => {
   test("nonexistent node returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "nonexistent",
-      content: "test",
+      nodes: [{ node_id: "nonexistent", content: "test" }],
     });
     expect(err.error).toBe("NodeNotFound");
   });
@@ -113,8 +154,7 @@ describe("edit_nodes", () => {
     const complexNote = "Line 1\n\n```python\ndef foo():\n    return 42\n```\n\nLine after code";
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      note: complexNote,
+      nodes: [{ node_id: "n1", note: complexNote }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
@@ -134,8 +174,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Changed content only",
+      nodes: [{ node_id: "n1", content: "Changed content only" }],
     });
 
     expect(node.content).toBe("Changed content only");
@@ -153,8 +192,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      note: "brand new note",
+      nodes: [{ node_id: "n1", note: "brand new note" }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -170,8 +208,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      heading: 3,
+      nodes: [{ node_id: "n1", heading: 3 }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -188,8 +225,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      color: 6,
+      nodes: [{ node_id: "n1", color: 6 }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -205,8 +241,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      checkbox: true,
+      nodes: [{ node_id: "n1", checkbox: true }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -223,8 +258,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      checked: true,
+      nodes: [{ node_id: "n1", checked: true }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -242,8 +276,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      heading: 0,
+      nodes: [{ node_id: "n1", heading: 0 }],
     });
 
     expect(node.heading).toBeUndefined();
@@ -253,8 +286,7 @@ describe("edit_nodes", () => {
     for (const h of [1, 2, 3]) {
       await callToolOk(ctx.mcpClient, "edit_nodes", {
         file_id: "doc1",
-        node_id: "n1",
-        heading: h,
+        nodes: [{ node_id: "n1", heading: h }],
       });
       const doc = ctx.server.documents.get("doc1")!;
       const node = doc.nodes.find((n) => n.id === "n1")!;
@@ -269,8 +301,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      color: 0,
+      nodes: [{ node_id: "n1", color: 0 }],
     });
 
     expect(node.color).toBeUndefined();
@@ -280,8 +311,7 @@ describe("edit_nodes", () => {
     for (const c of [1, 2, 3, 4, 5, 6]) {
       await callToolOk(ctx.mcpClient, "edit_nodes", {
         file_id: "doc1",
-        node_id: "n1",
-        color: c,
+        nodes: [{ node_id: "n1", color: c }],
       });
       const doc = ctx.server.documents.get("doc1")!;
       const node = doc.nodes.find((n) => n.id === "n1")!;
@@ -296,8 +326,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      checkbox: false,
+      nodes: [{ node_id: "n1", checkbox: false }],
     });
 
     expect(node.checkbox).toBe(false);
@@ -306,9 +335,7 @@ describe("edit_nodes", () => {
   test("checked: true with checkbox: true marks node as checked", async () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      checkbox: true,
-      checked: true,
+      nodes: [{ node_id: "n1", checkbox: true, checked: true }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -325,8 +352,7 @@ describe("edit_nodes", () => {
 
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      checked: false,
+      nodes: [{ node_id: "n1", checked: false }],
     });
 
     expect(node.checked).toBe(false);
@@ -334,17 +360,15 @@ describe("edit_nodes", () => {
 
   // ─── 10d: response shape ────────────────────────────────────────────
 
-  test("response includes file_id, node_id, and url", async () => {
+  test("response includes file_id, edited_count, and node_ids", async () => {
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "shape test",
+      nodes: [{ node_id: "n1", content: "shape test" }],
     });
 
     expect(result.file_id).toBe("doc1");
-    expect(result.node_id).toBe("n1");
-    expect(typeof result.url).toBe("string");
-    expect(result.url).toContain("doc1");
+    expect(result.edited_count).toBe(1);
+    expect((result.node_ids as string[])).toEqual(["n1"]);
   });
 
   // ─── 10e: error codes ──────────────────────────────────────────────
@@ -352,8 +376,7 @@ describe("edit_nodes", () => {
   test("nonexistent document returns NotFound error code", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "no_such_doc",
-      node_id: "n1",
-      content: "test",
+      nodes: [{ node_id: "n1", content: "test" }],
     });
     expect(err.error).toBe("NotFound");
   });
@@ -361,10 +384,50 @@ describe("edit_nodes", () => {
   test("nonexistent node returns NodeNotFound error code", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "no_such_node",
-      content: "test",
+      nodes: [{ node_id: "no_such_node", content: "test" }],
     });
     expect(err.error).toBe("NodeNotFound");
+  });
+
+  // ─── 10f: bulk-specific behavior ─────────────────────────────────
+
+  test("state round-trip: edit then read_document to verify", async () => {
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      nodes: [
+        { node_id: "n1", content: "Round-trip A", note: "note A" },
+        { node_id: "n2", content: "Round-trip B", heading: 2 },
+      ],
+    });
+
+    const doc = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    const children = (doc.node as { children: Array<{ node_id: string; content: string; note?: string; heading?: number }> }).children;
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n2 = children.find((c) => c.node_id === "n2")!;
+    expect(n1.content).toBe("Round-trip A");
+    expect(n1.note).toBe("note A");
+    expect(n2.content).toBe("Round-trip B");
+    expect(n2.heading).toBe(2);
+  });
+
+  test("duplicate node_id in array applies last-write-wins", async () => {
+    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      nodes: [
+        { node_id: "n1", content: "First write" },
+        { node_id: "n1", content: "Second write" },
+      ],
+    });
+    expect(result.edited_count).toBe(2);
+    expect((result.node_ids as string[])).toEqual(["n1", "n1"]);
+
+    // The Dynalist API processes changes sequentially, so the second
+    // write should win.
+    const doc = ctx.server.documents.get("doc1")!;
+    const node = doc.nodes.find((n) => n.id === "n1")!;
+    expect(node.content).toBe("Second write");
   });
 });
 

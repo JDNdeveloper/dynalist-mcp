@@ -30,8 +30,7 @@ describe("edit_nodes version guard", () => {
   test("stale expected_version aborts with VersionMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated",
+      nodes: [{ node_id: "n1", content: "Updated" }],
       expected_version: 999,
     });
     expect(err.error).toBe("VersionMismatch");
@@ -48,21 +47,19 @@ describe("edit_nodes version guard", () => {
 
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated",
+      nodes: [{ node_id: "n1", content: "Updated" }],
       expected_version: version,
     });
-    expect(result.node_id).toBe("n1");
+    expect((result.node_ids as string[])).toEqual(["n1"]);
     expect(result.version_warning).toBeUndefined();
   });
 
   test("omitted expected_version succeeds without abort", async () => {
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated",
+      nodes: [{ node_id: "n1", content: "Updated" }],
     });
-    expect(result.node_id).toBe("n1");
+    expect((result.node_ids as string[])).toEqual(["n1"]);
     expect(result.version_warning).toBeUndefined();
   });
 });
@@ -234,8 +231,7 @@ describe("post-write concurrent modification detection", () => {
   test("clean write has no version_warning", async () => {
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated",
+      nodes: [{ node_id: "n1", content: "Updated" }],
     });
     expect(result.version_warning).toBeUndefined();
   });
@@ -248,8 +244,7 @@ describe("post-write concurrent modification detection", () => {
 
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated",
+      nodes: [{ node_id: "n1", content: "Updated" }],
     });
 
     expect(result.version_warning).toBeDefined();
@@ -339,8 +334,7 @@ describe("read_document version", () => {
   test("version increments after edits", async () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      content: "Updated",
+      nodes: [{ node_id: "n1", content: "Updated" }],
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {

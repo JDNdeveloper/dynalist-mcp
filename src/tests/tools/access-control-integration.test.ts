@@ -201,8 +201,7 @@ describe("edit_nodes with ACL", () => {
   test("denied document returns NotFound (not ReadOnly)", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "denied_doc",
-      node_id: "dn1",
-      content: "hacked",
+      nodes: [{ node_id: "dn1", content: "hacked" }],
     });
     expect(err.error).toBe("NotFound");
   });
@@ -210,8 +209,7 @@ describe("edit_nodes with ACL", () => {
   test("read-policy document returns ReadOnly error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "readonly_doc",
-      node_id: "rn1",
-      content: "hacked",
+      nodes: [{ node_id: "rn1", content: "hacked" }],
     });
     expect(err.error).toBe("ReadOnly");
   });
@@ -219,11 +217,10 @@ describe("edit_nodes with ACL", () => {
   test("allow-policy document edit succeeds", async () => {
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "allowed_doc",
-      node_id: "an1",
-      content: "Updated content",
+      nodes: [{ node_id: "an1", content: "Updated content" }],
     });
     expect(result.file_id).toBe("allowed_doc");
-    expect(result.node_id).toBe("an1");
+    expect((result.node_ids as string[])).toEqual(["an1"]);
   });
 });
 
@@ -860,8 +857,7 @@ describe("global readOnly: true overrides", () => {
     writeReadOnlyConfig();
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "allowed_doc",
-      node_id: "an1",
-      content: "hacked",
+      nodes: [{ node_id: "an1", content: "hacked" }],
     });
     expect(err.error).toBe("ReadOnly");
     expect(err.message).toBe("Server is in read-only mode.");
@@ -949,16 +945,14 @@ describe("global readOnly: true overrides", () => {
     // Per-policy ReadOnly message.
     const policyErr = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "readonly_doc",
-      node_id: "rn1",
-      content: "hacked",
+      nodes: [{ node_id: "rn1", content: "hacked" }],
     });
 
     // Global readOnly message.
     writeReadOnlyConfig();
     const globalErr = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "allowed_doc",
-      node_id: "an1",
-      content: "hacked",
+      nodes: [{ node_id: "an1", content: "hacked" }],
     });
 
     expect(policyErr.message).not.toBe(globalErr.message);
