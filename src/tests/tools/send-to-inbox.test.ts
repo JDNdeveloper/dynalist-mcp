@@ -59,8 +59,8 @@ describe("send_to_inbox", () => {
     const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Important task",
       checkbox: true,
-      heading: 2,
-      color: 3,
+      heading: "h2",
+      color: "yellow",
     });
 
     const doc = ctx.server.documents.get("inbox_doc")!;
@@ -119,42 +119,22 @@ describe("send_to_inbox", () => {
     expect(node.checkbox).toBe(false);
   });
 
-  // ─── Validation: out-of-range parameters ────────────────────────────
+  // ─── Validation: invalid string values ─────────────────────────────
 
-  test("rejects heading above max (5)", async () => {
+  test("rejects invalid heading string", async () => {
     const result = await callTool(ctx.mcpClient, "send_to_inbox", {
       content: "Bad heading",
-      heading: 5,
+      heading: "h4",
     });
 
     expect(result.isError).toBe(true);
     expect(JSON.stringify(result.content)).toContain("heading");
   });
 
-  test("rejects heading below min (-1)", async () => {
-    const result = await callTool(ctx.mcpClient, "send_to_inbox", {
-      content: "Bad heading",
-      heading: -1,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("heading");
-  });
-
-  test("rejects color above max (10)", async () => {
+  test("rejects invalid color string", async () => {
     const result = await callTool(ctx.mcpClient, "send_to_inbox", {
       content: "Bad color",
-      color: 10,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("color");
-  });
-
-  test("rejects color below min (-1)", async () => {
-    const result = await callTool(ctx.mcpClient, "send_to_inbox", {
-      content: "Bad color",
-      color: -1,
+      color: "magenta",
     });
 
     expect(result.isError).toBe(true);

@@ -81,8 +81,8 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
         "node_id": "...",
         "content": "Child item",
         "note": "A note on this node",
-        "heading": 1,
-        "color": 2,
+        "heading": "h1",
+        "color": "orange",
         "collapsed": false,
         "children_count": 0,
         "children": []
@@ -102,8 +102,8 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 
 **Node properties:**
 - `checked`, `checkbox`: only present when the node has a checkbox. Omitted for plain nodes.
-- `heading`: 0 = none, 1 = H1, 2 = H2, 3 = H3. Omitted when 0.
-- `color`: 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple. Omitted when 0.
+- `heading`: `"h1"`, `"h2"`, `"h3"`. Omitted when none.
+- `color`: `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"`. Omitted when none.
 - `note`: omitted when empty (not present in JSON, saves tokens).
 - `depth_limited`: true when the depth limit caused children to be hidden.
 - `children_count`: always present, shows total direct children regardless of visibility.
@@ -219,8 +219,8 @@ Send a single item to your Dynalist inbox. The target document is the user's con
 | `content` | string | yes | | Text content for the inbox item |
 | `note` | string | no | | Note for the item |
 | `checkbox` | boolean | no | config | Whether to add a checkbox |
-| `heading` | number | no | `0` | 0 = no heading, 1 = H1, 2 = H2, 3 = H3 |
-| `color` | number | no | `0` | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+| `heading` | string | no | | `"none"` = no heading, `"h1"` = H1, `"h2"` = H2, `"h3"` = H3 |
+| `color` | string | no | | `"none"` = no color, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` |
 | `checked` | boolean | no | | Check state. Only meaningful when checkbox is true |
 
 **Response**:
@@ -253,8 +253,8 @@ Node IDs are pre-validated before the write: if any node ID is not found in the 
 | `note` | string | no | New note text. Set to `""` to clear. Supports multiline. |
 | `checked` | boolean | no | Checked state |
 | `checkbox` | boolean | no | Whether to show checkbox |
-| `heading` | number | no | 0 = none, 1 = H1, 2 = H2, 3 = H3 |
-| `color` | number | no | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+| `heading` | string | no | `"none"` = no heading, `"h1"` = H1, `"h2"` = H2, `"h3"` = H3 |
+| `color` | string | no | `"none"` = no color, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` |
 
 Example input:
 ```json
@@ -262,7 +262,7 @@ Example input:
   "file_id": "abc123",
   "expected_version": 42,
   "nodes": [
-    { "node_id": "node1", "content": "Updated text", "color": 3 },
+    { "node_id": "node1", "content": "Updated text", "color": "yellow" },
     { "node_id": "node2", "checked": true }
   ]
 }
@@ -303,8 +303,8 @@ Insert one or more nodes into a Dynalist document as a JSON tree. Supports neste
 | `note` | string | no | Note text. Supports multiline. |
 | `checkbox` | boolean | no | Whether to show a checkbox |
 | `checked` | boolean | no | Checked (completed) state |
-| `heading` | number | no | 0 = none, 1 = H1, 2 = H2, 3 = H3 |
-| `color` | number | no | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+| `heading` | string | no | `"none"` = no heading, `"h1"` = H1, `"h2"` = H2, `"h3"` = H3 |
+| `color` | string | no | `"none"` = no color, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` |
 | `children` | array | no | Nested child node objects (same shape, recursive) |
 
 Example input:
@@ -321,7 +321,7 @@ Example input:
         { "content": "Another child", "checkbox": true }
       ]
     },
-    { "content": "Second top level item", "heading": 1 }
+    { "content": "Second top level item", "heading": "h1" }
   ]
 }
 ```

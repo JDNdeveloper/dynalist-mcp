@@ -937,7 +937,7 @@ describe("T12: read_document field omission rules", () => {
     const node = result.node as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
     const n1 = children.find((c) => c.node_id === "n1")!;
-    expect(n1.heading).toBe(1);
+    expect(n1.heading).toBe("h1");
   });
 
   test("color field omitted when 0", async () => {
@@ -973,7 +973,7 @@ describe("T12: read_document field omission rules", () => {
     const node = result.node as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
     const n1 = children.find((c) => c.node_id === "n1")!;
-    expect(n1.color).toBe(1);
+    expect(n1.color).toBe("red");
   });
 
   test("checkbox field omitted when not set on node", async () => {
@@ -1038,8 +1038,8 @@ describe("T12: read_document field omission rules", () => {
     const children = node.children as Record<string, unknown>[];
     const n1 = children.find((c) => c.node_id === "n1")!;
     expect(n1.note).toBe("A note");
-    expect(n1.heading).toBe(2);
-    expect(n1.color).toBe(3);
+    expect(n1.heading).toBe("h2");
+    expect(n1.color).toBe("yellow");
     expect(n1.checkbox).toBe(true);
     expect(n1.checked).toBe(false);
   });

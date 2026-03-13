@@ -69,7 +69,7 @@ describe("edit_nodes", () => {
       file_id: "doc1",
       expected_version: version,
       nodes: [
-        { node_id: "n1", heading: 2, color: 3 },
+        { node_id: "n1", heading: "h2", color: "yellow" },
         { node_id: "n2", note: "new note", checkbox: true },
       ],
     });
@@ -133,7 +133,7 @@ describe("edit_nodes", () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", heading: 2, color: 3 }],
+      nodes: [{ node_id: "n1", heading: "h2", color: "yellow" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
@@ -256,7 +256,7 @@ describe("edit_nodes", () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", heading: 3 }],
+      nodes: [{ node_id: "n1", heading: "h3" }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -275,7 +275,7 @@ describe("edit_nodes", () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", color: 6 }],
+      nodes: [{ node_id: "n1", color: "purple" }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -323,7 +323,7 @@ describe("edit_nodes", () => {
 
   // ─── 10c: specific field values ─────────────────────────────────────
 
-  test("heading: 0 removes heading", async () => {
+  test("heading: 'none' removes heading", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.heading = 2;
@@ -332,27 +332,28 @@ describe("edit_nodes", () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", heading: 0 }],
+      nodes: [{ node_id: "n1", heading: "none" }],
     });
 
     expect(node.heading).toBeUndefined();
   });
 
-  test("heading: 1, 2, 3 all set correctly", async () => {
-    for (const h of [1, 2, 3]) {
+  test("heading: h1, h2, h3 all set correctly", async () => {
+    const headings: Array<[string, number]> = [["h1", 1], ["h2", 2], ["h3", 3]];
+    for (const [str, num] of headings) {
       const version = await getVersion(ctx.mcpClient, "doc1");
       await callToolOk(ctx.mcpClient, "edit_nodes", {
         file_id: "doc1",
         expected_version: version,
-        nodes: [{ node_id: "n1", heading: h }],
+        nodes: [{ node_id: "n1", heading: str }],
       });
       const doc = ctx.server.documents.get("doc1")!;
       const node = doc.nodes.find((n) => n.id === "n1")!;
-      expect(node.heading).toBe(h);
+      expect(node.heading).toBe(num);
     }
   });
 
-  test("color: 0 removes color", async () => {
+  test("color: 'none' removes color", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.color = 3;
@@ -361,23 +362,27 @@ describe("edit_nodes", () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", color: 0 }],
+      nodes: [{ node_id: "n1", color: "none" }],
     });
 
     expect(node.color).toBeUndefined();
   });
 
-  test("color: 1 through 6 all set correctly", async () => {
-    for (const c of [1, 2, 3, 4, 5, 6]) {
+  test("all color values set correctly", async () => {
+    const colors: Array<[string, number]> = [
+      ["red", 1], ["orange", 2], ["yellow", 3],
+      ["green", 4], ["blue", 5], ["purple", 6],
+    ];
+    for (const [str, num] of colors) {
       const version = await getVersion(ctx.mcpClient, "doc1");
       await callToolOk(ctx.mcpClient, "edit_nodes", {
         file_id: "doc1",
         expected_version: version,
-        nodes: [{ node_id: "n1", color: c }],
+        nodes: [{ node_id: "n1", color: str }],
       });
       const doc = ctx.server.documents.get("doc1")!;
       const node = doc.nodes.find((n) => n.id === "n1")!;
-      expect(node.color).toBe(c);
+      expect(node.color).toBe(num);
     }
   });
 
@@ -470,20 +475,20 @@ describe("edit_nodes", () => {
       expected_version: version,
       nodes: [
         { node_id: "n1", content: "Round-trip A", note: "note A" },
-        { node_id: "n2", content: "Round-trip B", heading: 2 },
+        { node_id: "n2", content: "Round-trip B", heading: "h2" },
       ],
     });
 
     const doc = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    const children = (doc.node as { children: Array<{ node_id: string; content: string; note?: string; heading?: number }> }).children;
+    const children = (doc.node as { children: Array<{ node_id: string; content: string; note?: string; heading?: string }> }).children;
     const n1 = children.find((c) => c.node_id === "n1")!;
     const n2 = children.find((c) => c.node_id === "n2")!;
     expect(n1.content).toBe("Round-trip A");
     expect(n1.note).toBe("note A");
     expect(n2.content).toBe("Round-trip B");
-    expect(n2.heading).toBe(2);
+    expect(n2.heading).toBe("h2");
   });
 
   test("duplicate node_id in array applies last-write-wins", async () => {
@@ -941,13 +946,13 @@ describe("insert_nodes", () => {
     expect(newNode.checkbox).toBe(false);
   });
 
-  test("heading > 0 is included on the inserted node", async () => {
+  test("heading is included on the inserted node", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
       reference_node_id: "root",
-      nodes: [{ content: "Heading node", heading: 2 }],
+      nodes: [{ content: "Heading node", heading: "h2" }],
       position: "last_child",
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -955,13 +960,13 @@ describe("insert_nodes", () => {
     expect(newNode.heading).toBe(2);
   });
 
-  test("heading 0 is passed through to the inserted node", async () => {
+  test("heading 'none' is passed through to the inserted node", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
       reference_node_id: "root",
-      nodes: [{ content: "No heading node", heading: 0 }],
+      nodes: [{ content: "No heading node", heading: "none" }],
       position: "last_child",
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -969,13 +974,13 @@ describe("insert_nodes", () => {
     expect(newNode.heading).toBe(0);
   });
 
-  test("color > 0 is included on the inserted node", async () => {
+  test("color is included on the inserted node", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
       reference_node_id: "root",
-      nodes: [{ content: "Colored node", color: 3 }],
+      nodes: [{ content: "Colored node", color: "yellow" }],
       position: "last_child",
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -983,13 +988,13 @@ describe("insert_nodes", () => {
     expect(newNode.color).toBe(3);
   });
 
-  test("color 0 is passed through to the inserted node", async () => {
+  test("color 'none' is passed through to the inserted node", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
       reference_node_id: "root",
-      nodes: [{ content: "No color node", color: 0 }],
+      nodes: [{ content: "No color node", color: "none" }],
       position: "last_child",
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -1035,11 +1040,11 @@ describe("insert_nodes", () => {
       position: "last_child",
       nodes: [{
         content: "Parent",
-        heading: 1,
+        heading: "h1",
         children: [{
           content: "Child",
           note: "child note",
-          color: 5,
+          color: "blue",
           checkbox: true,
           checked: true,
         }],
@@ -1485,7 +1490,7 @@ describe("send_to_inbox", () => {
   test("sends with heading", async () => {
     await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Heading item",
-      heading: 2,
+      heading: "h2",
     });
     const doc = ctx.server.documents.get("inbox_doc")!;
     const node = doc.nodes.find((n) => n.content === "Heading item")!;
@@ -1495,7 +1500,7 @@ describe("send_to_inbox", () => {
   test("sends with color", async () => {
     await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Colored item",
-      color: 4,
+      color: "green",
     });
     const doc = ctx.server.documents.get("inbox_doc")!;
     const node = doc.nodes.find((n) => n.content === "Colored item")!;

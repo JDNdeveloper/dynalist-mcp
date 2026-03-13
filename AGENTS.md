@@ -54,6 +54,7 @@ src/
 ├── tools/
 │   ├── index.ts                  # Aggregator - registers all tools
 │   ├── descriptions.ts           # Shared parameter descriptions and guidance constants
+│   ├── node-metadata.ts          # Heading/color string enums and API translation maps
 │   ├── read.ts                   # Read tools (list, search, read_document, etc.)
 │   ├── write.ts                  # Write tools (inbox, edit, insert)
 │   ├── structure.ts              # Structure tools (delete, move)
@@ -98,7 +99,7 @@ Additional principles:
 
 Do not duplicate guidance across levels. If something is tool-specific, put it in the tool or parameter description. If it is a cross-cutting pattern, put it in the MCP instructions. Factor commonly repeated strings and substrings into `src/tools/descriptions.ts` so wording changes only need to happen once. That file already uses `*_GUIDANCE` constants for shared policy wording that is interpolated into both parameter descriptions and MCP instructions.
 
-**Exception:** Inline value meanings (enum values, position options, etc.) are repeated wherever they appear, even across description levels. This avoids the agent having to cross-reference a central definition to interpret a parameter or understand a tool. Examples: the color label enum (`0 = none, 1 = red, ...`) and heading level enum (`0 = no heading, 1 = H1, ...`) are spelled out in each parameter that accepts them, and move_nodes position values appear in both the tool description and the parameter description.
+**Exception:** Inline value meanings (enum values, position options, etc.) are repeated wherever they appear, even across description levels. This avoids the agent having to cross-reference a central definition to interpret a parameter or understand a tool. Examples: the color label enum (`'none', 'red', 'orange', ...`) and heading level enum (`'none', 'h1', 'h2', 'h3'`) are spelled out in each parameter that accepts them, and move_nodes position values appear in both the tool description and the parameter description.
 
 ## Key conventions
 

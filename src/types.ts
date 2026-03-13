@@ -26,8 +26,8 @@ export interface OutputNode {
   note?: string;
   checked?: boolean;
   checkbox?: boolean;
-  heading?: number;
-  color?: number;
+  heading?: string;
+  color?: string;
   collapsed: boolean;
   depth_limited?: true;
   children_count: number;

@@ -21,6 +21,7 @@ import {
 import type { DocumentStore } from "../document-store";
 import type { ParentLevels } from "../utils/dynalist-helpers";
 import { FILE_ID_DESCRIPTION, BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION } from "./descriptions";
+import { NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "./node-metadata";
 
 export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -208,8 +209,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         url: z.string().optional().describe("Dynalist URL"),
         node: z.any().optional().describe(
           "Node tree root. Fields: node_id, content, note (omitted when empty), checked, checkbox, " +
-          "heading (0=none/1=H1/2=H2/3=H3, omitted when 0), " +
-          "color (0=none/1=red/2=orange/3=yellow/4=green/5=blue/6=purple, omitted when 0), " +
+          "heading ('h1'/'h2'/'h3', omitted when none), " +
+          "color ('red'/'orange'/'yellow'/'green'/'blue'/'purple', omitted when none), " +
           "collapsed (user-collapsed, distinct from depth_limited), " +
           "depth_limited (max_depth cutoff, distinct from collapsed), " +
           "children_count (total children regardless of visibility), " +
@@ -382,8 +383,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           // Include optional fields only when present, consistent with read_document.
           if (node.checked !== undefined) match.checked = node.checked;
           if (node.checkbox !== undefined) match.checkbox = node.checkbox;
-          if (node.heading !== undefined && node.heading > 0) match.heading = node.heading;
-          if (node.color !== undefined && node.color > 0) match.color = node.color;
+          if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
+          if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
 
           // Include note only when non-empty.
           if (node.note && node.note.trim()) {
@@ -555,8 +556,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           // Include optional fields only when present, consistent with read_document.
           if (node.checked !== undefined) match.checked = node.checked;
           if (node.checkbox !== undefined) match.checkbox = node.checkbox;
-          if (node.heading !== undefined && node.heading > 0) match.heading = node.heading;
-          if (node.color !== undefined && node.color > 0) match.color = node.color;
+          if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
+          if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
 
           // Include note only when non-empty.
           if (node.note && node.note.trim()) {

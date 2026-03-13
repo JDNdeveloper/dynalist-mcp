@@ -72,8 +72,8 @@ Node text supports a subset of Markdown for inline formatting:
 - **Code block**: triple-backtick fenced code blocks (mainly for notes)
 
 Two non-text metadata properties:
-- **Heading level**: 0 = none, 1 = H1, 2 = H2, 3 = H3.
-- **Color label**: 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple.
+- **Heading level**: 'none', 'h1', 'h2', 'h3'. Omitted from output when 'none'.
+- **Color label**: 'none', 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted from output when 'none'.
 
 ## Size warnings
 

@@ -104,8 +104,8 @@ describe("groupByLevel", () => {
         note: "A note",
         checkbox: true,
         checked: false,
-        heading: 2,
-        color: 3,
+        heading: "h2",
+        color: "yellow",
         children: [],
       },
     ];
@@ -114,8 +114,8 @@ describe("groupByLevel", () => {
     expect(node.note).toBe("A note");
     expect(node.checkbox).toBe(true);
     expect(node.checked).toBe(false);
-    expect(node.heading).toBe(2);
-    expect(node.color).toBe(3);
+    expect(node.heading).toBe("h2");
+    expect(node.color).toBe("yellow");
   });
 
   test("empty roots array produces one empty level", () => {

@@ -35,10 +35,10 @@ export const CHECKED_DESCRIPTION =
   `Checked (completed) state. ${CHECKED_GUIDANCE} ${CHECKED_CHILDREN_GUIDANCE}`;
 export const CHECKBOX_DESCRIPTION = CHECKBOX_GUIDANCE;
 export const HEADING_DESCRIPTION =
-  "Heading level. 0 = no heading (removes heading), 1 = H1, 2 = H2, 3 = H3.";
+  "Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3.";
 export const COLOR_DESCRIPTION =
-  "Color label. 0 = no color (removes color), 1 = red, 2 = orange, 3 = yellow, " +
-  "4 = green, 5 = blue, 6 = purple.";
+  "Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', " +
+  "'green', 'blue', 'purple'.";
 export const EXPECTED_VERSION_DESCRIPTION =
   "Document version from your most recent read_document. " +
   "If stale, the tool aborts and requests a re-read.";

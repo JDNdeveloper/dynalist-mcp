@@ -9,6 +9,8 @@ import { ConfigError } from "../config";
 import type { EditDocumentChange } from "../dynalist-client";
 import { buildDynalistUrl } from "./url-parser";
 import type { NodeSummary, OutputNode, InsertTreeOptions } from "../types";
+import { HEADING_TO_NUMBER, COLOR_TO_NUMBER, NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "../tools/node-metadata";
+import type { HeadingValue, ColorValue } from "../tools/node-metadata";
 
 /**
  * A node in a parsed tree, used as the intermediate representation for
@@ -19,8 +21,8 @@ export interface ParsedNode {
   note?: string;
   checkbox?: boolean;
   checked?: boolean;
-  heading?: number;
-  color?: number;
+  heading?: string;
+  color?: string;
   children: ParsedNode[];
 }
 
@@ -33,8 +35,8 @@ export interface LevelNode {
   note?: string;
   checkbox?: boolean;
   checked?: boolean;
-  heading?: number;
-  color?: number;
+  heading?: string;
+  color?: string;
   localIndex: number;
   parentLevelIndex: number;
 }
@@ -348,8 +350,8 @@ export function buildNodeTree(
   }
   if (node.checked !== undefined) output.checked = node.checked;
   if (node.checkbox !== undefined) output.checkbox = node.checkbox;
-  if (node.heading !== undefined && node.heading > 0) output.heading = node.heading;
-  if (node.color !== undefined && node.color > 0) output.color = node.color;
+  if (node.heading !== undefined && node.heading > 0) output.heading = NUMBER_TO_HEADING[node.heading];
+  if (node.color !== undefined && node.color > 0) output.color = NUMBER_TO_COLOR[node.color];
 
   // Signal depth_limited when the depth limit caused children to be omitted.
   // Only set on nodes that have children and are NOT being hidden by collapsed state alone.
@@ -484,8 +486,8 @@ export async function insertTreeUnderParent(
       if (node.note !== undefined) change.note = node.note;
       if (node.checkbox !== undefined) change.checkbox = node.checkbox;
       if (node.checked !== undefined) change.checked = node.checked;
-      if (node.heading !== undefined) change.heading = node.heading;
-      if (node.color !== undefined) change.color = node.color;
+      if (node.heading !== undefined) change.heading = HEADING_TO_NUMBER[node.heading as HeadingValue];
+      if (node.color !== undefined) change.color = COLOR_TO_NUMBER[node.color as ColorValue];
 
       changes.push(change);
       childCountPerParent.set(nodeParentId, count + 1);

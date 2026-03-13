@@ -312,7 +312,7 @@ describe("read_document", () => {
     });
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
-    expect(n1Result.heading).toBe(2);
+    expect(n1Result.heading).toBe("h2");
     // n2 has no heading set.
     const n2Result = rootChildren.find((c) => c.node_id === "n2")!;
     expect(n2Result.heading).toBeUndefined();
@@ -330,7 +330,7 @@ describe("read_document", () => {
     });
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n2Result = rootChildren.find((c) => c.node_id === "n2")!;
-    expect(n2Result.color).toBe(3);
+    expect(n2Result.color).toBe("yellow");
     // n1 has no color.
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1Result.color).toBeUndefined();
