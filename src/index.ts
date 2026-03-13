@@ -61,6 +61,27 @@ specific document. A node ID is only meaningful in the context of its parent doc
 Dynalist URL, extract the file_id from the path segment after /d/ and the node_id from \
 the #z= fragment (if present).
 
+## Node content
+
+Node text is short -- typically one sentence, occasionally a few. Nodes are generally single-line, \
+though multiline text is technically supported. Longer content spanning multiple lines or paragraphs \
+belongs in the node's note field, not the text field.
+
+Node text supports a subset of Markdown for inline formatting:
+- **Bold**: \`**bold**\`
+- **Italic**: \`__italic__\` (note: single underscores and single asterisks do NOT work)
+- **Inline code**: \`\\\`code\\\`\`
+- **Strikethrough**: \`~~strikethrough~~\`
+- **Link**: \`[label](url)\` (bare URLs with a protocol are also auto-linked)
+- **Image link**: \`![alt](url)\` (renders a hover preview in the Dynalist UI)
+- **LaTeX**: \`$equation$\` (rendered via KaTeX)
+- **Code block**: triple-backtick fenced code blocks (usually used in notes rather than node text)
+
+Nodes also support two non-text metadata properties:
+- **Heading level**: 0 = none, 1 = H1, 2 = H2, 3 = H3.
+- **Color label**: 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple.
+
+
 ## Size warnings
 
 Read and search tools may return a warning instead of content when results exceed a token \
