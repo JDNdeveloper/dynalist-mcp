@@ -278,7 +278,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
               targetIndex = 0;
             } else if (position === "last_child") {
               targetParentId = reference_node_id;
-              targetIndex = -1;
+              // Resolve to an explicit index rather than passing -1 to the API.
+              // The API resolves -1 against a snapshot taken before the batch,
+              // so multiple last_child moves to the same parent would all resolve
+              // to the same position and reverse. Using the mutable child count
+              // gives each move a distinct sequential index.
+              const siblings = childrenMap.get(reference_node_id) ?? [];
+              targetIndex = siblings.length;
             } else {
               // "after" or "before": find the parent of the reference node.
               const refParentInfo = parentMap.get(reference_node_id);
@@ -300,7 +306,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             // shifts the target index down by 1, so we must compensate.
             let apiIndex = targetIndex;
             const movedNodeInfo = parentMap.get(node_id);
-            if (apiIndex !== -1 && movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < apiIndex) {
+            if (movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < apiIndex) {
               apiIndex--;
             }
 
@@ -317,17 +323,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
               }
             }
 
+            // Insert into new parent's children. Use targetIndex (pre-removal)
+            // for the mutable state since we already removed the node above.
             const newSiblings = childrenMap.get(targetParentId) ?? [];
-            if (targetIndex === -1) {
-              newSiblings.push(node_id);
-            } else {
-              // Use targetIndex (pre-removal) for mutable state since we
-              // already removed the node from the old parent above.
-              const insertAt = movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < targetIndex
-                ? targetIndex - 1
-                : targetIndex;
-              newSiblings.splice(insertAt, 0, node_id);
-            }
+            const insertAt = movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < targetIndex
+              ? targetIndex - 1
+              : targetIndex;
+            newSiblings.splice(insertAt, 0, node_id);
 
             // Rebuild parentMap for the new parent's children.
             for (let i = 0; i < newSiblings.length; i++) {

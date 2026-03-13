@@ -639,12 +639,39 @@ describe("move_nodes", () => {
 
     const doc = ctx.server.documents.get("doc1")!;
     const n3 = doc.nodes.find((n) => n.id === "n3")!;
-    expect(n3.children).toContain("n1a");
-    expect(n3.children).toContain("n1b");
+
+    // Order must be preserved: n1a first (appended first), n1b second.
+    expect(n3.children).toEqual(["n1a", "n1b"]);
 
     // n1 should have no children left.
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
     expect(n1.children).toEqual([]);
+  });
+
+  test("bulk: multiple last_child moves to same parent preserve input order", async () => {
+    // Regression: the API resolves index -1 against a snapshot, so multiple
+    // last_child moves to the same parent using -1 would reverse. The fix is
+    // to resolve last_child to explicit indices.
+    ctx.server.addDocument("lc_doc", "Last Child Order", "folder_a", [
+      ctx.server.makeNode("root", "Last Child Order", ["target", "a", "b", "c"]),
+      ctx.server.makeNode("target", "Target", []),
+      ctx.server.makeNode("a", "A", []),
+      ctx.server.makeNode("b", "B", []),
+      ctx.server.makeNode("c", "C", []),
+    ]);
+
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "lc_doc",
+      moves: [
+        { node_id: "a", reference_node_id: "target", position: "last_child" },
+        { node_id: "b", reference_node_id: "target", position: "last_child" },
+        { node_id: "c", reference_node_id: "target", position: "last_child" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("lc_doc")!;
+    const target = doc.nodes.find((n) => n.id === "target")!;
+    expect(target.children).toEqual(["a", "b", "c"]);
   });
 
   test("bulk: interdependent positions (move A after X, then move B after A)", async () => {

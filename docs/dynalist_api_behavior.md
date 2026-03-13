@@ -220,6 +220,17 @@ appear at Target's former position.
 at index 2. Batch moves A, B, C to Parent at indices 1, 2, 3. Result:
 [Sibling Before, A, B, C, Target, Sibling After]. Same correct behavior.
 
+**Index -1 in batch moves**: like batch inserts, move index -1 ("last child") is
+resolved against a snapshot taken before the batch, not the live state. When
+multiple moves target the same parent with index -1, they all resolve to the same
+position and the resulting order is reversed relative to the input order. The
+`move_nodes` tool avoids this by resolving `last_child` to explicit indices based
+on the mutable in-memory child count.
+
+Verified (2026-03-13): moving B then C to root as last_child with index -1
+produces [Parent, C, B] (reversed). Using explicit indices 1 and 2 produces the
+correct [Parent, B, C].
+
 ## `/doc/edit`: rate limiting
 
 - Rolling window of ~500-600 changes. Once exceeded, returns `_code: "TooManyRequests"`
