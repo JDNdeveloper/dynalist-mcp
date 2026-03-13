@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, EditDocumentChange, buildParentMap, findRootNodeId } from "../dynalist-client";
+import { DynalistClient, EditDocumentChange, buildParentMap, findRootNodeId, type ReadDocumentResponse } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
@@ -294,15 +294,30 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
       } else {
         // Child positioning (as_first_child / as_last_child / index).
+        // The Dynalist API snapshots parent state before processing a batch,
+        // so sending index -1 for every item in a batch causes them to all
+        // resolve to the same position and reverse. For multi-item inserts we
+        // resolve to explicit indices to preserve input order.
+        let doc: ReadDocumentResponse | undefined;
         if (!parentNodeId) {
-          const doc = await client.readDocument(file_id);
+          doc = await client.readDocument(file_id);
           parentNodeId = findRootNodeId(doc.nodes);
         }
 
-        if (index !== undefined) {
-          startIndex = index === -1 ? undefined : index;
+        if (index !== undefined && index !== -1) {
+          startIndex = index;
         } else if (position === "as_first_child") {
           startIndex = 0;
+        } else if (nodes.length <= 1) {
+          // Single item: index -1 is unambiguous, no read needed.
+          startIndex = undefined;
+        } else {
+          // as_last_child (default) or index: -1 with multiple items.
+          // Resolve to the parent's current child count so each item gets
+          // a distinct index instead of all resolving to the same position.
+          if (!doc) doc = await client.readDocument(file_id);
+          const parentNode = doc.nodes.find(n => n.id === parentNodeId);
+          startIndex = parentNode ? parentNode.children.length : 0;
         }
       }
 

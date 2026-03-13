@@ -175,6 +175,28 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
   Our client batches in chunks of 200 to stay within the limit.
 - `new_node_ids` in the response corresponds to insert actions only, in order.
 
+### Batch insert ordering
+
+The API snapshots parent state before processing a batch of changes. Index -1
+("last child") is resolved against the snapshot, not the live state. When multiple
+inserts target the same parent with `index: -1`, they all resolve to the same
+position and the resulting order is reversed relative to the input order.
+
+Verified (2026-03-13): inserting `[A, B, C]` under an empty parent with `index: -1`
+for all three produces child order `[C, B, A]`.
+
+Explicit sequential indices (0, 1, 2, ...) are not affected because each item targets
+a distinct position. The API processes them in batch order, and splice semantics at
+distinct indices produce the expected result.
+
+Verified (2026-03-13): inserting `[D, E, F]` with indices `[0, 1, 2]` under a parent
+with 3 existing children produces `[D, E, F, ...existing]`.
+
+**Workaround**: to preserve input order when appending, read the parent's current
+child count and use explicit indices starting from that count (e.g. `[count, count+1,
+count+2]`) instead of -1. Similarly, for prepending, use `[0, 1, 2, ...]` instead
+of all 0s.
+
 ## `/doc/edit`: rate limiting
 
 - Rolling window of ~500-600 changes. Once exceeded, returns `_code: "TooManyRequests"`

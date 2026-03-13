@@ -426,17 +426,21 @@ export async function insertTreeUnderParent(
         ? parentId
         : previousLevelIds[node.parentLevelIndex];
 
-      // For level 0, use the caller's startIndex. When undefined (as_last_child),
-      // every insert uses -1 to append at end. For deeper levels, children are
-      // inserted into freshly created parents so index 0 is correct.
+      // For level 0, use the caller's startIndex. Callers should always
+      // provide an explicit index (e.g. parent child count for append) because
+      // the Dynalist API snapshots parent state before processing a batch, so
+      // index -1 resolves to the same position for every item and reverses
+      // their order. For deeper levels, children are inserted into freshly
+      // created parents so index 0 is correct.
       const baseIndex = levelIdx === 0
         ? (options.startIndex ?? -1)
         : 0;
       const count = childCountPerParent.get(nodeParentId) || 0;
 
-      // When appending at end (-1), every insert must use -1 so the server
-      // appends each one after the previous. Adding count would produce
-      // non-negative indices that insert at the wrong position.
+      // When baseIndex is -1 (legacy/fallback), every insert uses -1 so the
+      // server appends each one. This reverses order with multiple items due
+      // to API snapshotting. Callers should avoid this by providing explicit
+      // startIndex values.
       const insertIndex = baseIndex === -1 ? -1 : baseIndex + count;
 
       const change: EditDocumentChange = {

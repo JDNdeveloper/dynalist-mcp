@@ -185,6 +185,21 @@ export class DummyDynalistServer {
 
     const newNodeIds: string[] = [];
 
+    // Snapshot parent child counts before processing inserts. The real
+    // Dynalist API snapshots parent state before processing a batch, so
+    // index -1 resolves to the same position for every insert targeting
+    // the same parent. This causes items to reverse when multiple inserts
+    // use -1 on the same parent.
+    const snapshotChildCounts = new Map<string, number>();
+    for (const change of changes) {
+      if (change.action === "insert" && change.parent_id && !snapshotChildCounts.has(change.parent_id)) {
+        const parent = doc.nodes.find((n) => n.id === change.parent_id);
+        if (parent) {
+          snapshotChildCounts.set(change.parent_id, parent.children.length);
+        }
+      }
+    }
+
     for (const change of changes) {
       switch (change.action) {
         case "insert": {
@@ -205,11 +220,13 @@ export class DummyDynalistServer {
 
           doc.nodes.push(node);
 
-          // Add to parent's children at the specified index.
+          // Add to parent's children at the specified index. Resolve -1
+          // against the snapshotted child count to match real API behavior.
           const parent = doc.nodes.find((n) => n.id === change.parent_id);
           if (parent) {
             if (change.index === -1 || change.index === undefined) {
-              parent.children.push(nodeId);
+              const snapshotCount = snapshotChildCounts.get(change.parent_id!) ?? parent.children.length;
+              parent.children.splice(snapshotCount, 0, nodeId);
             } else {
               parent.children.splice(change.index, 0, nodeId);
             }

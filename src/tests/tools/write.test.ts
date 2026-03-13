@@ -598,6 +598,44 @@ describe("insert_nodes", () => {
     expect(rootAfter.children).toContain(originalFirstChildId);
   });
 
+  test("as_last_child with multiple items preserves input order", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    const originalChildCount = root.children.length;
+
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      nodes: [{ content: "Order A" }, { content: "Order B" }, { content: "Order C" }],
+    });
+
+    const rootAfter = doc.nodes.find((n) => n.id === "root")!;
+    expect(rootAfter.children.length).toBe(originalChildCount + 3);
+
+    // Items should appear in input order at the end.
+    const newChildren = rootAfter.children.slice(originalChildCount);
+    const contents = newChildren.map(id => doc.nodes.find((n) => n.id === id)!.content);
+    expect(contents).toEqual(["Order A", "Order B", "Order C"]);
+  });
+
+  test("as_first_child with multiple items preserves input order", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      nodes: [{ content: "First A" }, { content: "First B" }, { content: "First C" }],
+      position: "as_first_child",
+    });
+
+    const rootAfter = doc.nodes.find((n) => n.id === "root")!;
+
+    // Items should appear in input order at the start.
+    const firstThree = rootAfter.children.slice(0, 3);
+    const contents = firstThree.map(id => doc.nodes.find((n) => n.id === id)!.content);
+    expect(contents).toEqual(["First A", "First B", "First C"]);
+  });
+
   test("existing children preserved after insert", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
