@@ -88,11 +88,13 @@ true to get the actual content. bypass_warning should never be set on the first 
 
 ## Compositional patterns
 
-- Parent chain / hierarchy: there is no "get ancestors" tool. To see where a node sits in \
-the document tree, call read_document with just the file_id (omit node_id) and search the \
-returned tree for the target node_id. Use max_depth to limit output.
-- Breadcrumb context: search_in_document returns parents for each match, which gives the \
-ancestor chain without a separate read.
+- Parent chain / hierarchy: there is no "get ancestors" tool. The best way to find a \
+node's ancestors is search_in_document with the node's text (or a unique substring) and \
+parent_levels set to the desired depth. Each match includes a parents array with the \
+ancestor chain, so a single call gives you the breadcrumb context. If the node's text is \
+not unique or not known, fall back to calling read_document with just the file_id (omit \
+node_id) and searching the returned tree for the target node_id. Use max_depth to limit \
+output.
 - Sibling context: to see a node's siblings, call read_document with the parent's node_id \
 and max_depth: 1.
 - Expanding collapsed sections: if a node has collapsed: true and children_count > 0 but \
