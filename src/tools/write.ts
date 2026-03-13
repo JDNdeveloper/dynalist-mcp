@@ -63,9 +63,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         checkbox: z.boolean().optional().describe(
           `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
         ),
-        heading: z.number().optional().describe("Heading level. 0 = no heading (default), 1 = H1, 2 = H2, 3 = H3."),
-        color: z.number().optional().describe("Color label. 0 = none (default), 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple."),
-        checked: z.boolean().optional().describe("Check state. Only meaningful when checkbox is true."),
+        heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
+        color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
+        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Inbox document file ID"),
