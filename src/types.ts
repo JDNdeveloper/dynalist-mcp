@@ -39,5 +39,4 @@ export interface OutputNode {
  */
 export interface InsertTreeOptions {
   startIndex?: number;
-  checkbox?: boolean;
 }

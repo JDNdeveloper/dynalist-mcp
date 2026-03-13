@@ -255,48 +255,14 @@ describe("edit_node with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3f. insert_node with ACL
-// ═══════════════════════════════════════════════════════════════════════
-
-describe("insert_node with ACL", () => {
-  test("denied document returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "insert_node", {
-      file_id: "denied_doc",
-      parent_id: "root",
-      content: "hacked",
-    });
-    expect(err.error).toBe("NotFound");
-  });
-
-  test("read-policy document returns ReadOnly error", async () => {
-    const err = await callToolError(ctx.mcpClient, "insert_node", {
-      file_id: "readonly_doc",
-      parent_id: "root",
-      content: "hacked",
-    });
-    expect(err.error).toBe("ReadOnly");
-  });
-
-  test("allow-policy document insert succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "allowed_doc",
-      parent_id: "root",
-      content: "New node",
-    });
-    expect(result.file_id).toBe("allowed_doc");
-    expect(result.node_id).toBeDefined();
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════
-// 3g. insert_nodes with ACL
+// 3f. insert_nodes with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("insert_nodes with ACL", () => {
   test("denied document returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "denied_doc",
-      content: "- hacked",
+      nodes: [{ content: "hacked" }],
     });
     expect(err.error).toBe("NotFound");
   });
@@ -304,7 +270,7 @@ describe("insert_nodes with ACL", () => {
   test("read-policy document returns ReadOnly error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "readonly_doc",
-      content: "- hacked",
+      nodes: [{ content: "hacked" }],
     });
     expect(err.error).toBe("ReadOnly");
   });
@@ -312,7 +278,7 @@ describe("insert_nodes with ACL", () => {
   test("allow-policy document insert succeeds", async () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "allowed_doc",
-      content: "- New item\n- Another item",
+      nodes: [{ content: "New item" }, { content: "Another item" }],
     });
     expect(result.file_id).toBe("allowed_doc");
     expect(result.total_created).toBe(2);

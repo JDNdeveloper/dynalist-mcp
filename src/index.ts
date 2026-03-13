@@ -110,7 +110,7 @@ max_depth budget.
 create_document, create_folder, move_document, move_folder, rename_document, and rename_folder \
 to organize the file tree.
 - File vs node management: tools like create_document, rename_folder, and move_document \
-operate on the file tree. Tools like insert_node, edit_node, and move_node operate on \
+operate on the file tree. Tools like insert_nodes, edit_node, and move_node operate on \
 nodes within a single document. Do not confuse file IDs with node IDs.
 
 ## Presenting document content

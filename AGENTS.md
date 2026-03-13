@@ -57,7 +57,6 @@ src/
 │   └── files.ts                  # File management tools (create, rename, move)
 ├── utils/
 │   ├── url-parser.ts             # Build Dynalist URLs
-│   ├── markdown-parser.ts        # Parse indented text into trees
 │   └── dynalist-helpers.ts       # Shared tool helpers (size check, tree builder, etc.)
 └── tests/
     └── tools/                    # Tool integration tests against dummy server

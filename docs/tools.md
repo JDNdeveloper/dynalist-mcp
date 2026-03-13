@@ -201,7 +201,7 @@ A version of `-1` means the document was not found. `denied` lists file IDs reje
 
 ### `send_to_inbox`
 
-Send a single item to your Dynalist inbox. The target document is the user's configured inbox and cannot be changed via this tool. For inserting into a specific document or inserting hierarchical content, use `insert_node` or `insert_nodes`.
+Send a single item to your Dynalist inbox. The target document is the user's configured inbox and cannot be changed via this tool. For inserting into a specific document or inserting hierarchical content, use `insert_nodes`.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -242,57 +242,53 @@ Edit an existing node. Only specified fields are updated. Omitted fields are lef
 }
 ```
 
-### `insert_node`
-
-Insert a single new node. For inserting multiple nodes with hierarchy, use `insert_nodes` instead.
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `file_id` | string | yes | | Document file ID |
-| `parent_id` | string | yes | | Parent node ID |
-| `content` | string | yes | | Content text |
-| `note` | string | no | | Note text |
-| `index` | number | no | `-1` | Position. 0 = first, -1 = last |
-| `checkbox` | boolean | no | `false` | Add a checkbox |
-| `heading` | number | no | | 0 = none, 1 = H1, 2 = H2, 3 = H3 |
-| `color` | number | no | | 0-6 (see `edit_node` color values) |
-| `checked` | boolean | no | | Checked state. Automatically enables checkbox. |
-
-**Response**:
-```json
-{
-  "file_id": "...",
-  "node_id": "...",
-  "parent_id": "...",
-  "url": "..."
-}
-```
-
 ### `insert_nodes`
 
-Insert multiple nodes from indented text, preserving hierarchy. Preferred over calling `insert_node` in a loop.
+Insert one or more nodes into a Dynalist document as a JSON tree. Supports nested hierarchy and per-node fields (note, checkbox, checked, heading, color). For a single node, pass a one-element array.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
 | `node_id` | string | no | root | Parent node ID |
-| `content` | string | yes | | Indented text with `- bullets` or plain indented text |
+| `nodes` | array | yes | | Array of node objects (see below) |
 | `position` | string | no | `"as_last_child"` | `"as_first_child"` or `"as_last_child"` |
+| `index` | number | no | | Exact child index for root-level nodes. Overrides `position`. 0 = first, -1 = last. |
+
+**Node object fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | yes | Content text. Supports multiline. |
+| `note` | string | no | Note text. Supports multiline. |
+| `checkbox` | boolean | no | Whether to show a checkbox |
+| `checked` | boolean | no | Checked (completed) state |
+| `heading` | number | no | 0 = none, 1 = H1, 2 = H2, 3 = H3 |
+| `color` | number | no | 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple |
+| `children` | array | no | Nested child node objects (same shape, recursive) |
 
 Example input:
-```
-- Top level item
-  - Child item
-    - Grandchild
-- Another top level item
+```json
+{
+  "file_id": "abc123",
+  "nodes": [
+    {
+      "content": "Top level item",
+      "children": [
+        { "content": "Child item", "note": "A note on this child" },
+        { "content": "Another child", "checkbox": true }
+      ]
+    },
+    { "content": "Second top level item", "heading": 1 }
+  ]
+}
 ```
 
 **Response**:
 ```json
 {
   "file_id": "...",
-  "total_created": 12,
-  "root_node_ids": ["...", "...", "..."],
+  "total_created": 4,
+  "root_node_ids": ["...", "..."],
   "url": "..."
 }
 ```
@@ -350,7 +346,7 @@ Move a node and its entire subtree to a new position relative to a reference nod
 
 ### `create_document`
 
-Create a new empty document in a folder. Use `insert_node` or `insert_nodes` to add content afterward.
+Create a new empty document in a folder. Use `insert_nodes` to add content afterward.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|

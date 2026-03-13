@@ -26,7 +26,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Create a new empty document in a folder. The returned file_id can be used with " +
-        "insert_node or insert_nodes to add content to the new document.",
+        "insert_nodes to add content to the new document.",
       inputSchema: {
         parent_folder_id: z.string().describe("Folder file ID to create the document in"),
         title: z.string().optional().default("").describe("Document title"),

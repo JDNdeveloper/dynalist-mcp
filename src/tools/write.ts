@@ -1,12 +1,11 @@
 /**
- * Write tools: send_to_inbox, edit_node, insert_node, insert_nodes.
+ * Write tools: send_to_inbox, edit_node, insert_nodes.
  */
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, EditDocumentChange, findRootNodeId } from "../dynalist-client";
 import { buildDynalistUrl } from "../utils/url-parser";
-import { parseMarkdownBullets } from "../utils/markdown-parser";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
 import {
@@ -14,6 +13,7 @@ import {
   makeErrorResponse,
   wrapToolHandler,
   insertTreeUnderParent,
+  type ParsedNode,
 } from "../utils/dynalist-helpers";
 import { FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE, CONTENT_MULTILINE_GUIDANCE } from "./descriptions";
 
@@ -54,7 +54,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         `${CONFIRM_GUIDANCE} ` +
         "Send a single item to your Dynalist inbox. The target document is the user's configured " +
         "inbox in Dynalist settings and cannot be changed via this tool. For inserting into a " +
-        "specific document or inserting hierarchical content, use insert_node or insert_nodes instead.",
+        "specific document or inserting hierarchical content, use insert_nodes instead.",
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
@@ -183,111 +183,50 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
   );
 
   // ═════════════════════════════════════════════════════════════════════
-  // TOOL: insert_node
+  // TOOL: insert_nodes
   // ═════════════════════════════════════════════════════════════════════
-  server.registerTool(
-    "insert_node",
-    {
-      description:
-        `${CONFIRM_GUIDANCE} ` +
-        "Insert a single new node into a Dynalist document. For inserting multiple nodes with " +
-        "hierarchy, use insert_nodes instead (it is faster and preserves tree structure).",
-      inputSchema: {
-        file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        parent_id: z.string().describe("Parent node ID to insert under"),
-        content: z.string().describe(`Content text for the new node. ${CONTENT_MULTILINE_GUIDANCE}`),
-        note: z.string().optional().describe(`Note text. ${MULTILINE_GUIDANCE}`),
-        index: z.number().optional().default(-1).describe(
-          "Position under parent. 0 = first child, -1 = last child (default)."
-        ),
-        checkbox: z.boolean().optional().describe(
-          `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
-        ),
-        heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
-        color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
-        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
-      },
-      outputSchema: {
-        file_id: z.string().describe("Document file ID"),
-        node_id: z.string().describe("ID of the newly created node"),
-        parent_id: z.string().describe("Parent node ID"),
-        url: z.string().describe("Dynalist URL for the new node"),
-      },
-    },
-    wrapToolHandler(async ({
-      file_id,
-      parent_id,
-      content,
-      note,
-      index,
-      checkbox,
-      heading,
-      color,
-      checked,
-    }: {
-      file_id: string;
-      parent_id: string;
-      content: string;
-      note?: string;
-      index: number;
-      checkbox?: boolean;
-      heading?: number;
-      color?: number;
-      checked?: boolean;
-    }) => {
-      const config = getConfig();
 
-      // Access check: requires write (allow) policy.
-      const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "write", config.readOnly);
-      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
-
-      const change: EditDocumentChange = {
-        action: "insert",
-        parent_id,
-        index,
-        content,
-      };
-
-      if (note !== undefined) change.note = note;
-      if (checkbox) change.checkbox = checkbox;
-      if (heading !== undefined && heading > 0) change.heading = heading;
-      if (color !== undefined && color > 0) change.color = color;
-      if (checked !== undefined) change.checked = checked;
-
-      const response = await client.editDocument(file_id, [change]);
-      const newNodeId = response.new_node_ids?.[0];
-
-      return makeResponse({
-        file_id,
-        node_id: newNodeId ?? "unknown",
-        parent_id,
-        url: buildDynalistUrl(file_id, newNodeId),
-      });
+  // Recursive Zod schema for JSON input nodes.
+  const jsonInputNodeSchema: z.ZodType<{
+    content: string;
+    note?: string;
+    checkbox?: boolean;
+    checked?: boolean;
+    heading?: number;
+    color?: number;
+    children?: unknown[];
+  }> = z.lazy(() =>
+    z.object({
+      content: z.string().describe(`Content text. ${CONTENT_MULTILINE_GUIDANCE}`),
+      note: z.string().optional().describe(`Note text. ${MULTILINE_GUIDANCE}`),
+      checkbox: z.boolean().optional().describe(
+        `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
+      ),
+      checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
+      heading: z.number().min(0).max(3).optional().describe(HEADING_DESCRIPTION),
+      color: z.number().min(0).max(6).optional().describe(COLOR_DESCRIPTION),
+      children: z.array(jsonInputNodeSchema).optional().describe("Child nodes"),
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: insert_nodes
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "insert_nodes",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Insert multiple nodes from indented text, preserving hierarchy. Preferred over calling " +
-        "insert_node in a loop. Accepts '- bullet' format or plain indented text.\n\n" +
-        "Example input:\n" +
-        "- Top level item\n" +
-        "  - Child item\n" +
-        "    - Grandchild\n" +
-        "- Another top level item",
+        "Insert one or more nodes into a Dynalist document as a JSON tree. Supports nested " +
+        "hierarchy and per-node fields (note, checkbox, checked, heading, color). For a single " +
+        "node, pass a one-element array.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().optional().describe("Parent node ID to insert under (omit for document root)"),
-        content: z.string().describe("Indented text with bullets. Supports '- text' or plain indented text."),
+        nodes: z.array(jsonInputNodeSchema).describe("Array of nodes to insert"),
         position: z.enum(["as_first_child", "as_last_child"]).optional().default("as_last_child")
           .describe("Where to insert under the parent node"),
+        index: z.number().optional().describe(
+          "Exact child index for root-level nodes. Overrides position when set. " +
+          "0 = first child, -1 = last child."
+        ),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
@@ -299,13 +238,15 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     wrapToolHandler(async ({
       file_id,
       node_id,
-      content,
+      nodes,
       position,
+      index,
     }: {
       file_id: string;
       node_id?: string;
-      content: string;
+      nodes: unknown[];
       position: string;
+      index?: number;
     }) => {
       const config = getConfig();
 
@@ -322,13 +263,22 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         parentNodeId = findRootNodeId(doc.nodes);
       }
 
-      const tree = parseMarkdownBullets(content);
+      // Convert JSON input to ParsedNode tree.
+      const tree = jsonInputToTree(nodes as JsonInputNode[]);
       if (tree.length === 0) {
-        return makeErrorResponse("InvalidInput", "No content to insert (empty or invalid format)");
+        return makeErrorResponse("InvalidInput", "No nodes to insert (empty array)");
+      }
+
+      // Determine start index. Explicit index overrides position.
+      let startIndex: number | undefined;
+      if (index !== undefined) {
+        startIndex = index === -1 ? undefined : index;
+      } else if (position === "as_first_child") {
+        startIndex = 0;
       }
 
       const result = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
-        startIndex: position === "as_first_child" ? 0 : undefined,
+        startIndex,
       });
 
       const firstNodeId = result.rootNodeIds[0] ?? null;
@@ -344,4 +294,29 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       });
     })
   );
+}
+
+interface JsonInputNode {
+  content: string;
+  note?: string;
+  checkbox?: boolean;
+  checked?: boolean;
+  heading?: number;
+  color?: number;
+  children?: JsonInputNode[];
+}
+
+/**
+ * Convert JSON input nodes to the ParsedNode tree used by insertTreeUnderParent.
+ */
+function jsonInputToTree(nodes: JsonInputNode[]): ParsedNode[] {
+  return nodes.map((node) => ({
+    content: node.content,
+    note: node.note,
+    checkbox: node.checkbox,
+    checked: node.checked,
+    heading: node.heading,
+    color: node.color,
+    children: node.children ? jsonInputToTree(node.children) : [],
+  }));
 }

@@ -372,188 +372,6 @@ describe("edit_node", () => {
   });
 });
 
-// ─── insert_node ─────────────────────────────────────────────────────
-
-describe("insert_node", () => {
-  test("inserts a node and returns id", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "New node",
-    });
-    expect(result.file_id).toBe("doc1");
-    expect(result.node_id).toBeDefined();
-    expect(result.node_id).not.toBe("unknown");
-    expect(result.url).toContain("doc1");
-  });
-
-  test("index: 0 inserts as first child", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "First!",
-      index: 0,
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const root = doc.nodes.find((n) => n.id === "root")!;
-    const firstChildId = root.children[0];
-    const firstChild = doc.nodes.find((n) => n.id === firstChildId)!;
-    expect(firstChild.content).toBe("First!");
-  });
-
-  test("index: -1 inserts at end", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Last!",
-      index: -1,
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const root = doc.nodes.find((n) => n.id === "root")!;
-    const lastChildId = root.children[root.children.length - 1];
-    const lastChild = doc.nodes.find((n) => n.id === lastChildId)!;
-    expect(lastChild.content).toBe("Last!");
-  });
-
-  test("with checkbox and checked", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Todo",
-      checkbox: true,
-      checked: false,
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "Todo")!;
-    expect(newNode.checkbox).toBe(true);
-    expect(newNode.checked).toBe(false);
-  });
-
-  test("with note", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Noted item",
-      note: "This is a note",
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "Noted item")!;
-    expect(newNode.note).toBe("This is a note");
-  });
-
-  // ─── 11b: auto-checkbox behavior ───────────────────────────────────
-
-  test("checked: false without checkbox does not auto-enable checkbox", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "No auto checkbox",
-      checked: false,
-    });
-
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "No auto checkbox")!;
-    // Explicitly setting checked: false should not force a checkbox to appear.
-    expect(newNode.checkbox).toBeUndefined();
-  });
-
-  test("checked: true without checkbox does not add a checkbox", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Checked no checkbox",
-      checked: true,
-    });
-
-    // The node should be checked but have no checkbox.
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "Checked no checkbox")!;
-    expect(newNode.checked).toBe(true);
-    expect(newNode.checkbox).toBeUndefined();
-  });
-
-  test("checked: true with checkbox: true sets both", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Checked with checkbox",
-      checked: true,
-      checkbox: true,
-    });
-
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "Checked with checkbox")!;
-    expect(newNode.checked).toBe(true);
-    expect(newNode.checkbox).toBe(true);
-  });
-
-  // ─── 11c: optional fields ──────────────────────────────────────────
-
-  test("color > 0 is included on the inserted node", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Colored node",
-      color: 3,
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "Colored node")!;
-    expect(newNode.color).toBe(3);
-  });
-
-  test("color 0 is omitted from the inserted node", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "No color node",
-      color: 0,
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "No color node")!;
-    expect(newNode.color).toBeUndefined();
-  });
-
-  test("heading > 0 is included on the inserted node", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Heading node",
-      heading: 2,
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "Heading node")!;
-    expect(newNode.heading).toBe(2);
-  });
-
-  test("heading 0 is omitted from the inserted node", async () => {
-    await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "No heading node",
-      heading: 0,
-    });
-    const doc = ctx.server.documents.get("doc1")!;
-    const newNode = doc.nodes.find((n) => n.content === "No heading node")!;
-    expect(newNode.heading).toBeUndefined();
-  });
-
-  // ─── 11d: response shape ───────────────────────────────────────────
-
-  test("response includes file_id, node_id, parent_id, and url", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "root",
-      content: "Shape test node",
-    });
-
-    expect(result.file_id).toBe("doc1");
-    expect(typeof result.node_id).toBe("string");
-    expect(result.parent_id).toBe("root");
-    expect(typeof result.url).toBe("string");
-    expect(result.url).toContain("doc1");
-  });
-});
-
 // ─── insert_nodes ────────────────────────────────────────────────────
 
 describe("insert_nodes", () => {
@@ -561,7 +379,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- item1\n- item2\n- item3",
+      nodes: [{ content: "item1" }, { content: "item2" }, { content: "item3" }],
     });
     expect(result.file_id).toBe("doc1");
     expect(result.total_created).toBe(3);
@@ -573,7 +391,13 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "n1",
-      content: "- parent\n    - child\n        - grandchild",
+      nodes: [{
+        content: "parent",
+        children: [{
+          content: "child",
+          children: [{ content: "grandchild" }],
+        }],
+      }],
     });
     expect(result.total_created).toBe(3);
 
@@ -590,7 +414,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- top item",
+      nodes: [{ content: "top item" }],
       position: "as_first_child",
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -602,26 +426,32 @@ describe("insert_nodes", () => {
   test("omitting node_id inserts at document root", async () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      content: "- root-level item",
+      nodes: [{ content: "root-level item" }],
     });
     expect(result.total_created).toBe(1);
   });
 
-  test("empty content returns error", async () => {
+  test("empty nodes array returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      content: "",
+      nodes: [],
     });
     expect(err.error).toBe("InvalidInput");
   });
 
-  // ─── 12b: hierarchy fidelity ───────────────────────────────────────
+  // ─── hierarchy fidelity ────────────────────────────────────────────
 
   test("3-level hierarchy: parent > child > grandchild", async () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- level1\n  - level2\n    - level3",
+      nodes: [{
+        content: "level1",
+        children: [{
+          content: "level2",
+          children: [{ content: "level3" }],
+        }],
+      }],
     });
     expect(result.total_created).toBe(3);
 
@@ -636,20 +466,28 @@ describe("insert_nodes", () => {
   });
 
   test("4-level hierarchy with multiple branches preserves ordering", async () => {
-    const content = [
-      "- A",
-      "  - A1",
-      "    - A1a",
-      "      - A1a-deep",
-      "  - A2",
-      "- B",
-      "  - B1",
-    ].join("\n");
-
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [
+        {
+          content: "A",
+          children: [
+            {
+              content: "A1",
+              children: [{
+                content: "A1a",
+                children: [{ content: "A1a-deep" }],
+              }],
+            },
+            { content: "A2" },
+          ],
+        },
+        {
+          content: "B",
+          children: [{ content: "B1" }],
+        },
+      ],
     });
     expect(result.total_created).toBe(7);
 
@@ -673,11 +511,13 @@ describe("insert_nodes", () => {
   });
 
   test("multiple top-level items each with children", async () => {
-    const content = "- Parent1\n  - Child1a\n  - Child1b\n- Parent2\n  - Child2a";
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [
+        { content: "Parent1", children: [{ content: "Child1a" }, { content: "Child1b" }] },
+        { content: "Parent2", children: [{ content: "Child2a" }] },
+      ],
     });
     expect(result.total_created).toBe(5);
     expect((result.root_node_ids as string[]).length).toBe(2);
@@ -690,11 +530,22 @@ describe("insert_nodes", () => {
   });
 
   test("mixed depths: some branches deeper than others", async () => {
-    const content = "- Shallow\n- Deep\n  - D1\n    - D2\n      - D3";
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [
+        { content: "Shallow" },
+        {
+          content: "Deep",
+          children: [{
+            content: "D1",
+            children: [{
+              content: "D2",
+              children: [{ content: "D3" }],
+            }],
+          }],
+        },
+      ],
     });
     expect(result.total_created).toBe(5);
 
@@ -705,7 +556,7 @@ describe("insert_nodes", () => {
     expect(deep.children.length).toBe(1);
   });
 
-  // ─── 12c: position behavior ────────────────────────────────────────
+  // ─── position behavior ────────────────────────────────────────────
 
   test("as_last_child (default) appends to end of parent children", async () => {
     const doc = ctx.server.documents.get("doc1")!;
@@ -715,7 +566,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- appended item",
+      nodes: [{ content: "appended item" }],
     });
 
     // The new node should be after the original last child.
@@ -734,7 +585,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- prepended item",
+      nodes: [{ content: "prepended item" }],
       position: "as_first_child",
     });
 
@@ -755,7 +606,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- new item",
+      nodes: [{ content: "new item" }],
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -764,118 +615,185 @@ describe("insert_nodes", () => {
     }
   });
 
-  // ─── 12d: markdown parsing integration ─────────────────────────────
-
-  test("dash bullets (- item)", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  test("index parameter overrides position", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- dash one\n- dash two",
+      nodes: [{ content: "At index 0" }],
+      index: 0,
     });
-    expect(result.total_created).toBe(2);
-
     const doc = ctx.server.documents.get("doc1")!;
-    expect(doc.nodes.find((n) => n.content === "dash one")).toBeDefined();
-    expect(doc.nodes.find((n) => n.content === "dash two")).toBeDefined();
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    const firstChildId = root.children[0];
+    const firstChild = doc.nodes.find((n) => n.id === firstChildId)!;
+    expect(firstChild.content).toBe("At index 0");
   });
 
-  test("asterisk bullets (* item)", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  test("index: -1 appends at end", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "* star one\n* star two",
+      nodes: [{ content: "Appended via index" }],
+      index: -1,
     });
-    expect(result.total_created).toBe(2);
-
     const doc = ctx.server.documents.get("doc1")!;
-    expect(doc.nodes.find((n) => n.content === "star one")).toBeDefined();
-    expect(doc.nodes.find((n) => n.content === "star two")).toBeDefined();
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    const lastChildId = root.children[root.children.length - 1];
+    const lastChild = doc.nodes.find((n) => n.id === lastChildId)!;
+    expect(lastChild.content).toBe("Appended via index");
   });
 
-  test("numbered bullets (1. item)", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  // ─── per-node fields ──────────────────────────────────────────────
+
+  test("node with note", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "1. first\n2. second\n3. third",
+      nodes: [{ content: "Noted item", note: "This is a note" }],
     });
-    expect(result.total_created).toBe(3);
-
     const doc = ctx.server.documents.get("doc1")!;
-    expect(doc.nodes.find((n) => n.content === "first")).toBeDefined();
-    expect(doc.nodes.find((n) => n.content === "second")).toBeDefined();
-    expect(doc.nodes.find((n) => n.content === "third")).toBeDefined();
+    const newNode = doc.nodes.find((n) => n.content === "Noted item")!;
+    expect(newNode.note).toBe("This is a note");
   });
 
-  test("plain indented text without bullet markers", async () => {
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  test("node with checkbox and checked", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "plain top\n    plain child",
+      nodes: [{ content: "Todo", checkbox: true, checked: false }],
     });
-    expect(result.total_created).toBe(2);
-
     const doc = ctx.server.documents.get("doc1")!;
-    const top = doc.nodes.find((n) => n.content === "plain top")!;
-    expect(top.children.length).toBe(1);
-    const child = doc.nodes.find((n) => n.id === top.children[0])!;
-    expect(child.content).toBe("plain child");
+    const newNode = doc.nodes.find((n) => n.content === "Todo")!;
+    expect(newNode.checkbox).toBe(true);
+    expect(newNode.checked).toBe(false);
   });
 
-  test("mixed indent levels (2-space and 4-space)", async () => {
-    const content = "- top\n  - two-space child\n    - four-space grandchild";
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  test("checked: true without checkbox does not add a checkbox", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [{ content: "Checked no checkbox", checked: true }],
     });
-    expect(result.total_created).toBe(3);
-
     const doc = ctx.server.documents.get("doc1")!;
-    const top = doc.nodes.find((n) => n.content === "top")!;
-    expect(top.children.length).toBe(1);
-    const child = doc.nodes.find((n) => n.id === top.children[0])!;
-    expect(child.content).toBe("two-space child");
-    expect(child.children.length).toBe(1);
+    const newNode = doc.nodes.find((n) => n.content === "Checked no checkbox")!;
+    expect(newNode.checked).toBe(true);
+    expect(newNode.checkbox).toBeUndefined();
   });
 
-  test("tab indentation converted correctly", async () => {
-    // Tab is converted to 4 spaces by the parser.
-    const content = "- top\n\t- tab child";
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  test("heading > 0 is included on the inserted node", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [{ content: "Heading node", heading: 2 }],
     });
-    expect(result.total_created).toBe(2);
-
     const doc = ctx.server.documents.get("doc1")!;
-    const top = doc.nodes.find((n) => n.content === "top")!;
-    expect(top.children.length).toBe(1);
+    const newNode = doc.nodes.find((n) => n.content === "Heading node")!;
+    expect(newNode.heading).toBe(2);
   });
 
-  test("empty lines are skipped", async () => {
-    const content = "- first\n\n- second\n\n\n- third";
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+  test("heading 0 is omitted from the inserted node", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [{ content: "No heading node", heading: 0 }],
     });
-    expect(result.total_created).toBe(3);
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "No heading node")!;
+    expect(newNode.heading).toBeUndefined();
   });
 
-  // ─── 12e: partial failure ──────────────────────────────────────────
+  test("color > 0 is included on the inserted node", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      nodes: [{ content: "Colored node", color: 3 }],
+    });
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "Colored node")!;
+    expect(newNode.color).toBe(3);
+  });
+
+  test("color 0 is omitted from the inserted node", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      nodes: [{ content: "No color node", color: 0 }],
+    });
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "No color node")!;
+    expect(newNode.color).toBeUndefined();
+  });
+
+  test("multiline content round-trips", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      nodes: [{ content: "Line 1\nLine 2\nLine 3" }],
+    });
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "Line 1\nLine 2\nLine 3")!;
+    expect(newNode).toBeDefined();
+  });
+
+  test("multiline note round-trips", async () => {
+    const noteContent = "First line\n\n```python\ndef foo():\n    return 42\n```";
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      nodes: [{ content: "Code item", note: noteContent }],
+    });
+    const doc = ctx.server.documents.get("doc1")!;
+    const newNode = doc.nodes.find((n) => n.content === "Code item")!;
+    expect(newNode.note).toBe(noteContent);
+  });
+
+  test("per-node fields on children in hierarchy", async () => {
+    await callToolOk(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      node_id: "root",
+      nodes: [{
+        content: "Parent",
+        heading: 1,
+        children: [{
+          content: "Child",
+          note: "child note",
+          color: 5,
+          checkbox: true,
+          checked: true,
+        }],
+      }],
+    });
+    const doc = ctx.server.documents.get("doc1")!;
+    const parent = doc.nodes.find((n) => n.content === "Parent")!;
+    expect(parent.heading).toBe(1);
+    const child = doc.nodes.find((n) => n.id === parent.children[0])!;
+    expect(child.content).toBe("Child");
+    expect(child.note).toBe("child note");
+    expect(child.color).toBe(5);
+    expect(child.checkbox).toBe(true);
+    expect(child.checked).toBe(true);
+  });
+
+  // ─── partial failure ──────────────────────────────────────────────
 
   test("partial failure returns PartialInsert error with context", async () => {
     // Insert a 4-level deep hierarchy. Fail after 2 successful editDocument
     // calls, so levels 0 and 1 succeed but level 2 fails.
-    const content = "- A\n  - B\n    - C\n      - D";
-
     ctx.server.failEditAfterNCalls(2);
 
     const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [{
+        content: "A",
+        children: [{
+          content: "B",
+          children: [{
+            content: "C",
+            children: [{ content: "D" }],
+          }],
+        }],
+      }],
     });
 
     expect(result.isError).toBe(true);
@@ -892,14 +810,21 @@ describe("insert_nodes", () => {
 
   test("partial failure persists nodes inserted before the fault", async () => {
     // Same 4-level hierarchy, fail after 2 levels.
-    const content = "- PersistA\n  - PersistB\n    - PersistC\n      - PersistD";
-
     ctx.server.failEditAfterNCalls(2);
 
     await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content,
+      nodes: [{
+        content: "PersistA",
+        children: [{
+          content: "PersistB",
+          children: [{
+            content: "PersistC",
+            children: [{ content: "PersistD" }],
+          }],
+        }],
+      }],
     });
 
     // Levels 0 and 1 should have been committed to the document.
@@ -919,13 +844,13 @@ describe("insert_nodes", () => {
     expect(nodeA!.children[0]).toBe(nodeB!.id);
   });
 
-  // ─── 12f: response shape ───────────────────────────────────────────
+  // ─── response shape ───────────────────────────────────────────────
 
   test("response includes file_id, total_created, root_node_ids, and url", async () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       node_id: "root",
-      content: "- shape test a\n- shape test b",
+      nodes: [{ content: "shape test a" }, { content: "shape test b" }],
     });
 
     expect(result.file_id).toBe("doc1");

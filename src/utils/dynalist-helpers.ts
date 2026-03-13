@@ -7,9 +7,112 @@ import { DynalistClient, DynalistApiError } from "../dynalist-client";
 import { ConfigError } from "../config";
 import type { EditDocumentChange } from "../dynalist-client";
 import { buildDynalistUrl } from "./url-parser";
-import type { ParsedNode } from "./markdown-parser";
-import { groupByLevel } from "./markdown-parser";
 import type { NodeSummary, OutputNode, InsertTreeOptions } from "../types";
+
+/**
+ * A node in a parsed tree, used as the intermediate representation for
+ * insert_nodes. Carries optional per-node fields alongside content.
+ */
+export interface ParsedNode {
+  content: string;
+  note?: string;
+  checkbox?: boolean;
+  checked?: boolean;
+  heading?: number;
+  color?: number;
+  children: ParsedNode[];
+}
+
+/**
+ * A flattened node with its level index and parent reference, used by
+ * groupByLevel for batch insertion.
+ */
+export interface LevelNode {
+  content: string;
+  note?: string;
+  checkbox?: boolean;
+  checked?: boolean;
+  heading?: number;
+  color?: number;
+  localIndex: number;
+  parentLevelIndex: number;
+}
+
+/**
+ * Group a tree of ParsedNodes by depth level for batch insertion.
+ * Returns an array of levels, where each level contains nodes with
+ * their parent's index in the previous level.
+ */
+export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
+  const levels: LevelNode[][] = [];
+
+  // Level 0: all roots.
+  const level0: LevelNode[] = roots.map((root, idx) => ({
+    content: root.content,
+    note: root.note,
+    checkbox: root.checkbox,
+    checked: root.checked,
+    heading: root.heading,
+    color: root.color,
+    localIndex: idx,
+    parentLevelIndex: -1,
+  }));
+  levels.push(level0);
+
+  // Build subsequent levels.
+  let currentParents = roots;
+  while (true) {
+    const nextLevel: LevelNode[] = [];
+    let localIdx = 0;
+
+    for (let parentIdx = 0; parentIdx < currentParents.length; parentIdx++) {
+      const parent = currentParents[parentIdx];
+      for (const child of parent.children) {
+        nextLevel.push({
+          content: child.content,
+          note: child.note,
+          checkbox: child.checkbox,
+          checked: child.checked,
+          heading: child.heading,
+          color: child.color,
+          localIndex: localIdx++,
+          parentLevelIndex: parentIdx,
+        });
+      }
+    }
+
+    if (nextLevel.length === 0) break;
+
+    levels.push(nextLevel);
+
+    currentParents = getNodesAtDepth(roots, levels.length - 1);
+  }
+
+  return levels;
+}
+
+/**
+ * Get all nodes at a specific depth in a tree.
+ */
+function getNodesAtDepth(roots: ParsedNode[], depth: number): ParsedNode[] {
+  if (depth === 0) return roots;
+
+  const result: ParsedNode[] = [];
+  for (const root of roots) {
+    collectAtDepth(root, 0, depth, result);
+  }
+  return result;
+}
+
+function collectAtDepth(node: ParsedNode, currentDepth: number, targetDepth: number, result: ParsedNode[]) {
+  if (currentDepth === targetDepth) {
+    result.push(node);
+    return;
+  }
+  for (const child of node.children) {
+    collectAtDepth(child, currentDepth + 1, targetDepth, result);
+  }
+}
 
 /**
  * Estimate token count (~4 chars per token).
@@ -336,13 +439,20 @@ export async function insertTreeUnderParent(
       // non-negative indices that insert at the wrong position.
       const insertIndex = baseIndex === -1 ? -1 : baseIndex + count;
 
-      changes.push({
+      const change: EditDocumentChange = {
         action: "insert",
         parent_id: nodeParentId,
         index: insertIndex,
         content: node.content,
-        checkbox: options.checkbox || undefined,
-      });
+      };
+
+      if (node.note !== undefined) change.note = node.note;
+      if (node.checkbox) change.checkbox = node.checkbox;
+      if (node.checked !== undefined) change.checked = node.checked;
+      if (node.heading !== undefined && node.heading > 0) change.heading = node.heading;
+      if (node.color !== undefined && node.color > 0) change.color = node.color;
+
+      changes.push(change);
       childCountPerParent.set(nodeParentId, count + 1);
     }
 

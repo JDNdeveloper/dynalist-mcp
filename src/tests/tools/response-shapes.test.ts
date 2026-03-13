@@ -303,41 +303,13 @@ describe("edit_node response shape", () => {
   });
 });
 
-// ─── insert_node ────────────────────────────────────────────────────
-
-describe("insert_node response shape", () => {
-  test("success response has correct envelope and fields", async () => {
-    const raw = await callTool(ctx.mcpClient, "insert_node", {
-      file_id: "doc1",
-      parent_id: "n1",
-      content: "New child",
-    });
-    const data = assertSuccessEnvelope(raw);
-
-    expect(typeof data.file_id).toBe("string");
-    expect(typeof data.node_id).toBe("string");
-    expect(typeof data.parent_id).toBe("string");
-    expect(typeof data.url).toBe("string");
-  });
-
-  test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "insert_node", {
-      file_id: "nonexistent",
-      parent_id: "n1",
-      content: "test",
-    });
-    const err = assertErrorEnvelope(raw);
-    expect(err.error).toBe("NotFound");
-  });
-});
-
 // ─── insert_nodes ───────────────────────────────────────────────────
 
 describe("insert_nodes response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      content: "- Item A\n- Item B",
+      nodes: [{ content: "Item A" }, { content: "Item B" }],
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -347,10 +319,10 @@ describe("insert_nodes response shape", () => {
     expect(typeof data.url).toBe("string");
   });
 
-  test("error response for empty content has correct envelope", async () => {
+  test("error response for empty nodes array has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      content: "",
+      nodes: [],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidInput");
@@ -359,7 +331,7 @@ describe("insert_nodes response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "nonexistent",
-      content: "- test",
+      nodes: [{ content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");

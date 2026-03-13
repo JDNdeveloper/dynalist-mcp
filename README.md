@@ -113,7 +113,6 @@ src/
 │   └── files.ts                  # File management tools
 ├── utils/
 │   ├── url-parser.ts             # Build Dynalist URLs
-│   ├── markdown-parser.ts        # Parse indented text into trees
 │   └── dynalist-helpers.ts       # Shared tool helpers
 └── tests/
     └── tools/                    # Tool integration tests against dummy server
