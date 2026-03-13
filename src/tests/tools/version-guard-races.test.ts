@@ -122,11 +122,11 @@ describe("delete_node race simulation", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// Race simulation: move_node
+// Race simulation: move_nodes
 // ═════════════════════════════════════════════════════════════════════
-describe("move_node race simulation", () => {
+describe("move_nodes race simulation", () => {
   test("index race: sibling reorder during move computation", async () => {
-    // After move_node reads and computes the target index but before
+    // After move_nodes reads and computes the target index but before
     // the move call, another client reorders siblings.
     ctx.server.onNextEdit((fileId) => {
       const doc = ctx.server.documents.get(fileId)!;
@@ -135,11 +135,9 @@ describe("move_node race simulation", () => {
       doc.version++;
     });
 
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "after",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "after" }],
     });
 
     expect(result.version_warning).toBeDefined();

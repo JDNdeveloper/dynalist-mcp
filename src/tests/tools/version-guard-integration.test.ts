@@ -178,15 +178,13 @@ describe("delete_node version guard", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// move_node version guard wiring
+// move_nodes version guard wiring
 // ═════════════════════════════════════════════════════════════════════
-describe("move_node version guard", () => {
+describe("move_nodes version guard", () => {
   test("stale expected_version aborts with VersionMismatch", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "last_child",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
       expected_version: 999,
     });
     expect(err.error).toBe("VersionMismatch");
@@ -201,25 +199,21 @@ describe("move_node version guard", () => {
     const doc = ctx.server.documents.get("doc1")!;
     const version = doc.version;
 
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "last_child",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
       expected_version: version,
     });
-    expect(result.node_id).toBe("n1a");
+    expect(result.node_ids).toEqual(["n1a"]);
     expect(result.version_warning).toBeUndefined();
   });
 
   test("omitted expected_version succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "last_child",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
     });
-    expect(result.node_id).toBe("n1a");
+    expect(result.node_ids).toEqual(["n1a"]);
     expect(result.version_warning).toBeUndefined();
   });
 });
@@ -288,11 +282,9 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "last_child",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
     });
 
     expect(result.version_warning).toBeDefined();

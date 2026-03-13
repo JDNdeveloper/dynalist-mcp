@@ -1,5 +1,5 @@
 /**
- * Structure tools: delete_node, move_node.
+ * Structure tools: delete_node, move_nodes.
  */
 
 import { z } from "zod";
@@ -165,51 +165,59 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
   );
 
   // ═════════════════════════════════════════════════════════════════════
-  // TOOL: move_node
+  // TOOL: move_nodes
   // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
-    "move_node",
+    "move_nodes",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Move a node and its entire subtree to a new position relative to a reference node.\n\n" +
-        "Position examples:\n" +
+        "Move one or more nodes (and their subtrees) to new positions within a Dynalist document. " +
+        "Moves are applied sequentially, so later moves can reference positions created by earlier " +
+        "moves. For a single move, pass a one-element array.\n\n" +
+        "Position values:\n" +
         "- 'after': place immediately after the reference (same parent).\n" +
         "- 'before': place immediately before the reference (same parent).\n" +
         "- 'first_child': place as the first child inside the reference.\n" +
         "- 'last_child': place as the last child inside the reference.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().describe("Node to move (its entire subtree moves with it)"),
-        reference_node_id: z.string().describe("Reference node for positioning"),
-        position: z.enum(["after", "before", "first_child", "last_child"]).describe(
-          "'after' = immediately after reference (same parent), " +
-          "'before' = immediately before reference (same parent), " +
-          "'first_child' = as first child of reference, " +
-          "'last_child' = as last child of reference."
-        ),
+        moves: z.array(z.object({
+          node_id: z.string().describe("Node to move (its entire subtree moves with it)"),
+          reference_node_id: z.string().describe("Reference node for positioning"),
+          position: z.enum(["after", "before", "first_child", "last_child"]).describe(
+            "'after' = immediately after reference (same parent), " +
+            "'before' = immediately before reference (same parent), " +
+            "'first_child' = as first child of reference, " +
+            "'last_child' = as last child of reference."
+          ),
+        })).describe("Array of moves to apply sequentially."),
         expected_version: z.number().optional().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe("Document file ID"),
-        node_id: z.string().describe("Moved node ID"),
-        url: z.string().describe("Dynalist URL for the moved node"),
+        moved_count: z.number().describe("Number of nodes moved"),
+        node_ids: z.array(z.string()).describe("IDs of all moved nodes"),
         version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      node_id,
-      reference_node_id,
-      position,
+      moves,
       expected_version,
     }: {
       file_id: string;
-      node_id: string;
-      reference_node_id: string;
-      position: string;
+      moves: Array<{
+        node_id: string;
+        reference_node_id: string;
+        position: string;
+      }>;
       expected_version?: number;
     }) => {
+      if (moves.length === 0) {
+        return makeErrorResponse("InvalidInput", "No moves to apply (empty array).");
+      }
+
       const config = getConfig();
 
       // Access check: only document-level policy is checked for within-document moves.
@@ -217,85 +225,126 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      // Reject self-referential moves that would orphan the node.
-      if (node_id === reference_node_id) {
-        return makeErrorResponse("InvalidInput", "Cannot move a node relative to itself.");
-      }
-
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
-          // Read the document to validate the move and resolve positions.
           const doc = await store.read(file_id);
           const nodeMap = buildNodeMap(doc.nodes);
 
-          if (!nodeMap.has(node_id)) {
-            throw new ToolInputError("NodeNotFound", `Node '${node_id}' not found in document.`);
-          }
-          if (!nodeMap.has(reference_node_id)) {
-            throw new ToolInputError("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
+          // Build mutable state: childrenMap and parentMap that we update
+          // after each move so that later moves see the effects of earlier ones.
+          const childrenMap = new Map<string, string[]>();
+          const parentMap = new Map<string, { parentId: string; index: number }>();
+
+          for (const node of doc.nodes) {
+            const children = node.children ? [...node.children] : [];
+            childrenMap.set(node.id, children);
+            for (let i = 0; i < children.length; i++) {
+              parentMap.set(children[i], { parentId: node.id, index: i });
+            }
           }
 
-          // Check if the target parent is a descendant of the node being moved.
-          // This applies to all positions: for first_child/last_child the target
-          // parent is the reference node itself; for before/after it is the
-          // reference node's parent.
+          // Check descendancy using the mutable childrenMap.
           function isDescendant(ancestorId: string, targetId: string): boolean {
-            const node = nodeMap.get(ancestorId);
-            if (!node?.children) return false;
-            for (const childId of node.children) {
+            const children = childrenMap.get(ancestorId);
+            if (!children) return false;
+            for (const childId of children) {
               if (childId === targetId) return true;
               if (isDescendant(childId, targetId)) return true;
             }
             return false;
           }
 
-          let targetParentId: string;
-          let targetIndex: number;
+          const allChanges: Array<{ action: "move"; node_id: string; parent_id: string; index: number }> = [];
 
-          if (position === "first_child") {
-            targetParentId = reference_node_id;
-            targetIndex = 0;
-          } else if (position === "last_child") {
-            targetParentId = reference_node_id;
-            targetIndex = -1;
-          } else {
-            // "after" or "before": find the parent of the reference node.
-            const parentMap = buildParentMap(doc.nodes);
+          for (const move of moves) {
+            const { node_id, reference_node_id, position } = move;
 
-            const refParentInfo = parentMap.get(reference_node_id);
-            if (!refParentInfo) {
-              throw new ToolInputError("NodeNotFound", "Could not find parent of reference node");
+            if (!nodeMap.has(node_id)) {
+              throw new ToolInputError("NodeNotFound", `Node '${node_id}' not found in document.`);
+            }
+            if (!nodeMap.has(reference_node_id)) {
+              throw new ToolInputError("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
+            }
+            if (node_id === reference_node_id) {
+              throw new ToolInputError("InvalidInput", "Cannot move a node relative to itself.");
             }
 
-            targetParentId = refParentInfo.parentId;
-            targetIndex = position === "after" ? refParentInfo.index + 1 : refParentInfo.index;
+            let targetParentId: string;
+            let targetIndex: number;
+
+            if (position === "first_child") {
+              targetParentId = reference_node_id;
+              targetIndex = 0;
+            } else if (position === "last_child") {
+              targetParentId = reference_node_id;
+              targetIndex = -1;
+            } else {
+              // "after" or "before": find the parent of the reference node.
+              const refParentInfo = parentMap.get(reference_node_id);
+              if (!refParentInfo) {
+                throw new ToolInputError("NodeNotFound", "Could not find parent of reference node.");
+              }
+
+              targetParentId = refParentInfo.parentId;
+              targetIndex = position === "after" ? refParentInfo.index + 1 : refParentInfo.index;
+            }
+
+            if (node_id === targetParentId || isDescendant(node_id, targetParentId)) {
+              throw new ToolInputError("InvalidInput", "Cannot move a node into one of its own descendants.");
+            }
 
             // The API uses post-removal indexing: it removes the node first,
             // then inserts at the given index. When moving within the same
-            // parent and the node is earlier than the reference, the removal
-            // shifts the reference's index down by 1, so we must compensate.
+            // parent and the node is earlier than the target, the removal
+            // shifts the target index down by 1, so we must compensate.
+            let apiIndex = targetIndex;
             const movedNodeInfo = parentMap.get(node_id);
-            if (movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < refParentInfo.index) {
-              targetIndex--;
+            if (apiIndex !== -1 && movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < apiIndex) {
+              apiIndex--;
+            }
+
+            allChanges.push({ action: "move", node_id, parent_id: targetParentId, index: apiIndex });
+
+            // Update mutable state so subsequent moves see this move's effect.
+            if (movedNodeInfo) {
+              const oldSiblings = childrenMap.get(movedNodeInfo.parentId)!;
+              oldSiblings.splice(movedNodeInfo.index, 1);
+
+              // Rebuild parentMap for the old parent's remaining children.
+              for (let i = 0; i < oldSiblings.length; i++) {
+                parentMap.set(oldSiblings[i], { parentId: movedNodeInfo.parentId, index: i });
+              }
+            }
+
+            const newSiblings = childrenMap.get(targetParentId) ?? [];
+            if (targetIndex === -1) {
+              newSiblings.push(node_id);
+            } else {
+              // Use targetIndex (pre-removal) for mutable state since we
+              // already removed the node from the old parent above.
+              const insertAt = movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < targetIndex
+                ? targetIndex - 1
+                : targetIndex;
+              newSiblings.splice(insertAt, 0, node_id);
+            }
+
+            // Rebuild parentMap for the new parent's children.
+            for (let i = 0; i < newSiblings.length; i++) {
+              parentMap.set(newSiblings[i], { parentId: targetParentId, index: i });
             }
           }
 
-          if (node_id === targetParentId || isDescendant(node_id, targetParentId)) {
-            throw new ToolInputError("InvalidInput", "Cannot move a node into one of its own descendants.");
-          }
-
-          const response = await client.editDocument(file_id, [
-            { action: "move", node_id, parent_id: targetParentId, index: targetIndex },
-          ]);
+          const response = await client.editDocument(file_id, allChanges);
           return { result: undefined, apiCallCount: response.batches_sent };
         },
       );
 
+      const nodeIds = moves.map((m) => m.node_id);
       const data: Record<string, unknown> = {
         file_id,
-        node_id,
-        url: buildDynalistUrl(file_id, node_id),
+        moved_count: moves.length,
+        node_ids: nodeIds,
       };
       if (guard.versionWarning) data.version_warning = guard.versionWarning;
 

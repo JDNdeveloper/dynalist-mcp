@@ -301,15 +301,15 @@ describe("delete_node", () => {
   });
 });
 
-// ─── move_node ───────────────────────────────────────────────────────
+// ─── move_nodes ──────────────────────────────────────────────────────
 
-describe("move_node", () => {
+describe("move_nodes", () => {
+  // ─── Single-move behavior (one-element array) ─────────────────────
+
   test("first_child: moves node as first child of reference", async () => {
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n2a",
-      reference_node_id: "n1",
-      position: "first_child",
+      moves: [{ node_id: "n2a", reference_node_id: "n1", position: "first_child" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -317,11 +317,9 @@ describe("move_node", () => {
   });
 
   test("last_child: moves node as last child of reference", async () => {
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n2a",
-      reference_node_id: "n1",
-      position: "last_child",
+      moves: [{ node_id: "n2a", reference_node_id: "n1", position: "last_child" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -330,11 +328,9 @@ describe("move_node", () => {
 
   test("after: moves node as sibling after reference", async () => {
     // Move n3 to be after n1 (under root).
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "after",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "after" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -343,11 +339,9 @@ describe("move_node", () => {
   });
 
   test("before: moves node as sibling before reference", async () => {
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "before",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "before" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -355,57 +349,12 @@ describe("move_node", () => {
     expect(root.children![n1Index - 1]).toBe("n3");
   });
 
-  test("returns file_id, node_id, url", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
-      file_id: "doc1",
-      node_id: "n2a",
-      reference_node_id: "n1",
-      position: "first_child",
-    });
-    expect(result.file_id).toBe("doc1");
-    expect(result.node_id).toBe("n2a");
-    expect(result.url).toContain("doc1");
-    expect(result.url).toContain("n2a");
-  });
-
-  test("cannot move node relative to itself", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
-      file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1",
-      position: "first_child",
-    });
-    expect(err.error).toBe("InvalidInput");
-  });
-
-  test("cannot move node into its own descendant", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
-      file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1a",
-      position: "first_child",
-    });
-    expect(err.error).toBe("InvalidInput");
-  });
-
-  test("nonexistent file returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
-      file_id: "nonexistent",
-      node_id: "n1",
-      reference_node_id: "n2",
-      position: "after",
-    });
-    expect(err.error).toBe("NotFound");
-  });
-
-  // ─── State round-trip: move then read ────────────────────────────
+  // ─── State round-trip: move then read ─────────────────────────────
 
   test("state round-trip: move then verify via read_document", async () => {
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "last_child",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {
@@ -421,15 +370,13 @@ describe("move_node", () => {
     expect(movedNode!.content).toBe("Child A");
   });
 
-  // ─── 15b: Position verification ───────────────────────────────────
+  // ─── Position verification ────────────────────────────────────────
 
   test("first_child: moved node is at index 0 of reference's children", async () => {
     // n1 already has children [n1a, n1b]. Move n3 as first child of n1.
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "first_child",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "first_child" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -438,11 +385,9 @@ describe("move_node", () => {
 
   test("last_child: moved node is at last index of reference's children", async () => {
     // n1 already has children [n1a, n1b]. Move n3 as last child of n1.
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "last_child",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "last_child" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -451,11 +396,9 @@ describe("move_node", () => {
 
   test("after: moved node is at index immediately after reference", async () => {
     // Root children are [n1, n2, n3]. Move n3 after n1.
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "after",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "after" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -466,11 +409,9 @@ describe("move_node", () => {
 
   test("before: moved node is at index immediately before reference", async () => {
     // Root children are [n1, n2, n3]. Move n3 before n2.
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n2",
-      position: "before",
+      moves: [{ node_id: "n3", reference_node_id: "n2", position: "before" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -481,11 +422,9 @@ describe("move_node", () => {
 
   test("move with children: entire subtree moves together", async () => {
     // Move n1 (which has children n1a, n1b) as last child of n2.
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n2",
-      position: "last_child",
+      moves: [{ node_id: "n1", reference_node_id: "n2", position: "last_child" }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -504,7 +443,7 @@ describe("move_node", () => {
     expect(root.children).not.toContain("n1");
   });
 
-  // ─── 15c: Circular move prevention ────────────────────────────────
+  // ─── Circular move prevention ─────────────────────────────────────
 
   test("cannot move node to be child of its own grandchild", async () => {
     // n1 -> [n1a, n1b]. Moving n1 into n1a's subtree should fail.
@@ -515,22 +454,18 @@ describe("move_node", () => {
     const n1a = ctx.server.documents.get("doc1")!.nodes.find((n) => n.id === "n1a")!;
     n1a.children!.push("n1a1");
 
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1a1",
-      position: "first_child",
+      moves: [{ node_id: "n1", reference_node_id: "n1a1", position: "first_child" }],
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("cannot move node to be child of its own direct child", async () => {
     // n1 -> [n1a, n1b]. Moving n1 into n1a should fail.
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1a",
-      position: "first_child",
+      moves: [{ node_id: "n1", reference_node_id: "n1a", position: "first_child" }],
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -538,54 +473,52 @@ describe("move_node", () => {
   test("cannot move node 'after' one of its own descendants", async () => {
     // n1 -> [n1a, n1b]. Moving n1 to after n1a would resolve n1a's parent
     // (which is n1 itself), creating a circular move.
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1a",
-      position: "after",
+      moves: [{ node_id: "n1", reference_node_id: "n1a", position: "after" }],
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("cannot move node 'before' one of its own descendants", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1b",
-      position: "before",
+      moves: [{ node_id: "n1", reference_node_id: "n1b", position: "before" }],
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("self-reference with after position is rejected", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1",
-      position: "after",
+      moves: [{ node_id: "n1", reference_node_id: "n1", position: "after" }],
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("self-reference with before position is rejected", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1",
-      position: "before",
+      moves: [{ node_id: "n1", reference_node_id: "n1", position: "before" }],
     });
     expect(err.error).toBe("InvalidInput");
   });
 
-  // ─── 15d: Sibling reordering ──────────────────────────────────────
+  test("self-reference with first_child position is rejected", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [{ node_id: "n1", reference_node_id: "n1", position: "first_child" }],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  // ─── Sibling reordering ───────────────────────────────────────────
 
   test("reorder sibling: move node before its own sibling", async () => {
     // Root children are [n1, n2, n3]. Move n3 before n1.
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "before",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "before" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -599,11 +532,9 @@ describe("move_node", () => {
   test("move earlier sibling before later sibling: exact position", async () => {
     // Root children are [n1, n2, n3]. Move n1 before n3.
     // Expected result: [n2, n1, n3].
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n3",
-      position: "before",
+      moves: [{ node_id: "n1", reference_node_id: "n3", position: "before" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -612,11 +543,9 @@ describe("move_node", () => {
 
   test("reorder sibling: move node after its own sibling", async () => {
     // Root children are [n1, n2, n3]. Move n1 after n3.
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n3",
-      position: "after",
+      moves: [{ node_id: "n1", reference_node_id: "n3", position: "after" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -627,54 +556,279 @@ describe("move_node", () => {
     expect(n1Idx).toBeGreaterThan(n3Idx);
   });
 
-  // ─── 15e: Response shape ──────────────────────────────────────────
+  // ─── Response shape ───────────────────────────────────────────────
 
-  test("response includes file_id, node_id, and url", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+  test("response includes file_id, moved_count, and node_ids", async () => {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "first_child",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "first_child" }],
     });
-    expect(typeof result.file_id).toBe("string");
-    expect(typeof result.node_id).toBe("string");
-    expect(typeof result.url).toBe("string");
     expect(result.file_id).toBe("doc1");
-    expect(result.node_id).toBe("n3");
-    expect(result.url).toContain("doc1");
-    expect(result.url).toContain("n3");
+    expect(result.moved_count).toBe(1);
+    expect(result.node_ids).toEqual(["n3"]);
   });
 
-  // ─── 15f: Nonexistent node validation ──────────────────────────────
+  test("response shape for multi-move", async () => {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1a", reference_node_id: "n3", position: "last_child" },
+        { node_id: "n1b", reference_node_id: "n3", position: "last_child" },
+      ],
+    });
+    expect(result.file_id).toBe("doc1");
+    expect(result.moved_count).toBe(2);
+    expect(result.node_ids).toEqual(["n1a", "n1b"]);
+  });
+
+  // ─── Nonexistent node validation ──────────────────────────────────
 
   test("nonexistent node_id returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "nonexistent",
-      reference_node_id: "n1",
-      position: "after",
+      moves: [{ node_id: "nonexistent", reference_node_id: "n1", position: "after" }],
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
   test("nonexistent reference_node_id with first_child returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "nonexistent",
-      position: "first_child",
+      moves: [{ node_id: "n1", reference_node_id: "nonexistent", position: "first_child" }],
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
   test("nonexistent reference_node_id with after returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "nonexistent",
-      position: "after",
+      moves: [{ node_id: "n1", reference_node_id: "nonexistent", position: "after" }],
     });
     expect(err.error).toBe("NodeNotFound");
+  });
+
+  test("nonexistent file returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "nonexistent",
+      moves: [{ node_id: "n1", reference_node_id: "n2", position: "after" }],
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
+  // ─── Empty moves array ────────────────────────────────────────────
+
+  test("empty moves array returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  // ─── Bulk move behavior ───────────────────────────────────────────
+
+  test("bulk: move two nodes to be children of a different parent", async () => {
+    // Root children are [n1, n2, n3]. Move n1a and n1b as last_child of n3.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1a", reference_node_id: "n3", position: "last_child" },
+        { node_id: "n1b", reference_node_id: "n3", position: "last_child" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n3 = doc.nodes.find((n) => n.id === "n3")!;
+    expect(n3.children).toContain("n1a");
+    expect(n3.children).toContain("n1b");
+
+    // n1 should have no children left.
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children).toEqual([]);
+  });
+
+  test("bulk: interdependent positions (move A after X, then move B after A)", async () => {
+    // Root children are [n1, n2, n3].
+    // Move n2 after n1, then move n3 after n2. Final order: [n1, n2, n3].
+    // But first rearrange so we can see the interdependency.
+    //
+    // Setup: root -> [a, b, c, d]
+    ctx.server.addDocument("dep_doc", "Dep Doc", "folder_a", [
+      ctx.server.makeNode("root", "Dep Doc", ["a", "b", "c", "d"]),
+      ctx.server.makeNode("a", "A", []),
+      ctx.server.makeNode("b", "B", []),
+      ctx.server.makeNode("c", "C", []),
+      ctx.server.makeNode("d", "D", []),
+    ]);
+
+    // Move c after a, then move d after c. Result should be [a, c, d, b].
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "dep_doc",
+      moves: [
+        { node_id: "c", reference_node_id: "a", position: "after" },
+        { node_id: "d", reference_node_id: "c", position: "after" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("dep_doc")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["a", "c", "d", "b"]);
+  });
+
+  test("bulk: reverse a list of 3 siblings", async () => {
+    // Root children are [n1, n2, n3]. Reverse to [n3, n2, n1].
+    // Strategy: move n3 before n1, then move n2 after n3.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n3", reference_node_id: "n1", position: "before" },
+        { node_id: "n2", reference_node_id: "n3", position: "after" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n3", "n2", "n1"]);
+  });
+
+  test("bulk: cross-parent moves (from different parents to the same target)", async () => {
+    // n1 -> [n1a, n1b], n2 -> [n2a]. Move n1a and n2a as children of n3.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1a", reference_node_id: "n3", position: "last_child" },
+        { node_id: "n2a", reference_node_id: "n3", position: "last_child" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n3 = doc.nodes.find((n) => n.id === "n3")!;
+    expect(n3.children).toEqual(["n1a", "n2a"]);
+
+    // Original parents should have lost their children.
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children).toEqual(["n1b"]);
+    const n2 = doc.nodes.find((n) => n.id === "n2")!;
+    expect(n2.children).toEqual([]);
+  });
+
+  test("bulk: move same node twice (processed sequentially)", async () => {
+    // Move n3 to first_child of n1, then move it to last_child of n2.
+    // The second move should win since moves are applied sequentially.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n3", reference_node_id: "n1", position: "first_child" },
+        { node_id: "n3", reference_node_id: "n2", position: "last_child" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children).not.toContain("n3");
+    const n2 = doc.nodes.find((n) => n.id === "n2")!;
+    expect(n2.children).toContain("n3");
+  });
+
+  test("bulk: circular move created by earlier move in batch", async () => {
+    // Move n1a under n2, then move n2 under n1a. The second move should
+    // fail because n1a is now an ancestor of n2's subtree via the first move.
+    //
+    // NOTE: After the first move, n1a is a child of n2, so moving n2
+    // into n1a would be circular.
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1a", reference_node_id: "n2", position: "last_child" },
+        { node_id: "n2", reference_node_id: "n1a", position: "first_child" },
+      ],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("bulk: moving to/from root level", async () => {
+    // Move n1a (child of n1) to root level after n3, then move n3 under n1.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1a", reference_node_id: "n3", position: "after" },
+        { node_id: "n3", reference_node_id: "n1", position: "first_child" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toContain("n1a");
+    expect(root.children).not.toContain("n3");
+
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children![0]).toBe("n3");
+  });
+
+  test("bulk: state round-trip for multi-move via read_document", async () => {
+    // Move n1a and n1b as children of n3, then verify via read_document.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1a", reference_node_id: "n3", position: "first_child" },
+        { node_id: "n1b", reference_node_id: "n3", position: "last_child" },
+      ],
+    });
+
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+    const tree = result.node as Record<string, unknown>;
+    const children = tree.children as Record<string, unknown>[];
+    const n3 = children.find((c) => c.node_id === "n3")!;
+    const n3Children = n3.children as Record<string, unknown>[];
+    expect(n3Children).toHaveLength(2);
+    expect(n3Children[0].node_id).toBe("n1a");
+    expect(n3Children[1].node_id).toBe("n1b");
+  });
+
+  test("bulk: reverse 4 siblings with sequential moves", async () => {
+    // Setup: root -> [a, b, c, d].
+    ctx.server.addDocument("rev_doc", "Reverse Doc", "folder_a", [
+      ctx.server.makeNode("root", "Reverse Doc", ["a", "b", "c", "d"]),
+      ctx.server.makeNode("a", "A", []),
+      ctx.server.makeNode("b", "B", []),
+      ctx.server.makeNode("c", "C", []),
+      ctx.server.makeNode("d", "D", []),
+    ]);
+
+    // Reverse [a, b, c, d] to [d, c, b, a].
+    // Move d before a, move c after d, move b after c.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "rev_doc",
+      moves: [
+        { node_id: "d", reference_node_id: "a", position: "before" },
+        { node_id: "c", reference_node_id: "d", position: "after" },
+        { node_id: "b", reference_node_id: "c", position: "after" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("rev_doc")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["d", "c", "b", "a"]);
+  });
+
+  test("bulk: move nodes from nested positions to flat list", async () => {
+    // n1 -> [n1a, n1b], n2 -> [n2a].
+    // Flatten: move n1a, n1b, n2a all to root level after n3.
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "doc1",
+      moves: [
+        { node_id: "n1a", reference_node_id: "n3", position: "after" },
+        { node_id: "n1b", reference_node_id: "n1a", position: "after" },
+        { node_id: "n2a", reference_node_id: "n1b", position: "after" },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n1", "n2", "n3", "n1a", "n1b", "n2a"]);
   });
 });
 

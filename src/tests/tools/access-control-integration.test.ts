@@ -287,39 +287,33 @@ describe("delete_node with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3i. move_node with ACL
+// 3i. move_nodes with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("move_node with ACL", () => {
+describe("move_nodes with ACL", () => {
   test("denied document returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "denied_doc",
-      node_id: "dn1a",
-      reference_node_id: "dn1",
-      position: "first_child",
+      moves: [{ node_id: "dn1a", reference_node_id: "dn1", position: "first_child" }],
     });
     expect(err.error).toBe("NotFound");
   });
 
   test("read-policy document returns ReadOnly error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "readonly_doc",
-      node_id: "rn1a",
-      reference_node_id: "rn1",
-      position: "first_child",
+      moves: [{ node_id: "rn1a", reference_node_id: "rn1", position: "first_child" }],
     });
     expect(err.error).toBe("ReadOnly");
   });
 
   test("allow-policy document move succeeds", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "allowed_doc",
-      node_id: "an1a",
-      reference_node_id: "root",
-      position: "last_child",
+      moves: [{ node_id: "an1a", reference_node_id: "root", position: "last_child" }],
     });
     expect(result.file_id).toBe("allowed_doc");
-    expect(result.node_id).toBe("an1a");
+    expect(result.node_ids).toEqual(["an1a"]);
   });
 });
 
@@ -936,6 +930,16 @@ describe("global readOnly: true overrides", () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "allowed_folder",
       parent_folder_id: "allowed_folder",
+    });
+    expect(err.error).toBe("ReadOnly");
+    expect(err.message).toBe("Server is in read-only mode.");
+  });
+
+  test("readOnly blocks move_nodes on allow-policy document", async () => {
+    writeReadOnlyConfig();
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+      file_id: "allowed_doc",
+      moves: [{ node_id: "an1a", reference_node_id: "root", position: "last_child" }],
     });
     expect(err.error).toBe("ReadOnly");
     expect(err.message).toBe("Server is in read-only mode.");

@@ -110,7 +110,7 @@ max_depth budget.
 create_document, create_folder, move_document, move_folder, rename_document, and rename_folder \
 to organize the file tree.
 - File vs node management: tools like create_document, rename_folder, and move_document \
-operate on the file tree. Tools like insert_nodes, edit_nodes, and move_node operate on \
+operate on the file tree. Tools like insert_nodes, edit_nodes, and move_nodes operate on \
 nodes within a single document. Do not confuse file IDs with node IDs.
 
 ## Presenting document content
@@ -159,7 +159,7 @@ first node always starts at the root indent level. Example:
 
 ## Version tracking
 
-Write tools (\`edit_nodes\`, \`insert_nodes\`, \`delete_node\`, \`move_node\`) accept an optional \
+Write tools (\`edit_nodes\`, \`insert_nodes\`, \`delete_node\`, \`move_nodes\`) accept an optional \
 \`expected_version\` parameter. Pass the \`version\` from your most recent \`read_document\` \
 response. If the document has been modified since that read, the tool will abort with a \
 \`VersionMismatch\` error and ask you to re-read.

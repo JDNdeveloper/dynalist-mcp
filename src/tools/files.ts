@@ -253,7 +253,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Move a document to a different parent folder, or reorder it within its current " +
         "folder by passing the same parent_folder_id with a new index. This operates on the " +
-        "file tree, not on nodes within a document. Use move_node for moving nodes.",
+        "file tree, not on nodes within a document. Use move_nodes for moving nodes.",
       inputSchema: {
         file_id: z.string().describe("Document file ID to move"),
         parent_folder_id: z.string().describe("Destination folder file ID"),

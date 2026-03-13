@@ -404,40 +404,34 @@ describe("delete_node response shape", () => {
   });
 });
 
-// ─── move_node ──────────────────────────────────────────────────────
+// ─── move_nodes ─────────────────────────────────────────────────────
 
-describe("move_node response shape", () => {
+describe("move_nodes response shape", () => {
   test("success response has correct envelope and fields", async () => {
-    const raw = await callTool(ctx.mcpClient, "move_node", {
+    const raw = await callTool(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n2a",
-      reference_node_id: "n1",
-      position: "last_child",
+      moves: [{ node_id: "n2a", reference_node_id: "n1", position: "last_child" }],
     });
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
-    expect(typeof data.node_id).toBe("string");
-    expect(typeof data.url).toBe("string");
+    expect(typeof data.moved_count).toBe("number");
+    expect(Array.isArray(data.node_ids)).toBe(true);
   });
 
   test("error response for self-referential move has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "move_node", {
+    const raw = await callTool(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1",
-      position: "last_child",
+      moves: [{ node_id: "n1", reference_node_id: "n1", position: "last_child" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidInput");
   });
 
   test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "move_node", {
+    const raw = await callTool(ctx.mcpClient, "move_nodes", {
       file_id: "nonexistent",
-      node_id: "n1",
-      reference_node_id: "n2",
-      position: "after",
+      moves: [{ node_id: "n1", reference_node_id: "n2", position: "after" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");

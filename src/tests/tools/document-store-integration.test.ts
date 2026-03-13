@@ -96,11 +96,9 @@ describe("document store cache invalidation", () => {
     });
 
     // Move n3 to be the first child of root (before n1).
-    await callToolOk(ctx.mcpClient, "move_node", {
+    await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n3",
-      reference_node_id: "n1",
-      position: "before",
+      moves: [{ node_id: "n3", reference_node_id: "n1", position: "before" }],
     });
 
     const after = await callToolOk(ctx.mcpClient, "read_document", {

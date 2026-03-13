@@ -345,17 +345,23 @@ Delete a node from a document. By default, the node and its entire subtree are d
 
 `promoted_children` is present only when children were promoted. `version_warning` is present only when a concurrent edit was detected during the write (i.e. `include_children` was set to false and the node had children).
 
-### `move_node`
+### `move_nodes`
 
-Move a node and its entire subtree to a new position relative to a reference node.
+Move one or more nodes (and their subtrees) to new positions within a document. Moves are applied sequentially, so later moves can reference positions created by earlier moves. For a single move, pass a one-element array.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
-| `node_id` | string | yes | | Node to move |
-| `reference_node_id` | string | yes | | Reference node for positioning |
-| `position` | string | yes | | `"after"`, `"before"`, `"first_child"`, `"last_child"` |
+| `moves` | array | yes | | Array of move objects (see below) |
 | `expected_version` | number | no | | Document version from `read_document`. Aborts if stale. |
+
+**Move object fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `node_id` | string | yes | Node to move (its entire subtree moves with it) |
+| `reference_node_id` | string | yes | Reference node for positioning |
+| `position` | string | yes | `"after"`, `"before"`, `"first_child"`, `"last_child"` |
 
 **Position values:**
 - `after`: immediately after the reference (same parent).
@@ -363,12 +369,23 @@ Move a node and its entire subtree to a new position relative to a reference nod
 - `first_child`: as first child inside the reference.
 - `last_child`: as last child inside the reference.
 
+Example input:
+```json
+{
+  "file_id": "abc123",
+  "moves": [
+    { "node_id": "node1", "reference_node_id": "node3", "position": "after" },
+    { "node_id": "node2", "reference_node_id": "node1", "position": "after" }
+  ]
+}
+```
+
 **Response**:
 ```json
 {
   "file_id": "...",
-  "node_id": "...",
-  "url": "...",
+  "moved_count": 2,
+  "node_ids": ["node1", "node2"],
   "version_warning": "..."
 }
 ```

@@ -27,53 +27,45 @@ afterEach(async () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// TOCTOU race detection: move_node
+// TOCTOU race detection: move_nodes
 // ═════════════════════════════════════════════════════════════════════
-describe("move_node TOCTOU", () => {
+describe("move_nodes TOCTOU", () => {
   test("concurrent edit during planning read emits warning", async () => {
     ctx.server.onNextRead((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "after",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "after" }],
     });
 
     expect(result.version_warning).toBeDefined();
-    expect(result.node_id).toBe("n1a");
+    expect(result.node_ids).toEqual(["n1a"]);
   });
 
   test("no concurrent edit has no version_warning", async () => {
-    const result = await callToolOk(ctx.mcpClient, "move_node", {
+    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1a",
-      reference_node_id: "n2",
-      position: "after",
+      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "after" }],
     });
 
     expect(result.version_warning).toBeUndefined();
   });
 
   test("NodeNotFound inside guard returns proper error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "nonexistent",
-      reference_node_id: "n2",
-      position: "after",
+      moves: [{ node_id: "nonexistent", reference_node_id: "n2", position: "after" }],
     });
 
     expect(err.error).toBe("NodeNotFound");
   });
 
   test("cycle detection inside guard returns proper error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_node", {
+    const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "doc1",
-      node_id: "n1",
-      reference_node_id: "n1a",
-      position: "last_child",
+      moves: [{ node_id: "n1", reference_node_id: "n1a", position: "last_child" }],
     });
 
     expect(err.error).toBe("InvalidInput");
