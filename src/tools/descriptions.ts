@@ -12,14 +12,13 @@
 export const CONFIRM_GUIDANCE =
   "Confirm intended changes with the user before calling this tool.";
 export const CHECKED_GUIDANCE =
-  "Items can be checked off with or without a visible checkbox. " +
-  "Do not add a checkbox unless the user explicitly asks for one.";
+  "Items can be checked with or without a visible checkbox. " +
+  "Do not add a checkbox unless explicitly asked.";
 export const CHECKBOX_GUIDANCE =
-  "Only set if the user explicitly asks for a checkbox or surrounding nodes already use " +
-  "checkboxes. Omit when unsure.";
+  "Only set if explicitly asked or surrounding nodes use checkboxes. Omit when unsure.";
 export const CHECKED_CHILDREN_GUIDANCE =
-  "Do not check off children when checking a parent unless explicitly asked. " +
-  "Dynalist already greys out descendants of checked nodes visually.";
+  "Do not check children when checking a parent unless asked. " +
+  "Dynalist greys out descendants visually.";
 
 export const MULTILINE_GUIDANCE =
   "Supports multiline.";
@@ -33,7 +32,7 @@ export const BYPASS_WARNING_DESCRIPTION =
 export const PARENT_LEVELS_DESCRIPTION =
   "How many parent levels to include for context (0 = none)";
 export const CHECKED_DESCRIPTION =
-  `Checked (completed) state. ${CHECKED_GUIDANCE} To check an item off, just set checked: true. ${CHECKED_CHILDREN_GUIDANCE}`;
+  `Checked (completed) state. ${CHECKED_GUIDANCE} ${CHECKED_CHILDREN_GUIDANCE}`;
 export const CHECKBOX_DESCRIPTION = CHECKBOX_GUIDANCE;
 export const HEADING_DESCRIPTION =
   "Heading level. 0 = no heading (removes heading), 1 = H1, 2 = H2, 3 = H3.";
@@ -41,5 +40,5 @@ export const COLOR_DESCRIPTION =
   "Color label. 0 = no color (removes color), 1 = red, 2 = orange, 3 = yellow, " +
   "4 = green, 5 = blue, 6 = purple.";
 export const EXPECTED_VERSION_DESCRIPTION =
-  "Document version from your most recent read_document response. " +
-  "If the document has been modified since that read, the tool aborts and asks you to re-read.";
+  "Document version from your most recent read_document. " +
+  "If stale, the tool aborts and requests a re-read.";

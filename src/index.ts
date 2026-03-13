@@ -32,92 +32,77 @@ const dynalistClient = new DynalistClient(API_TOKEN);
 
 // Server instructions injected into the LLM system prompt by MCP clients.
 const INSTRUCTIONS = `\
-Dynalist is an outliner application, a tool for organizing information as nested, \
-hierarchical bullet-point lists. Content is organized at two levels:
+Dynalist is an outliner for organizing information as nested bullet-point lists. \
+Content is organized at two levels:
 
-1. File tree (folders and documents): The top level is a tree of folders and documents, \
-similar to a filesystem. Folders contain other folders and documents. Documents are the \
-leaf containers that hold actual content.
-2. Item tree (nodes within a document): Each document contains a tree of items (called \
-"nodes" in the API). Every node has text content, an optional note, and can have child \
-nodes nested beneath it, forming an arbitrarily deep hierarchy. Each document has a single \
-root node whose children are the top-level items visible in the document.
+1. File tree (folders and documents): A tree of folders and documents, like a filesystem. \
+Folders contain other folders and documents. Documents hold actual content.
+2. Item tree (nodes within a document): Each document contains a tree of items ("nodes" \
+in the API). Each node has text content, an optional note, and can have children nested \
+beneath it. Each document has a single root node whose children are the top-level visible items.
 
 ## Identifiers
 
-There are three entity types, each with its own ID:
-- Folders: identified by a file ID (e.g. "abc123def456"). Folders organize documents but \
-contain no content of their own.
-- Documents: identified by a file ID (same format as folders). Documents hold node trees.
-- Nodes (items): identified by a node ID (e.g. "a1b2c3d4e5f6"). Nodes exist within a \
-specific document. A node ID is only meaningful in the context of its parent document.
+Three entity types:
+- Folders: file ID (e.g. "abc123def456"). Organize documents but hold no content.
+- Documents: file ID (same format). Hold node trees.
+- Nodes (items): node ID (e.g. "a1b2c3d4e5f6"). Meaningful only within its parent document.
 
 ## URL format
 
 - Document: https://dynalist.io/d/{fileId}
 - Specific node (deep link): https://dynalist.io/d/{fileId}#z={nodeId}
-- There is no URL format for folders.
-- Tools accept file_id and node_id parameters directly, not URLs. If the user provides a \
-Dynalist URL, extract the file_id from the path segment after /d/ and the node_id from \
-the #z= fragment (if present).
+- No URL for folders.
+- Tools accept file_id and node_id, not URLs. Extract file_id from the /d/ path segment \
+and node_id from the #z= fragment.
 
 ## Node content
 
-Node text is short -- typically one sentence, occasionally a few. Nodes are generally single-line, \
-though multiline text is technically supported. Longer content spanning multiple lines or paragraphs \
-belongs in the node's note field, not the text field.
+Node text is short, typically one sentence. Multiline is supported but longer content \
+belongs in the note field.
 
 Node text supports a subset of Markdown for inline formatting:
 - **Bold**: \`**bold**\`
-- **Italic**: \`__italic__\` (note: single underscores and single asterisks do NOT work)
+- **Italic**: \`__italic__\` (single underscores/asterisks do NOT work)
 - **Inline code**: \`\\\`code\\\`\`
 - **Strikethrough**: \`~~strikethrough~~\`
-- **Link**: \`[label](url)\` (bare URLs with a protocol are also auto-linked)
-- **Image link**: \`![alt](url)\` (renders a hover preview in the Dynalist UI)
+- **Link**: \`[label](url)\` (bare URLs auto-link)
+- **Image link**: \`![alt](url)\` (hover preview in UI)
 - **LaTeX**: \`$equation$\` (rendered via KaTeX)
-- **Code block**: triple-backtick fenced code blocks (usually used in notes rather than node text)
+- **Code block**: triple-backtick fenced code blocks (mainly for notes)
 
-Nodes also support two non-text metadata properties:
+Two non-text metadata properties:
 - **Heading level**: 0 = none, 1 = H1, 2 = H2, 3 = H3.
 - **Color label**: 0 = none, 1 = red, 2 = orange, 3 = yellow, 4 = green, 5 = blue, 6 = purple.
 
-
 ## Size warnings
 
-Read and search tools may return a warning instead of content when results exceed a token \
-threshold. This is deliberate, not an error. Retry the same request with bypass_warning: \
-true to get the actual content. bypass_warning should never be set on the first request.
+Read and search tools may return a size warning instead of content. This is not an error. \
+Retry with bypass_warning: true to get actual content. Never set bypass_warning on the \
+first request.
 
 ## Compositional patterns
 
-- Parent chain / hierarchy: there is no "get ancestors" tool. The best way to find a \
-node's ancestors is search_in_document with the node's text (or a unique substring) and \
-parent_levels set to the desired depth. Each match includes a parents array with the \
-ancestor chain, so a single call gives you the breadcrumb context. If the node's text is \
-not unique or not known, fall back to calling read_document with just the file_id (omit \
-node_id) and searching the returned tree for the target node_id. Use max_depth to limit \
-output.
-- Sibling context: to see a node's siblings, call read_document with the parent's node_id \
-and max_depth: 1.
+- Parent chain / hierarchy: no ancestors tool. Use search_in_document with the node's text \
+(or a unique substring) and parent_levels set to the desired depth. Each match includes a \
+parents array for breadcrumb context. Fallback: read_document with just file_id, then search \
+the tree for the target node_id. Use max_depth to limit output.
+- Sibling context: call read_document with the parent's node_id and max_depth: 1.
 - Expanding collapsed sections: if a node has collapsed: true and children_count > 0 but \
-empty children, either pass the node's node_id directly to read_document (the starting node \
-always expands, so no extra flags needed) or re-request with include_collapsed_children: true \
-to expand all collapsed nodes in the response.
+empty children, pass the node's node_id to read_document (the starting node always expands) \
+or re-request with include_collapsed_children: true.
 - Drilling into depth-limited nodes: if a node has depth_limited: true, call read_document \
-with that node's node_id as the starting point. This zooms into the subtree using the same \
-max_depth budget.
-- File organization: use list_documents to see the folder hierarchy, then use \
-create_document, create_folder, move_document, move_folder, rename_document, and rename_folder \
-to organize the file tree.
-- File vs node management: tools like create_document, rename_folder, and move_document \
-operate on the file tree. Tools like insert_nodes, edit_nodes, and move_nodes operate on \
-nodes within a single document. Do not confuse file IDs with node IDs.
+with that node's node_id to zoom into the subtree.
+- File organization: list_documents shows the folder hierarchy. Use create_*, move_*, \
+rename_* tools to organize.
+- File vs node management: file tools (create_document, move_document, etc.) operate on \
+the file tree. Node tools (insert_nodes, edit_nodes, etc.) operate within a document. \
+Do not confuse file IDs with node IDs.
 
 ## Presenting document content
 
-When showing document content to the user, render nodes as indented bullet points to mirror \
-Dynalist's visual structure. Use exactly 4 spaces per indentation level. Show checked/completed \
-items with strikethrough (e.g. ~~Buy groceries~~). Example:
+Render document content as indented bullet points mirroring Dynalist's structure. Use exactly \
+4 spaces per indentation level. Show checked items with strikethrough (~~Buy groceries~~). Example:
 
 \`\`\`
 - Project plan
@@ -128,23 +113,18 @@ items with strikethrough (e.g. ~~Buy groceries~~). Example:
         - Implementation
 \`\`\`
 
-This applies when summarizing a document, showing what was read, previewing changes before a \
-mutation, or confirming what was changed after a mutation.
+Applies to summaries, read results, mutation previews, and confirmations.
 
-**IMPORTANT: Indentation consistency is critical.** Sibling nodes must always be at the exact \
-same indentation level. Every child level adds exactly 4 spaces. Misaligned indentation is \
-the single most common rendering mistake. Before outputting node trees, verify that siblings \
-share the same indent and children are exactly 4 spaces deeper than their parent.
+**IMPORTANT: Indentation consistency is critical.** Siblings must share the same indent. \
+Every child level adds exactly 4 spaces. Misaligned indentation is the most common mistake. \
+Verify alignment before outputting.
 
-When presenting a mutation preview or confirmation, use a diff-style format inside a fenced \
-code block. Prefix each line with \`+\` for additions, \`-\` for deletions, or a space for \
-unchanged context. The prefix is a fixed 2-character column (\`- \`, \`+ \`, or two spaces) \
-that precedes the node's normal tree indentation. Do not let the prefix displace or alter the \
-node indentation. Show edits as a \`-\`/\`+\` pair (delete the old value, add the new one). \
-Only include enough unchanged nodes to show where the changes sit (typically the immediate \
-parent and siblings). Use \`...\` at the same indentation level to indicate omitted siblings \
-before or after the shown nodes. Indentation is relative to the topmost node shown, so the \
-first node always starts at the root indent level. Example:
+For mutation previews/confirmations, use diff-style in a fenced code block. Prefix each line \
+with \`+\` for additions, \`-\` for deletions, or a space for unchanged context. The prefix \
+is a fixed 2-char column preceding the node's tree indentation. Do not let the prefix alter \
+node indentation. Show edits as a \`-\`/\`+\` pair. Include only enough context to show where \
+changes sit (parent and siblings). Use \`...\` at the same indent to indicate omitted siblings. \
+Indentation is relative to the topmost shown node. Example:
 
 \`\`\`
   - Grocery list
@@ -159,20 +139,16 @@ first node always starts at the root indent level. Example:
 
 ## Version tracking
 
-Always call \`read_document\` before any write tool (\`edit_nodes\`, \`insert_nodes\`, \
-\`delete_nodes\`, \`move_nodes\`) to obtain the document version.
+Call read_document before any write tool to obtain the document version.
 
-If a write tool returns a \`version_warning\` field, another edit may have occurred concurrently \
-during the write. Re-read the document and verify the changes before making further edits.
+If a write tool returns version_warning, a concurrent edit may have occurred. Re-read and \
+verify before further edits.
 
 ## Confirmation and verification
 
-Before calling any mutating tool (insert, edit, delete, move, rename, create, send_to_inbox), \
-describe the intended changes to the user and wait for confirmation. Do not modify Dynalist \
-data without the user's explicit approval.
+Before any mutation, describe intended changes and wait for user confirmation.
 
-After a mutation, read back the affected document or node to verify the changes were applied \
-correctly. Report any discrepancies to the user.
+After a mutation, read back the affected area to verify. Report any discrepancies to the user.
 `;
 
 // Create MCP server.

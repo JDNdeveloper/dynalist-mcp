@@ -55,9 +55,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Send a single item to your Dynalist inbox. The target document is the user's configured " +
-        "inbox in Dynalist settings and cannot be changed via this tool. For inserting into a " +
-        "specific document or inserting hierarchical content, use insert_nodes instead.",
+        "Send an item to the Dynalist inbox. Target is the user's configured inbox. " +
+        "For specific documents or hierarchical content, use insert_nodes.",
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
@@ -119,9 +118,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Edit one or more existing nodes in a Dynalist document. Only specified fields are " +
-        "updated per node. Omitted fields are left unchanged (not reset to defaults). " +
-        "For a single node, pass a one-element array.",
+        "Edit one or more nodes in a document. Only specified fields are updated; " +
+        "omitted fields are unchanged.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         nodes: z.array(z.object({
@@ -241,22 +239,21 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Insert one or more nodes into a Dynalist document as a JSON tree. Supports nested " +
-        "hierarchy and per-node fields (note, checkbox, checked, heading, color). For a single " +
-        "node, pass a one-element array.",
+        "Insert nodes into a document as a JSON tree. Supports nested children and " +
+        "per-node metadata.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().optional().describe("Parent node ID to insert under (omit for document root). Inferred from reference_node_id when using after/before."),
+        node_id: z.string().optional().describe("Parent node. Omit for root. Inferred from reference_node_id for after/before."),
         nodes: z.array(jsonInputNodeSchema).describe("Array of nodes to insert"),
         position: z.enum(["as_first_child", "as_last_child", "after", "before"]).optional().default("as_last_child")
-          .describe("Where to insert. 'as_first_child'/'as_last_child' insert under the parent (node_id). 'after'/'before' insert relative to reference_node_id as a sibling."),
+          .describe("'as_first_child'/'as_last_child': under parent. 'after'/'before': relative to reference_node_id."),
         index: z.number().optional().describe(
-          "Exact child index for root-level nodes. Overrides position when set. " +
-          "0 = first child, -1 = last child. Cannot be combined with reference_node_id."
+          "Exact child index. Overrides position. 0 = first, -1 = last. " +
+          "Cannot combine with reference_node_id."
         ),
         reference_node_id: z.string().optional().describe(
-          "Sibling node to insert relative to. Required when position is 'after' or 'before'. " +
-          "Cannot be combined with 'as_first_child'/'as_last_child' or index."
+          "Sibling reference. Required for 'after'/'before'. " +
+          "Cannot combine with child positions or index."
         ),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },

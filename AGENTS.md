@@ -86,11 +86,16 @@ Bad (verbose, hedging):
 Good (dense, imperative):
 > Read the document before writing. Pass the returned version as expected_version.
 
+Additional principles:
+
+- **Drop context-redundant qualifiers.** Every tool runs inside the Dynalist MCP server, so "a Dynalist document" is just "a document". Do not restate context the agent already has.
+- **Do not explain basic JSON schema usage.** Agents understand that an array parameter accepts one element. Hints like "for a single node, pass a one-element array" are noise.
+
 ### Deduplication
 
 Do not duplicate guidance across levels. If something is tool-specific, put it in the tool or parameter description. If it is a cross-cutting pattern, put it in the MCP instructions. Factor commonly repeated strings and substrings into `src/tools/descriptions.ts` so wording changes only need to happen once. That file already uses `*_GUIDANCE` constants for shared policy wording that is interpolated into both parameter descriptions and MCP instructions.
 
-**Exception:** Inline enum meanings are repeated in every parameter description that uses them, even though the values are shared. This avoids the agent having to cross-reference a central definition to interpret a parameter. Examples: the color label enum (`0 = none, 1 = red, ...`) and heading level enum (`0 = no heading, 1 = H1, ...`) are spelled out in each parameter that accepts them.
+**Exception:** Inline value meanings (enum values, position options, etc.) are repeated wherever they appear, even across description levels. This avoids the agent having to cross-reference a central definition to interpret a parameter or understand a tool. Examples: the color label enum (`0 = none, 1 = red, ...`) and heading level enum (`0 = no heading, 1 = H1, ...`) are spelled out in each parameter that accepts them, and move_nodes position values appear in both the tool description and the parameter description.
 
 ## Key conventions
 

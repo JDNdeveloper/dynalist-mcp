@@ -26,22 +26,17 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Delete one or more nodes from a Dynalist document. By default, each node and its " +
-        "entire subtree are deleted. For a single node, pass a one-element array.\n\n" +
-        "If two nodes in the array overlap (one is an ancestor of the other), the descendant " +
-        "is automatically deduplicated.\n\n" +
-        "include_children: false is a niche option that promotes (unwraps) a single node's " +
-        "children up to its parent instead of deleting them. This is only supported when " +
-        "deleting a single node. The vast majority of deletions should use the default " +
-        "(include_children: true). Only use include_children: false when the user explicitly " +
-        "wants to remove a grouping node (e.g. a header) while keeping its items.",
+        "Delete nodes and their subtrees from a document. Overlapping nodes " +
+        "(ancestor/descendant) are deduplicated.\n\n" +
+        "include_children: false promotes children to the parent instead of deleting them. " +
+        "Only for single-node deletions. Use only when the user wants to remove a grouping " +
+        "node while keeping its items.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_ids: z.array(z.string()).describe("Node IDs to delete. For a single deletion, pass a one-element array."),
+        node_ids: z.array(z.string()).describe("Node IDs to delete."),
         include_children: z.boolean().optional().default(true).describe(
-          "If true (default), delete each node and all its descendants (entire subtree). " +
-          "If false, promote children up to the deleted node's parent. " +
-          "Only supported for single-node deletions (node_ids must have exactly one element)."
+          "true (default): delete entire subtree. false: promote children to parent. " +
+          "Single-node only."
         ),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
@@ -226,24 +221,19 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Move one or more nodes (and their subtrees) to new positions within a Dynalist document. " +
-        "Moves are applied sequentially, so later moves can reference positions created by earlier " +
-        "moves. For a single move, pass a one-element array.\n\n" +
+        "Move nodes (with subtrees) to new positions in a document. Applied sequentially; " +
+        "later moves see earlier moves' effects.\n\n" +
         "Position values:\n" +
-        "- 'after': place immediately after the reference (same parent).\n" +
-        "- 'before': place immediately before the reference (same parent).\n" +
-        "- 'first_child': place as the first child inside the reference.\n" +
-        "- 'last_child': place as the last child inside the reference.",
+        "- 'after'/'before': sibling of reference (same parent).\n" +
+        "- 'first_child'/'last_child': child of reference.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moves: z.array(z.object({
-          node_id: z.string().describe("Node to move (its entire subtree moves with it)"),
+          node_id: z.string().describe("Node to move (subtree included)"),
           reference_node_id: z.string().describe("Reference node for positioning"),
           position: z.enum(["after", "before", "first_child", "last_child"]).describe(
-            "'after' = immediately after reference (same parent), " +
-            "'before' = immediately before reference (same parent), " +
-            "'first_child' = as first child of reference, " +
-            "'last_child' = as last child of reference."
+            "'after'/'before': sibling of reference (same parent). " +
+            "'first_child'/'last_child': child of reference."
           ),
         })).describe("Array of moves to apply sequentially."),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),

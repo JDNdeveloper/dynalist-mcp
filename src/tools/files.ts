@@ -25,8 +25,8 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Create a new empty document in a folder. The returned file_id can be used with " +
-        "insert_nodes to add content to the new document.",
+        "Create an empty document in a folder. Use the returned file_id with " +
+        "insert_nodes to add content.",
       inputSchema: {
         parent_folder_id: z.string().describe("Folder file ID to create the document in"),
         title: z.string().optional().default("").describe("Document title"),
@@ -92,8 +92,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Create a new empty folder inside another folder. Documents and other folders can be " +
-        "created inside it or moved into it afterward.",
+        "Create an empty folder inside another folder.",
       inputSchema: {
         parent_folder_id: z.string().describe("Parent folder file ID to create in"),
         title: z.string().optional().default("").describe("Folder title"),
@@ -251,9 +250,8 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Move a document to a different parent folder, or reorder it within its current " +
-        "folder by passing the same parent_folder_id with a new index. This operates on the " +
-        "file tree, not on nodes within a document. Use move_nodes for moving nodes.",
+        "Move a document to a different folder, or reorder within its current folder. " +
+        "Operates on the file tree, not document nodes.",
       inputSchema: {
         file_id: z.string().describe("Document file ID to move"),
         parent_folder_id: z.string().describe("Destination folder file ID"),
@@ -326,9 +324,8 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Move a folder to a different parent folder, or reorder it within its current folder " +
-        "by passing the same parent_folder_id with a new index. All contents (documents and " +
-        "subfolders) move with it.",
+        "Move a folder to a different parent, or reorder within its current parent. " +
+        "Contents move with it.",
       inputSchema: {
         file_id: z.string().describe("Folder file ID to move"),
         parent_folder_id: z.string().describe("Destination folder file ID"),
