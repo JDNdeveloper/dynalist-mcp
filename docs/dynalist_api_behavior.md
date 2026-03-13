@@ -197,6 +197,25 @@ child count and use explicit indices starting from that count (e.g. `[count, cou
 count+2]`) instead of -1. Similarly, for prepending, use `[0, 1, 2, ...]` instead
 of all 0s.
 
+### Batch move ordering
+
+Batch moves with explicit indices are processed sequentially: each move sees the
+result of all prior moves in the same batch. This means index arithmetic based on
+the pre-batch state works correctly when each successive move targets the next
+index (e.g. `[N, N+1, N+2]`), because each move inserts at its target position
+and shifts later siblings right.
+
+Verified (2026-03-13) with two cases:
+
+**First-child case**: Target at index 0 under Parent, with children [A, B, C] and
+a Sibling After at index 1. Batch moves A, B, C to Parent at indices 0, 1, 2.
+Result: [A, B, C, Target, Sibling After]. Children preserve original order and
+appear at Target's former position.
+
+**Middle-child case**: Sibling Before at index 0, Target at index 1, Sibling After
+at index 2. Batch moves A, B, C to Parent at indices 1, 2, 3. Result:
+[Sibling Before, A, B, C, Target, Sibling After]. Same correct behavior.
+
 ## `/doc/edit`: rate limiting
 
 - Rolling window of ~500-600 changes. Once exceeded, returns `_code: "TooManyRequests"`

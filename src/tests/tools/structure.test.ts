@@ -105,6 +105,77 @@ describe("delete_node", () => {
     expect(root.children).toContain("n3");
   });
 
+  test("promoted children of 3+ preserve relative order", async () => {
+    // Build a document with siblings before and after the target.
+    //   root -> [before, target, after]
+    //   target -> [a, b, c]
+    ctx.server.addDocument("promo_doc", "Promotion Order", "folder_a", [
+      ctx.server.makeNode("root", "Promotion Order", ["before", "target", "after"]),
+      ctx.server.makeNode("before", "Sibling Before", []),
+      ctx.server.makeNode("target", "Target", ["a", "b", "c"]),
+      ctx.server.makeNode("a", "Child A", []),
+      ctx.server.makeNode("b", "Child B", []),
+      ctx.server.makeNode("c", "Child C", []),
+      ctx.server.makeNode("after", "Sibling After", []),
+    ]);
+
+    await callToolOk(ctx.mcpClient, "delete_node", {
+      file_id: "promo_doc",
+      node_id: "target",
+      include_children: false,
+    });
+
+    const doc = ctx.server.documents.get("promo_doc")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["before", "a", "b", "c", "after"]);
+  });
+
+  test("promoted children when target is first child", async () => {
+    // root -> [target, sibling]
+    // target -> [a, b, c]
+    ctx.server.addDocument("promo_first", "Promotion First", "folder_a", [
+      ctx.server.makeNode("root", "Promotion First", ["target", "sibling"]),
+      ctx.server.makeNode("target", "Target", ["a", "b", "c"]),
+      ctx.server.makeNode("a", "Child A", []),
+      ctx.server.makeNode("b", "Child B", []),
+      ctx.server.makeNode("c", "Child C", []),
+      ctx.server.makeNode("sibling", "Sibling", []),
+    ]);
+
+    await callToolOk(ctx.mcpClient, "delete_node", {
+      file_id: "promo_first",
+      node_id: "target",
+      include_children: false,
+    });
+
+    const doc = ctx.server.documents.get("promo_first")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["a", "b", "c", "sibling"]);
+  });
+
+  test("promoted children when target is last child", async () => {
+    // root -> [sibling, target]
+    // target -> [a, b, c]
+    ctx.server.addDocument("promo_last", "Promotion Last", "folder_a", [
+      ctx.server.makeNode("root", "Promotion Last", ["sibling", "target"]),
+      ctx.server.makeNode("sibling", "Sibling", []),
+      ctx.server.makeNode("target", "Target", ["a", "b", "c"]),
+      ctx.server.makeNode("a", "Child A", []),
+      ctx.server.makeNode("b", "Child B", []),
+      ctx.server.makeNode("c", "Child C", []),
+    ]);
+
+    await callToolOk(ctx.mcpClient, "delete_node", {
+      file_id: "promo_last",
+      node_id: "target",
+      include_children: false,
+    });
+
+    const doc = ctx.server.documents.get("promo_last")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["sibling", "a", "b", "c"]);
+  });
+
   test("promoted children preserve their content", async () => {
     await callToolOk(ctx.mcpClient, "delete_node", {
       file_id: "doc1",
