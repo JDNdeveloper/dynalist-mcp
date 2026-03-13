@@ -118,6 +118,30 @@ describe("create_folder", () => {
   });
 });
 
+// ─── create_document with document as parent ─────────────────────────
+
+describe("create_document with document as parent", () => {
+  test("returns error when parent_folder_id is a document", async () => {
+    const err = await callToolError(ctx.mcpClient, "create_document", {
+      parent_folder_id: "doc1",
+      title: "Should Fail",
+    });
+    expect(err.error).toBeDefined();
+  });
+});
+
+// ─── create_folder with document as parent ───────────────────────────
+
+describe("create_folder with document as parent", () => {
+  test("returns error when parent_folder_id is a document", async () => {
+    const err = await callToolError(ctx.mcpClient, "create_folder", {
+      parent_folder_id: "doc1",
+      title: "Should Fail",
+    });
+    expect(err.error).toBeDefined();
+  });
+});
+
 // ─── rename_document ─────────────────────────────────────────────────
 
 describe("rename_document", () => {

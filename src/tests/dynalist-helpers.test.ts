@@ -1,0 +1,125 @@
+import { describe, test, expect } from "bun:test";
+import { groupByLevel, type ParsedNode } from "../utils/dynalist-helpers";
+
+// ─── groupByLevel ─────────────────────────────────────────────────────
+
+describe("groupByLevel", () => {
+  test("single node with no children produces one level", () => {
+    const roots: ParsedNode[] = [
+      { content: "Solo", children: [] },
+    ];
+    const levels = groupByLevel(roots);
+    expect(levels).toHaveLength(1);
+    expect(levels[0]).toHaveLength(1);
+    expect(levels[0][0].content).toBe("Solo");
+    expect(levels[0][0].parentLevelIndex).toBe(-1);
+    expect(levels[0][0].localIndex).toBe(0);
+  });
+
+  test("flat list of roots produces one level with correct indices", () => {
+    const roots: ParsedNode[] = [
+      { content: "A", children: [] },
+      { content: "B", children: [] },
+      { content: "C", children: [] },
+    ];
+    const levels = groupByLevel(roots);
+    expect(levels).toHaveLength(1);
+    expect(levels[0]).toHaveLength(3);
+    expect(levels[0][0].content).toBe("A");
+    expect(levels[0][1].content).toBe("B");
+    expect(levels[0][2].content).toBe("C");
+    // All roots have parentLevelIndex of -1.
+    for (const node of levels[0]) {
+      expect(node.parentLevelIndex).toBe(-1);
+    }
+  });
+
+  test("nested tree groups nodes by depth", () => {
+    const roots: ParsedNode[] = [
+      {
+        content: "Parent",
+        children: [
+          {
+            content: "Child 1",
+            children: [
+              { content: "Grandchild", children: [] },
+            ],
+          },
+          { content: "Child 2", children: [] },
+        ],
+      },
+    ];
+    const levels = groupByLevel(roots);
+
+    // Three levels: root, children, grandchildren.
+    expect(levels).toHaveLength(3);
+
+    // Level 0: one root.
+    expect(levels[0]).toHaveLength(1);
+    expect(levels[0][0].content).toBe("Parent");
+
+    // Level 1: two children, both referencing parent at index 0.
+    expect(levels[1]).toHaveLength(2);
+    expect(levels[1][0].content).toBe("Child 1");
+    expect(levels[1][0].parentLevelIndex).toBe(0);
+    expect(levels[1][1].content).toBe("Child 2");
+    expect(levels[1][1].parentLevelIndex).toBe(0);
+
+    // Level 2: one grandchild, referencing Child 1 at index 0.
+    expect(levels[2]).toHaveLength(1);
+    expect(levels[2][0].content).toBe("Grandchild");
+    expect(levels[2][0].parentLevelIndex).toBe(0);
+  });
+
+  test("multiple roots with children track parent indices correctly", () => {
+    const roots: ParsedNode[] = [
+      {
+        content: "Root A",
+        children: [{ content: "A-child", children: [] }],
+      },
+      {
+        content: "Root B",
+        children: [{ content: "B-child", children: [] }],
+      },
+    ];
+    const levels = groupByLevel(roots);
+
+    expect(levels).toHaveLength(2);
+    expect(levels[1]).toHaveLength(2);
+
+    // A-child references Root A (index 0 in level 0).
+    expect(levels[1][0].content).toBe("A-child");
+    expect(levels[1][0].parentLevelIndex).toBe(0);
+
+    // B-child references Root B (index 1 in level 0).
+    expect(levels[1][1].content).toBe("B-child");
+    expect(levels[1][1].parentLevelIndex).toBe(1);
+  });
+
+  test("optional fields are preserved on level nodes", () => {
+    const roots: ParsedNode[] = [
+      {
+        content: "Styled node",
+        note: "A note",
+        checkbox: true,
+        checked: false,
+        heading: 2,
+        color: 3,
+        children: [],
+      },
+    ];
+    const levels = groupByLevel(roots);
+    const node = levels[0][0];
+    expect(node.note).toBe("A note");
+    expect(node.checkbox).toBe(true);
+    expect(node.checked).toBe(false);
+    expect(node.heading).toBe(2);
+    expect(node.color).toBe(3);
+  });
+
+  test("empty roots array produces one empty level", () => {
+    const levels = groupByLevel([]);
+    expect(levels).toHaveLength(1);
+    expect(levels[0]).toHaveLength(0);
+  });
+});

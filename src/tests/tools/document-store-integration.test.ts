@@ -123,6 +123,31 @@ describe("document store cache invalidation", () => {
     expect(children[0].content).toBe("Third item");
   });
 
+  test("writing to doc B does not invalidate cached doc A", async () => {
+    // Read doc1 to populate the cache.
+    const firstRead = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    const doc1VersionBefore = firstRead.version as number;
+
+    // Write to doc2 (a different document).
+    const doc2Version = await getVersion(ctx.mcpClient, "doc2");
+    await callToolOk(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc2",
+      expected_version: doc2Version,
+      nodes: [{ node_id: "m1", content: "Edited in doc2" }],
+    });
+
+    // Read doc1 again. It should still return valid data.
+    const secondRead = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    // Version should be the same since doc1 was not modified.
+    expect(secondRead.version as number).toBe(doc1VersionBefore);
+    const serialized = JSON.stringify(secondRead.node);
+    expect(serialized).toContain("First item");
+  });
+
   test("read inbox after send_to_inbox reflects the new item", async () => {
     // Read the inbox document to populate the cache.
     const before = await callToolOk(ctx.mcpClient, "read_document", {

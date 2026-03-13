@@ -1788,3 +1788,46 @@ describe("duplicate titles within a glob subtree", () => {
     expect(await ac.getPolicy("d2", config)).toBe("allow");
   });
 });
+
+// ─── Fail-closed when getPathMap fails ────────────────────────────────
+
+describe("fail-closed on listFiles error", () => {
+  test("getPolicy returns deny when listFiles throws a generic Error", async () => {
+    // Create a mock client whose listFiles always throws.
+    const failingClient = new MockDynalistClient(new DummyDynalistServer());
+    failingClient.listFiles = () => {
+      throw new Error("Network failure");
+    };
+    const ac = new AccessController(failingClient);
+
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/Anything", policy: "allow" }],
+      },
+    });
+
+    // Despite default: "allow", the controller should deny because
+    // it cannot resolve the file tree.
+    expect(await ac.getPolicy("any-file-id", config)).toBe("deny");
+  });
+
+  test("getPolicies returns deny for all IDs when listFiles throws", async () => {
+    const failingClient = new MockDynalistClient(new DummyDynalistServer());
+    failingClient.listFiles = () => {
+      throw new Error("Connection refused");
+    };
+    const ac = new AccessController(failingClient);
+
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [],
+      },
+    });
+
+    const policies = await ac.getPolicies(["id1", "id2"], config);
+    expect(policies.get("id1")).toBe("deny");
+    expect(policies.get("id2")).toBe("deny");
+  });
+});

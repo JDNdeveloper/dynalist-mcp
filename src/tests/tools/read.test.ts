@@ -152,6 +152,13 @@ describe("search_documents", () => {
     const matches = result.matches as Record<string, unknown>[];
     expect(matches.some((m) => m.title === "Test Document")).toBe(true);
   });
+
+  test("empty query matches all files", async () => {
+    // In JS, "".includes("") is true, so every file title matches.
+    const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "" });
+    // standardSetup creates 3 docs + 2 folders = 5 total files.
+    expect(result.count).toBeGreaterThanOrEqual(5);
+  });
 });
 
 // ─── read_document ───────────────────────────────────────────────────
@@ -1080,6 +1087,17 @@ describe("search_in_document", () => {
       query: "hello",
     });
     expect(result.query).toBe("hello");
+  });
+
+  test("empty query matches all nodes", async () => {
+    // In JS, "".includes("") is true, so every node matches.
+    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "",
+    });
+    // doc1 has 7 nodes (root, n1, n1a, n1b, n2, n2a, n3).
+    // The root node may or may not be included depending on implementation.
+    expect(result.count).toBeGreaterThanOrEqual(6);
   });
 
   // ─── Section 5a: additional basic behavior tests ───────────────────
