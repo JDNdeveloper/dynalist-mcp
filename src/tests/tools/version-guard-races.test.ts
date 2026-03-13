@@ -46,7 +46,7 @@ describe("insert_nodes race simulation", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       nodes: [{ content: "Item A" }, { content: "Item B" }],
       position: "last_child",
     });
@@ -69,7 +69,7 @@ describe("insert_nodes race simulation", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       nodes: [{ content: "First A" }, { content: "First B" }],
       position: "first_child",
     });
@@ -208,7 +208,7 @@ describe("version guard edge cases", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       position: "last_child",
       nodes: [{
         content: "Level 1",
@@ -234,7 +234,7 @@ describe("version guard edge cases", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       position: "last_child",
       nodes: [{
         content: "Level 1",
@@ -269,7 +269,7 @@ describe("version guard edge cases", () => {
     const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       position: "last_child",
       nodes: [{
         content: "Partial parent",

@@ -61,7 +61,7 @@ describe("document store cache invalidation", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Newly inserted node" }],
       position: "last_child",
     });

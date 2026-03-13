@@ -515,7 +515,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "item1" }, { content: "item2" }, { content: "item3" }],
       position: "last_child",
     });
@@ -530,7 +530,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       position: "last_child",
       nodes: [{
         content: "parent",
@@ -556,7 +556,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "top item" }],
       position: "first_child",
     });
@@ -566,7 +566,7 @@ describe("insert_nodes", () => {
     expect(firstChild.content).toBe("top item");
   });
 
-  test("omitting parent_node_id inserts at document root", async () => {
+  test("omitting reference_node_id inserts at document root", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -594,7 +594,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       position: "last_child",
       nodes: [{
         content: "level1",
@@ -621,7 +621,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       position: "last_child",
       nodes: [
         {
@@ -669,7 +669,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       position: "last_child",
       nodes: [
         { content: "Parent1", children: [{ content: "Child1a" }, { content: "Child1b" }] },
@@ -691,7 +691,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       position: "last_child",
       nodes: [
         { content: "Shallow" },
@@ -727,7 +727,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "appended item" }],
       position: "last_child",
     });
@@ -749,7 +749,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "prepended item" }],
       position: "first_child",
     });
@@ -772,7 +772,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Order A" }, { content: "Order B" }, { content: "Order C" }],
       position: "last_child",
     });
@@ -794,7 +794,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1a",
+      reference_node_id: "n1a",
       nodes: [{ content: "Leaf A" }, { content: "Leaf B" }],
       position: "last_child",
     });
@@ -813,7 +813,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "First A" }, { content: "First B" }, { content: "First C" }],
       position: "first_child",
     });
@@ -835,7 +835,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "new item" }],
       position: "last_child",
     });
@@ -851,7 +851,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "At index 0" }],
       position: "last_child",
       index: 0,
@@ -868,7 +868,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Appended via index" }],
       position: "last_child",
       index: -1,
@@ -887,7 +887,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Noted item", note: "This is a note" }],
       position: "last_child",
     });
@@ -901,7 +901,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Todo", checkbox: true, checked: false }],
       position: "last_child",
     });
@@ -916,7 +916,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Checked no checkbox", checked: true }],
       position: "last_child",
     });
@@ -932,7 +932,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "No checkbox explicit", checkbox: false }],
       position: "last_child",
     });
@@ -946,7 +946,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Heading node", heading: 2 }],
       position: "last_child",
     });
@@ -960,7 +960,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "No heading node", heading: 0 }],
       position: "last_child",
     });
@@ -974,7 +974,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Colored node", color: 3 }],
       position: "last_child",
     });
@@ -988,7 +988,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "No color node", color: 0 }],
       position: "last_child",
     });
@@ -1002,7 +1002,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Line 1\nLine 2\nLine 3" }],
       position: "last_child",
     });
@@ -1017,7 +1017,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "Code item", note: noteContent }],
       position: "last_child",
     });
@@ -1031,7 +1031,7 @@ describe("insert_nodes", () => {
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       position: "last_child",
       nodes: [{
         content: "Parent",
@@ -1067,7 +1067,7 @@ describe("insert_nodes", () => {
     const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       position: "last_child",
       nodes: [{
         content: "A",
@@ -1101,7 +1101,7 @@ describe("insert_nodes", () => {
     await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       position: "last_child",
       nodes: [{
         content: "PersistA",
@@ -1139,7 +1139,7 @@ describe("insert_nodes", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "shape test a" }, { content: "shape test b" }],
       position: "last_child",
     });
@@ -1272,8 +1272,8 @@ describe("insert_nodes", () => {
     expect(child.content).toBe("Hier child");
   });
 
-  test("omit parent_node_id, infer parent from reference node", async () => {
-    // n1 has children n1a, n1b. Insert after n1a without specifying parent_node_id.
+  test("after position infers parent from reference node", async () => {
+    // n1 has children n1a, n1b. Insert after n1a; parent is inferred as n1.
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -1289,20 +1289,6 @@ describe("insert_nodes", () => {
     const insertedId = n1.children![n1aIndex + 1];
     const inserted = doc.nodes.find((n) => n.id === insertedId)!;
     expect(inserted.content).toBe("After n1a");
-  });
-
-  test("parent_node_id with before position returns error", async () => {
-    // parent_node_id must be omitted for sibling positions.
-    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
-      file_id: "doc1",
-      expected_version: 1,
-      parent_node_id: "n1",
-      nodes: [{ content: "test" }],
-      position: "before",
-      reference_node_id: "n1b",
-    });
-    expect(err.error).toBe("InvalidInput");
-    expect(err.message).toContain("Omit parent_node_id");
   });
 
   // ─── sibling-relative positioning: validation errors ─────────────
@@ -1339,39 +1325,66 @@ describe("insert_nodes", () => {
     expect(err.error).toBe("InvalidInput");
   });
 
-  test("reference_node_id with first_child returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+  test("reference_node_id with first_child inserts as child", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      expected_version: 1,
-      nodes: [{ content: "test" }],
+      expected_version: version,
+      nodes: [{ content: "first child of n1" }],
       position: "first_child",
       reference_node_id: "n1",
     });
-    expect(err.error).toBe("InvalidInput");
+    expect(result.total_created).toBe(1);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    const firstChildId = n1.children![0];
+    const firstChild = doc.nodes.find((n) => n.id === firstChildId)!;
+    expect(firstChild.content).toBe("first child of n1");
   });
 
-  test("reference_node_id with last_child returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+  test("reference_node_id with last_child inserts as child", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      expected_version: 1,
-      nodes: [{ content: "test" }],
+      expected_version: version,
+      nodes: [{ content: "last child of n1" }],
       position: "last_child",
       reference_node_id: "n1",
     });
-    expect(err.error).toBe("InvalidInput");
+    expect(result.total_created).toBe(1);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    const lastChildId = n1.children![n1.children!.length - 1];
+    const lastChild = doc.nodes.find((n) => n.id === lastChildId)!;
+    expect(lastChild.content).toBe("last child of n1");
   });
 
-  test("parent_node_id with after position returns error", async () => {
+  test("after/before with root node as reference returns error", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      expected_version: 1,
-      parent_node_id: "n1",
+      expected_version: version,
       nodes: [{ content: "test" }],
       position: "after",
-      reference_node_id: "n1a",
+      reference_node_id: "root",
     });
     expect(err.error).toBe("InvalidInput");
-    expect(err.message).toContain("Omit parent_node_id");
+    expect(err.message).toContain("root node");
+  });
+
+  test("before with root node as reference returns error", async () => {
+    const version = await getVersion(ctx.mcpClient, "doc1");
+    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+      file_id: "doc1",
+      expected_version: version,
+      nodes: [{ content: "test" }],
+      position: "before",
+      reference_node_id: "root",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("root node");
   });
 
   test("nonexistent reference_node_id returns error", async () => {

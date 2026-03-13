@@ -73,7 +73,7 @@ describe("insert_nodes version guard", () => {
   test("stale expected_version aborts with VersionMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       nodes: [{ content: "New child" }],
       position: "last_child",
       expected_version: 999,
@@ -92,7 +92,7 @@ describe("insert_nodes version guard", () => {
 
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       nodes: [{ content: "New child" }],
       position: "last_child",
       expected_version: version,
@@ -104,7 +104,7 @@ describe("insert_nodes version guard", () => {
   test("omitted expected_version returns schema validation error", async () => {
     const result = await callTool(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       nodes: [{ content: "New child" }],
       position: "last_child",
     });
@@ -263,7 +263,7 @@ describe("post-write concurrent modification detection", () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       nodes: [{ content: "New" }],
       position: "last_child",
       expected_version: version,

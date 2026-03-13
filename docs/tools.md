@@ -282,16 +282,17 @@ Example input:
 
 ### `insert_nodes`
 
-Insert one or more nodes into a Dynalist document as a JSON tree. Supports nested hierarchy and per-node fields (note, checkbox, checked, heading, color). For a single node, pass a one-element array.
+Insert one or more nodes into a Dynalist document as a JSON tree. Supports nested hierarchy and per-node fields (note, checkbox, checked, heading, color).
+
+`reference_node_id` meaning depends on position: for `first_child`/`last_child` it is the parent (omit for document root); for `after`/`before` it is the sibling (required).
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `file_id` | string | yes | | Document file ID |
-| `parent_node_id` | string | no | root | Parent node. Omit for root. Must be omitted for `after`/`before` (parent is inferred from `reference_node_id`). |
 | `nodes` | array | yes | | Array of node objects (see below) |
 | `position` | string | yes | | `"first_child"`, `"last_child"`, `"after"`, or `"before"` |
-| `index` | number | no | | Exact child index. Overrides `position`. 0 = first, -1 = last. Cannot be combined with `reference_node_id`. |
-| `reference_node_id` | string | no | | Sibling reference. Required for `after`/`before`. Cannot be combined with `first_child`/`last_child` or `index`. |
+| `reference_node_id` | string | no | | For `first_child`/`last_child`: the parent node (omit for document root). For `after`/`before`: the sibling node (required). Cannot be the root node for `after`/`before`. |
+| `index` | number | no | | Exact child index within the parent. 0 = first, -1 = last. Only valid with `first_child`/`last_child`. Cannot combine with `after`/`before`. |
 | `expected_version` | number | yes | | Document version from `read_document`. Aborts if stale. |
 
 **Node object fields:**

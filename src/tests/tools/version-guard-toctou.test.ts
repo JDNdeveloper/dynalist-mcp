@@ -171,7 +171,7 @@ describe("insert_nodes TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "root",
+      reference_node_id: "root",
       nodes: [{ content: "A" }, { content: "B" }, { content: "C" }],
       position: "last_child",
     });
@@ -202,7 +202,7 @@ describe("insert_nodes TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
-      parent_node_id: "n1",
+      reference_node_id: "n1",
       nodes: [{ content: "New child" }],
       position: "last_child",
     });

@@ -271,20 +271,21 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "Insert nodes into a document as a JSON tree. Supports nested children and " +
         "per-node metadata. " +
         "position is required. Use last_child to append under a parent (most common). " +
-        "Use first_child to prepend. Use after/before with reference_node_id for sibling-relative placement.",
+        "Use first_child to prepend. Use after/before for sibling-relative placement. " +
+        "reference_node_id meaning depends on position: for first_child/last_child it is " +
+        "the parent (omit for root); for after/before it is the sibling.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        parent_node_id: z.string().optional().describe("Parent node. Omit for root. Must be omitted for after/before (inferred from reference_node_id)."),
         nodes: z.array(jsonInputNodeSchema).describe("Array of nodes to insert"),
         position: z.enum(["first_child", "last_child", "after", "before"])
-          .describe("Insertion target. 'first_child'/'last_child': child of parent_node_id. 'after'/'before': sibling of reference_node_id."),
-        index: z.number().optional().describe(
-          "Exact child index. Overrides position. 0 = first, -1 = last. " +
-          "Cannot combine with reference_node_id."
-        ),
+          .describe("Insertion target. 'first_child'/'last_child': child of reference_node_id (or root if omitted). 'after'/'before': sibling of reference_node_id (required)."),
         reference_node_id: z.string().optional().describe(
-          "Sibling reference. Required for 'after'/'before'. " +
-          "Cannot combine with child positions or index."
+          "For first_child/last_child: the parent node. Omit for document root. " +
+          "For after/before: the sibling node (required). Cannot be the root node for after/before."
+        ),
+        index: z.number().optional().describe(
+          "Exact child index within the parent. 0 = first, -1 = last. " +
+          "Only valid with first_child/last_child. Cannot combine with reference_node_id for sibling positions."
         ),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
@@ -298,19 +299,17 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     },
     wrapToolHandler(async ({
       file_id,
-      parent_node_id,
       nodes,
       position,
-      index,
       reference_node_id,
+      index,
       expected_version,
     }: {
       file_id: string;
-      parent_node_id?: string;
       nodes: unknown[];
       position: string;
-      index?: number;
       reference_node_id?: string;
+      index?: number;
       expected_version: number;
     }) => {
       const config = getConfig();
@@ -320,18 +319,14 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const accessError = requireAccess(policy, "write", config.readOnly);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
+      const isSiblingPosition = position === "after" || position === "before";
+
       // Validate parameter combinations.
-      if (reference_node_id !== undefined && index !== undefined) {
-        return makeErrorResponse("InvalidInput", "Cannot specify both reference_node_id and index.");
+      if (isSiblingPosition && reference_node_id === undefined) {
+        return makeErrorResponse("InvalidInput", "after/before requires reference_node_id; root has no siblings.");
       }
-      if ((position === "after" || position === "before") && reference_node_id === undefined) {
-        return makeErrorResponse("InvalidInput", `Position '${position}' requires reference_node_id.`);
-      }
-      if ((position === "after" || position === "before") && parent_node_id !== undefined) {
-        return makeErrorResponse("InvalidInput", "Omit parent_node_id for sibling positions; parent is inferred from reference_node_id.");
-      }
-      if (reference_node_id !== undefined && (position === "first_child" || position === "last_child")) {
-        return makeErrorResponse("InvalidInput", `Cannot use reference_node_id with position '${position}'.`);
+      if (isSiblingPosition && index !== undefined) {
+        return makeErrorResponse("InvalidInput", "Cannot specify index with after/before positions.");
       }
 
       // Convert JSON input to ParsedNode tree (no doc read needed).
@@ -343,12 +338,19 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
-          let parentNodeId = parent_node_id;
+          let parentNodeId: string | undefined;
           let startIndex: number | undefined;
 
-          if (position === "after" || position === "before") {
+          if (isSiblingPosition) {
             // Sibling-relative positioning: resolve parent and index from the reference node.
             const doc = await store.read(file_id);
+            const rootId = findRootNodeId(doc.nodes);
+
+            // The root node has no parent, so it cannot be used as a sibling reference.
+            if (reference_node_id === rootId) {
+              throw new ToolInputError("InvalidInput", "Cannot use root node as reference for after/before; root has no parent.");
+            }
+
             const parentMap = buildParentMap(doc.nodes);
             const refInfo = parentMap.get(reference_node_id!);
 
@@ -360,6 +362,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
           } else {
             // Child positioning (first_child / last_child / index).
+            // reference_node_id is the parent for child positions.
+            parentNodeId = reference_node_id;
+
             // The Dynalist API snapshots parent state before processing a batch,
             // so sending index -1 for every item in a batch causes them to all
             // resolve to the same position and reverse. For multi-item inserts we
