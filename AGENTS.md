@@ -121,6 +121,9 @@ The following docs must be kept up to date when the corresponding features chang
 - `docs/access-control.md`: ACL rules, glob syntax, specificity, ID anchoring, examples. Update when access control behavior changes.
 - `docs/client-setup.md`: Claude Desktop, Claude Code, and general MCP client setup. Update when supported clients or connection instructions change.
 - `docs/api-coverage.md`: Mapping between Dynalist API endpoints and MCP tools. Update when tools are added or removed.
+- `docs/agent-ux.md`: How MCP instructions shape agent rendering, confirmations, size management, and composability. Update when instruction text or description constants change.
+- `docs/concurrency.md`: Version guards, position resolution, deletion ordering, cache invalidation, race testing. Update when write-path concurrency logic changes.
+- `docs/performance.md`: Document cache, file tree cache, config reloading, batching, node maps. Update when caching or performance-related logic changes.
 - `docs/dynalist_api_behavior.md`: Observed Dynalist API behavior and edge cases.
 
 ## Bundling and releasing

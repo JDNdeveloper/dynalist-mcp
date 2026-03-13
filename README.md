@@ -11,6 +11,9 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 - **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more.
 - **Read-only mode** to prevent all write operations.
 - **Structured responses** with both JSON (`structuredContent`) and plain text for backwards compatibility.
+- **Native-feeling output** via MCP instructions that guide agents to render outlines, show diff previews before writes, and handle large documents gracefully.
+- **Concurrent edit detection** so writes against stale data are caught before or immediately after they happen.
+- **Built-in caching** to minimize API calls across repeated reads, access control checks, and config reloads.
 
 For Dynalist API documentation, see [apidocs.dynalist.io](https://apidocs.dynalist.io/).
 
@@ -75,6 +78,9 @@ Add the same JSON as above to your Claude Desktop config file:
 - [**Access control**](docs/access-control.md): Path-based ACL rules, glob syntax, specificity precedence, ID anchoring, and examples.
 - [**Client setup**](docs/client-setup.md): Troubleshooting, environment isolation, and additional MCP client details.
 - [**API coverage**](docs/api-coverage.md): Mapping between Dynalist API endpoints and MCP tools.
+- [**Agent UX**](docs/agent-ux.md): How MCP instructions shape agent behavior for rendering, confirmations, size management, and composability.
+- [**Concurrency**](docs/concurrency.md): Version guards, position resolution, deletion ordering, cache invalidation, and race simulation testing.
+- [**Performance**](docs/performance.md): Document cache, file tree cache, config reloading, rate limit retry, change batching, and node maps.
 
 ## Development
 
