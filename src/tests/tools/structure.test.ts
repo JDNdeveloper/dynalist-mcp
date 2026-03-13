@@ -1268,4 +1268,128 @@ describe("move_nodes", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
     expect(root.children).toEqual(["n1", "n2", "n3", "n1a", "n1b", "n2a"]);
   });
+
+  // ─── Batch index compensation (B1) ──────────────────────────────
+
+  test("batch index: move node forward then move another within same parent", async () => {
+    // Setup: parent -> [a, b, c, d, e].
+    // Move c (index 2) to after d (lands at index 4 conceptually).
+    // Then move b within the same parent to after e.
+    // Expected final: [a, d, c, e, b].
+    ctx.server.addDocument("idx_doc1", "Index Test 1", "folder_a", [
+      ctx.server.makeNode("root", "Index Test 1", ["a", "b", "c", "d", "e"]),
+      ctx.server.makeNode("a", "A", []),
+      ctx.server.makeNode("b", "B", []),
+      ctx.server.makeNode("c", "C", []),
+      ctx.server.makeNode("d", "D", []),
+      ctx.server.makeNode("e", "E", []),
+    ]);
+
+    const version = await getVersion(ctx.mcpClient, "idx_doc1");
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "idx_doc1",
+      moves: [
+        { node_id: "c", reference_node_id: "d", position: "after" },
+        { node_id: "b", reference_node_id: "e", position: "after" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = ctx.server.documents.get("idx_doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["a", "d", "c", "e", "b"]);
+  });
+
+  test("batch index: three sequential moves targeting the same parent", async () => {
+    // Setup: parent -> [a, b, c, d, e].
+    // Move e before b, then move d before c, then move a after e.
+    // Step 1: e before b -> [a, e, b, c, d].
+    // Step 2: d before c -> [a, e, b, d, c].
+    // Step 3: a after e -> [e, a, b, d, c].
+    ctx.server.addDocument("idx_doc2", "Index Test 2", "folder_a", [
+      ctx.server.makeNode("root", "Index Test 2", ["a", "b", "c", "d", "e"]),
+      ctx.server.makeNode("a", "A", []),
+      ctx.server.makeNode("b", "B", []),
+      ctx.server.makeNode("c", "C", []),
+      ctx.server.makeNode("d", "D", []),
+      ctx.server.makeNode("e", "E", []),
+    ]);
+
+    const version = await getVersion(ctx.mcpClient, "idx_doc2");
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "idx_doc2",
+      moves: [
+        { node_id: "e", reference_node_id: "b", position: "before" },
+        { node_id: "d", reference_node_id: "c", position: "before" },
+        { node_id: "a", reference_node_id: "e", position: "after" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = ctx.server.documents.get("idx_doc2")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["e", "a", "b", "d", "c"]);
+  });
+
+  test("batch index: move node to later position then fill vacated slot", async () => {
+    // Setup: parent -> [a, b, c, d].
+    // Move a to after d (a goes to end), then move c to first_child of root
+    // (c fills the front).
+    // Step 1: a after d -> [b, c, d, a].
+    // Step 2: c first_child -> [c, b, d, a].
+    ctx.server.addDocument("idx_doc3", "Index Test 3", "folder_a", [
+      ctx.server.makeNode("root", "Index Test 3", ["a", "b", "c", "d"]),
+      ctx.server.makeNode("a", "A", []),
+      ctx.server.makeNode("b", "B", []),
+      ctx.server.makeNode("c", "C", []),
+      ctx.server.makeNode("d", "D", []),
+    ]);
+
+    const version = await getVersion(ctx.mcpClient, "idx_doc3");
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "idx_doc3",
+      moves: [
+        { node_id: "a", reference_node_id: "d", position: "after" },
+        { node_id: "c", reference_node_id: "root", position: "first_child" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = ctx.server.documents.get("idx_doc3")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["c", "b", "d", "a"]);
+  });
+
+  test("batch index: cascading index shifts from multiple within-parent moves", async () => {
+    // Setup: parent -> [a, b, c, d, e, f].
+    // Move a after f, move b after f, move c after f.
+    // Each move shifts the remaining nodes and the "after f" index changes.
+    // Step 1: a after f -> [b, c, d, e, f, a].
+    // Step 2: b after f -> [c, d, e, f, b, a].
+    // Step 3: c after f -> [d, e, f, c, b, a].
+    ctx.server.addDocument("idx_doc4", "Index Test 4", "folder_a", [
+      ctx.server.makeNode("root", "Index Test 4", ["a", "b", "c", "d", "e", "f"]),
+      ctx.server.makeNode("a", "A", []),
+      ctx.server.makeNode("b", "B", []),
+      ctx.server.makeNode("c", "C", []),
+      ctx.server.makeNode("d", "D", []),
+      ctx.server.makeNode("e", "E", []),
+      ctx.server.makeNode("f", "F", []),
+    ]);
+
+    const version = await getVersion(ctx.mcpClient, "idx_doc4");
+    await callToolOk(ctx.mcpClient, "move_nodes", {
+      file_id: "idx_doc4",
+      moves: [
+        { node_id: "a", reference_node_id: "f", position: "after" },
+        { node_id: "b", reference_node_id: "f", position: "after" },
+        { node_id: "c", reference_node_id: "f", position: "after" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = ctx.server.documents.get("idx_doc4")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["d", "e", "f", "c", "b", "a"]);
+  });
 });

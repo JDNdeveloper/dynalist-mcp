@@ -146,7 +146,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
               };
             }
 
-            // Leaf node with children: 'promote'. Just delete it.
+            // Leaf node (no children to promote). Just delete it.
             const response = await client.editDocument(file_id, [{ action: "delete", node_id }]);
             return {
               result: { deleted_count: 1, deleted_ids: [node_id], promoted_children: 0 },

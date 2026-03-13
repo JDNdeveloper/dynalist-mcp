@@ -74,6 +74,14 @@ export class DocumentStore {
   }
 
   private put(fileId: string, response: ReadDocumentResponse): void {
+    // If the key already exists, delete and re-set to update LRU order
+    // without triggering an unnecessary eviction.
+    if (this.cache.has(fileId)) {
+      this.cache.delete(fileId);
+      this.cache.set(fileId, response);
+      return;
+    }
+
     // Evict LRU if at capacity.
     if (this.cache.size >= this.capacity) {
       const lruKey = this.cache.keys().next().value!;
