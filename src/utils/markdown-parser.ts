@@ -30,15 +30,15 @@ export function parseMarkdownBullets(text: string): ParsedNode[] {
     }
   }
 
-  // Parse each line into flat nodes with levels
+  // Parse each line into flat nodes with levels.
   for (const line of lines) {
-    // Skip empty lines
+    // Skip empty lines.
     if (!line.trim()) continue;
 
     const leadingSpaces = getLeadingSpaces(line);
     const level = Math.floor(leadingSpaces / indentUnit);
 
-    // Extract content - remove leading whitespace and bullet marker
+    // Extract content -- remove leading whitespace and bullet marker.
     let content = line.trim();
 
     // Remove bullet markers: "- ", "* ", "• ", numbered "1. ", "1) "
@@ -52,7 +52,7 @@ export function parseMarkdownBullets(text: string): ParsedNode[] {
     }
   }
 
-  // Convert flat nodes to tree
+  // Convert flat nodes to tree.
   return buildTree(flatNodes);
 }
 
@@ -88,20 +88,20 @@ function buildTree(flatNodes: FlatNode[]): ParsedNode[] {
       children: [],
     };
 
-    // Find parent - go up the stack until we find a node with lower level
+    // Find parent -- go up the stack until we find a node with lower level.
     while (stack.length > 0 && stack[stack.length - 1].level >= flat.level) {
       stack.pop();
     }
 
     if (stack.length === 0) {
-      // No parent - this is a root node
+      // No parent -- this is a root node.
       roots.push(node);
     } else {
-      // Add as child of the top of stack
+      // Add as child of the top of stack.
       stack[stack.length - 1].node.children.push(node);
     }
 
-    // Push current node to stack
+    // Push current node to stack.
     stack.push({ node, level: flat.level });
   }
 
@@ -149,7 +149,7 @@ export interface LevelNode {
 export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
   const levels: LevelNode[][] = [];
 
-  // Level 0: all roots
+  // Level 0: all roots.
   const level0: LevelNode[] = roots.map((root, idx) => ({
     content: root.content,
     localIndex: idx,
@@ -157,7 +157,7 @@ export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
   }));
   levels.push(level0);
 
-  // Build subsequent levels
+  // Build subsequent levels.
   let currentParents = roots;
   while (true) {
     const nextLevel: LevelNode[] = [];

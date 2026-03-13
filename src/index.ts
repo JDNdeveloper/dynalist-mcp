@@ -14,10 +14,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DynalistClient } from "./dynalist-client";
+import { log } from "./config";
 import { registerTools } from "./tools/index";
 import pkg from "../package.json";
 
-// Get API token from environment
+// Get API token from environment.
 const API_TOKEN = process.env.DYNALIST_API_TOKEN;
 
 if (!API_TOKEN) {
@@ -26,7 +27,7 @@ if (!API_TOKEN) {
   process.exit(1);
 }
 
-// Create Dynalist client
+// Create Dynalist client.
 const dynalistClient = new DynalistClient(API_TOKEN);
 
 // Server instructions injected into the LLM system prompt by MCP clients.
@@ -125,7 +126,7 @@ After a mutation, read back the affected document or node to verify the changes 
 correctly. Report any discrepancies to the user.
 `;
 
-// Create MCP server
+// Create MCP server.
 const server = new McpServer(
   {
     name: "dynalist-mcp",
@@ -138,16 +139,15 @@ const server = new McpServer(
   },
 );
 
-// Register all tools
+// Register all tools.
 registerTools(server, dynalistClient);
 
-// Start server with stdio transport
+// Start server with stdio transport.
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  // Log to stderr so it doesn't interfere with MCP protocol.
-  console.error("Dynalist MCP server started");
+  log("info", "Dynalist MCP server started");
 }
 
 main().catch((error) => {
