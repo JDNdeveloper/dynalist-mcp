@@ -68,6 +68,30 @@ assets/
 └── icon.png                      # Dynalist icon for the bundle
 ```
 
+## MCP text: instructions vs. tool descriptions
+
+There are three places text reaches the agent, each with a different role:
+
+- **MCP instructions** (`src/index.ts`): cross-tool workflow patterns, system-level concepts, and general rules of engagement. Example: "Read a document before writing to obtain the version." Do not repeat per-tool details here.
+- **Tool description** (the `description` field on each tool): what the tool does and when to use it. Example: "Edit one or more nodes in a document."
+- **Parameter descriptions** (Zod `.describe()` strings): what a single parameter means, where to get the value, and what happens on invalid input. Example: "Document version from your most recent read_document response."
+
+### Writing style
+
+All MCP text must be concise, precise, and unambiguous. Every sentence should carry information. Use imperative language and state constraints as rules, not suggestions.
+
+Bad (verbose, hedging):
+> You might want to consider reading the document first to get the version number, which you can then pass to the write tool.
+
+Good (dense, imperative):
+> Read the document before writing. Pass the returned version as expected_version.
+
+### Deduplication
+
+Do not duplicate guidance across levels. If something is tool-specific, put it in the tool or parameter description. If it is a cross-cutting pattern, put it in the MCP instructions. Factor commonly repeated strings and substrings into `src/tools/descriptions.ts` so wording changes only need to happen once. That file already uses `*_GUIDANCE` constants for shared policy wording that is interpolated into both parameter descriptions and MCP instructions.
+
+**Exception:** Inline enum meanings are repeated in every parameter description that uses them, even though the values are shared. This avoids the agent having to cross-reference a central definition to interpret a parameter. Examples: the color label enum (`0 = none, 1 = red, ...`) and heading level enum (`0 = no heading, 1 = H1, ...`) are spelled out in each parameter that accepts them.
+
 ## Key conventions
 
 - **Tool parameter validation**: all tools use Zod schemas for strict input and output validation.
