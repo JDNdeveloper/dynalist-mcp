@@ -17,7 +17,9 @@ export interface VersionGuardResult<T> {
   result: T;
   apiCallCount: number;
   preWriteVersion: number;
-  postWriteVersion: number;
+  // Undefined when the post-write version check failed (e.g. network
+  // error). The write itself succeeded; the version is just unknown.
+  postWriteVersion: number | undefined;
   versionWarning?: string;
 }
 
@@ -61,18 +63,30 @@ export async function withVersionGuard<T>(
   try {
     const { result, apiCallCount } = await guardedFn();
 
-    // Post-write: check for concurrent modifications.
-    const postCheck = await client.checkForUpdates([fileId]);
-    const postWriteVersion = postCheck.versions[fileId] ?? preWriteVersion;
-
-    const actualDelta = postWriteVersion - preWriteVersion;
+    // Post-write: check for concurrent modifications. A failure here
+    // must not discard the write result, since the write already succeeded.
+    let postWriteVersion: number | undefined;
     let versionWarning: string | undefined;
 
-    if (actualDelta !== apiCallCount) {
+    try {
+      const postCheck = await client.checkForUpdates([fileId]);
+      postWriteVersion = postCheck.versions[fileId] ?? preWriteVersion;
+
+      const actualDelta = postWriteVersion - preWriteVersion;
+      if (actualDelta !== apiCallCount) {
+        versionWarning =
+          `Write succeeded, but document version advanced by ${actualDelta} ` +
+          `(expected ${apiCallCount}). Another edit may have occurred concurrently. ` +
+          `Re-read the document and verify the result before making further changes.`;
+      }
+    } catch {
+      // The write succeeded but the post-write version check failed.
+      // Return the result with a warning instead of losing it.
+      postWriteVersion = undefined;
       versionWarning =
-        `Write succeeded, but document version advanced by ${actualDelta} ` +
-        `(expected ${apiCallCount}). Another edit may have occurred concurrently. ` +
-        `Re-read the document and verify the result before making further changes.`;
+        `Write succeeded, but the post-write version check failed. ` +
+        `The new document version could not be verified. ` +
+        `Re-read the document before making further changes.`;
     }
 
     return {

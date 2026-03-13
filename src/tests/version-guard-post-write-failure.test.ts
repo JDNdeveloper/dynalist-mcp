@@ -1,7 +1,7 @@
 /**
  * Tests for the post-write checkForUpdates failure path in the version
- * guard. Verifies behavior when the write succeeds but the post-write
- * version check throws.
+ * guard. Verifies that when the write succeeds but the post-write
+ * version check throws, the result is still returned with a warning.
  */
 
 import { describe, test, expect } from "bun:test";
@@ -38,44 +38,47 @@ function createPostWriteFailureClient(opts: {
 }
 
 describe("withVersionGuard post-write checkForUpdates failure", () => {
-  test("error propagates even though the write succeeded", async () => {
+  test("write result is returned with a version warning", async () => {
     const client = createPostWriteFailureClient({ preVersion: 5 });
     let writeExecuted = false;
 
-    // The write function succeeds, but the post-write checkForUpdates
-    // throws. The error propagates to the caller, meaning the write
-    // result is lost even though the write itself completed.
-    await expect(
-      withVersionGuard(
-        { client, fileId: "test_doc", expectedVersion: 5 },
-        async () => {
-          writeExecuted = true;
-          return { result: "write-succeeded", apiCallCount: 1 };
-        },
-      ),
-    ).rejects.toThrow(DynalistApiError);
+    const guardResult = await withVersionGuard(
+      { client, fileId: "test_doc", expectedVersion: 5 },
+      async () => {
+        writeExecuted = true;
+        return { result: "write-succeeded", apiCallCount: 1 };
+      },
+    );
 
-    // Confirm the write did execute before the post-check failed.
+    // The write executed and the result was preserved.
     expect(writeExecuted).toBe(true);
+    expect(guardResult.result).toBe("write-succeeded");
+    expect(guardResult.apiCallCount).toBe(1);
+    expect(guardResult.preWriteVersion).toBe(5);
+
+    // Post-write version is undefined since the check failed.
+    expect(guardResult.postWriteVersion).toBeUndefined();
+
+    // A warning is present indicating the check failed.
+    expect(guardResult.versionWarning).toBeDefined();
+    expect(guardResult.versionWarning).toContain("post-write version check failed");
   });
 
-  test("the specific post-write error is preserved", async () => {
+  test("warning is present regardless of the error type", async () => {
     const specificError = new DynalistApiError("TooManyRequests", "Rate limited on post-check.");
     const client = createPostWriteFailureClient({
       preVersion: 10,
       postError: specificError,
     });
 
-    try {
-      await withVersionGuard(
-        { client, fileId: "test_doc", expectedVersion: 10 },
-        async () => ({ result: "ok", apiCallCount: 1 }),
-      );
-      throw new Error("Should have thrown");
-    } catch (e) {
-      expect(e).toBeInstanceOf(DynalistApiError);
-      expect((e as DynalistApiError).code).toBe("TooManyRequests");
-    }
+    const guardResult = await withVersionGuard(
+      { client, fileId: "test_doc", expectedVersion: 10 },
+      async () => ({ result: "ok", apiCallCount: 1 }),
+    );
+
+    expect(guardResult.result).toBe("ok");
+    expect(guardResult.versionWarning).toBeDefined();
+    expect(guardResult.versionWarning).toContain("post-write version check failed");
   });
 
   test("store is still invalidated despite post-write failure", async () => {
@@ -90,36 +93,34 @@ describe("withVersionGuard post-write checkForUpdates failure", () => {
       },
     };
 
-    try {
-      await withVersionGuard(
-        {
-          client,
-          fileId: "test_doc",
-          expectedVersion: 5,
-          store: mockStore as any,
-        },
-        async () => ({ result: "ok", apiCallCount: 1 }),
-      );
-    } catch {
-      // Expected to throw from post-write check.
-    }
+    await withVersionGuard(
+      {
+        client,
+        fileId: "test_doc",
+        expectedVersion: 5,
+        store: mockStore as any,
+      },
+      async () => ({ result: "ok", apiCallCount: 1 }),
+    );
 
     // The finally block in withVersionGuard should invalidate the
     // cache even when the post-write check throws.
     expect(invalidated).toBe(true);
   });
 
-  test("non-DynalistApiError from post-write check also propagates", async () => {
+  test("non-DynalistApiError from post-write check returns result with warning", async () => {
     const client = createPostWriteFailureClient({
       preVersion: 5,
       postError: new Error("Network timeout"),
     });
 
-    await expect(
-      withVersionGuard(
-        { client, fileId: "test_doc", expectedVersion: 5 },
-        async () => ({ result: "ok", apiCallCount: 1 }),
-      ),
-    ).rejects.toThrow("Network timeout");
+    const guardResult = await withVersionGuard(
+      { client, fileId: "test_doc", expectedVersion: 5 },
+      async () => ({ result: "ok", apiCallCount: 1 }),
+    );
+
+    expect(guardResult.result).toBe("ok");
+    expect(guardResult.versionWarning).toBeDefined();
+    expect(guardResult.versionWarning).toContain("post-write version check failed");
   });
 });
