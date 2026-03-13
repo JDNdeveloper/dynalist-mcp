@@ -34,7 +34,7 @@ export interface VersionGuardResult<T> {
  */
 export async function withVersionGuard<T>(
   options: VersionGuardOptions,
-  writeFn: () => Promise<{ result: T; apiCallCount: number }>,
+  guardedFn: () => Promise<{ result: T; apiCallCount: number }>,
 ): Promise<VersionGuardResult<T>> {
   const { client, fileId, expectedVersion, store } = options;
 
@@ -55,8 +55,8 @@ export async function withVersionGuard<T>(
     );
   }
 
-  // Execute the write.
-  const { result, apiCallCount } = await writeFn();
+  // Execute the guarded function (planning reads + write).
+  const { result, apiCallCount } = await guardedFn();
 
   // Invalidate cached document content since the write changed it.
   if (store) {

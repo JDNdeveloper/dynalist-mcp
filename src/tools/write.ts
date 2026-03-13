@@ -14,6 +14,7 @@ import {
   makeErrorResponse,
   wrapToolHandler,
   insertTreeUnderParent,
+  ToolInputError,
   type ParsedNode,
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
@@ -294,56 +295,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         return makeErrorResponse("InvalidInput", `Cannot use reference_node_id with position '${position}'.`);
       }
 
-      let parentNodeId = node_id;
-      let startIndex: number | undefined;
-
-      if (position === "after" || position === "before") {
-        // Sibling-relative positioning: resolve parent and index from the reference node.
-        const doc = await store.read(file_id);
-        const parentMap = buildParentMap(doc.nodes);
-        const refInfo = parentMap.get(reference_node_id!);
-
-        if (!refInfo) {
-          return makeErrorResponse("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
-        }
-
-        // If node_id was provided, validate it matches the reference node's parent.
-        if (node_id !== undefined && node_id !== refInfo.parentId) {
-          return makeErrorResponse("InvalidInput", "node_id does not match the parent of reference_node_id.");
-        }
-
-        parentNodeId = refInfo.parentId;
-        startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
-      } else {
-        // Child positioning (as_first_child / as_last_child / index).
-        // The Dynalist API snapshots parent state before processing a batch,
-        // so sending index -1 for every item in a batch causes them to all
-        // resolve to the same position and reverse. For multi-item inserts we
-        // resolve to explicit indices to preserve input order.
-        let doc: ReadDocumentResponse | undefined;
-        if (!parentNodeId) {
-          doc = await store.read(file_id);
-          parentNodeId = findRootNodeId(doc.nodes);
-        }
-
-        if (index !== undefined && index !== -1) {
-          startIndex = index;
-        } else if (position === "as_first_child") {
-          startIndex = 0;
-        } else if (nodes.length <= 1) {
-          // Single item: index -1 is unambiguous, no read needed.
-          startIndex = undefined;
-        } else {
-          // as_last_child (default) or index: -1 with multiple items.
-          // Resolve to the parent's current child count so each item gets
-          // a distinct index instead of all resolving to the same position.
-          if (!doc) doc = await store.read(file_id);
-          const parentNode = doc.nodes.find(n => n.id === parentNodeId);
-          startIndex = parentNode ? parentNode.children.length : 0;
-        }
-      }
-
-      // Convert JSON input to ParsedNode tree.
+      // Convert JSON input to ParsedNode tree (no doc read needed).
       const tree = jsonInputToTree(nodes as JsonInputNode[]);
       if (tree.length === 0) {
         return makeErrorResponse("InvalidInput", "No nodes to insert (empty array)");
@@ -352,23 +304,72 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
-          const result = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
+          let parentNodeId = node_id;
+          let startIndex: number | undefined;
+
+          if (position === "after" || position === "before") {
+            // Sibling-relative positioning: resolve parent and index from the reference node.
+            const doc = await store.read(file_id);
+            const parentMap = buildParentMap(doc.nodes);
+            const refInfo = parentMap.get(reference_node_id!);
+
+            if (!refInfo) {
+              throw new ToolInputError("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
+            }
+
+            // If node_id was provided, validate it matches the reference node's parent.
+            if (node_id !== undefined && node_id !== refInfo.parentId) {
+              throw new ToolInputError("InvalidInput", "node_id does not match the parent of reference_node_id.");
+            }
+
+            parentNodeId = refInfo.parentId;
+            startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
+          } else {
+            // Child positioning (as_first_child / as_last_child / index).
+            // The Dynalist API snapshots parent state before processing a batch,
+            // so sending index -1 for every item in a batch causes them to all
+            // resolve to the same position and reverse. For multi-item inserts we
+            // resolve to explicit indices to preserve input order.
+            let doc: ReadDocumentResponse | undefined;
+            if (!parentNodeId) {
+              doc = await store.read(file_id);
+              parentNodeId = findRootNodeId(doc.nodes);
+            }
+
+            if (index !== undefined && index !== -1) {
+              startIndex = index;
+            } else if (position === "as_first_child") {
+              startIndex = 0;
+            } else if (nodes.length <= 1) {
+              // Single item: index -1 is unambiguous, no read needed.
+              startIndex = undefined;
+            } else {
+              // as_last_child (default) or index: -1 with multiple items.
+              // Resolve to the parent's current child count so each item gets
+              // a distinct index instead of all resolving to the same position.
+              if (!doc) doc = await store.read(file_id);
+              const parentNode = doc.nodes.find(n => n.id === parentNodeId);
+              startIndex = parentNode?.children?.length ?? 0;
+            }
+          }
+
+          const insertResult = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
             startIndex,
           });
-          return { result, apiCallCount: result.batchesSent };
+          return { result: insertResult, apiCallCount: insertResult.batchesSent };
         },
       );
 
-      const result = guard.result;
-      const firstNodeId = result.rootNodeIds[0] ?? null;
+      const insertResult = guard.result;
+      const firstNodeId = insertResult.rootNodeIds[0] ?? null;
       const url = firstNodeId
         ? buildDynalistUrl(file_id, firstNodeId)
         : buildDynalistUrl(file_id);
 
       const data: Record<string, unknown> = {
         file_id,
-        total_created: result.totalCreated,
-        root_node_ids: result.rootNodeIds,
+        total_created: insertResult.totalCreated,
+        root_node_ids: insertResult.rootNodeIds,
         url,
       };
       if (guard.versionWarning) data.version_warning = guard.versionWarning;

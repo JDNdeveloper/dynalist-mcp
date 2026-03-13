@@ -193,6 +193,20 @@ export function makeErrorResponse(code: string, message: string) {
 }
 
 /**
+ * Error thrown from inside a guarded function when tool input validation
+ * that depends on document state fails (e.g. NodeNotFound, cycle detection).
+ * Caught by wrapToolHandler and converted to a structured error response.
+ */
+export class ToolInputError extends Error {
+  readonly code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "ToolInputError";
+    this.code = code;
+  }
+}
+
+/**
  * Wrap a tool handler in try/catch so that unhandled exceptions are returned
  * as structured MCP error responses instead of crashing the server.
  */
@@ -207,6 +221,9 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
       }
       if (error instanceof VersionMismatchError) {
         return makeErrorResponse("VersionMismatch", error.message);
+      }
+      if (error instanceof ToolInputError) {
+        return makeErrorResponse(error.code, error.message);
       }
       if (error instanceof ConfigError) {
         return makeErrorResponse("ConfigError", error.message);

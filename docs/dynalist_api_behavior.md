@@ -64,6 +64,10 @@ behaves, based on exhaustive testing against a real account.
 
 - The root node has the document title as `content`.
 - `note` is always present (empty string when no note).
+- `children` is documented as always present (empty array for leaf nodes), but in practice
+  the API has been observed to omit it entirely for leaf nodes. Code must not assume
+  `children` is always present. Verified (2026-03-13): a leaf node used as the parent for
+  a multi-item insert returned no `children` field, causing a crash on `.length` access.
 - `checked`, `checkbox`, `heading`, `color` are omitted when at their default (falsy) values.
 - `collapsed` is always present, even when `false`.
 - `created` and `modified` are millisecond Unix timestamps.

@@ -36,6 +36,7 @@ export class DummyDynalistServer {
   private fileCounter = 0;
   private editDocFailAfter: number | null = null;
   private editDocHook: ((fileId: string) => void) | null = null;
+  private readDocHook: ((fileId: string) => void) | null = null;
 
   // ─── Setup helpers ───────────────────────────────────────────────
 
@@ -145,6 +146,23 @@ export class DummyDynalistServer {
   }
 
   /**
+   * Register a one-shot hook that fires before the next readDocument
+   * call returns its data. Used to simulate concurrent edits in the
+   * TOCTOU window between the version guard's pre-check and the
+   * planning read inside the guarded function.
+   */
+  onNextRead(hook: (fileId: string) => void): void {
+    this.readDocHook = hook;
+  }
+
+  /**
+   * Clear any pending read hook.
+   */
+  clearReadHook(): void {
+    this.readDocHook = null;
+  }
+
+  /**
    * Create a DynalistNode with sensible defaults.
    */
   makeNode(
@@ -187,6 +205,14 @@ export class DummyDynalistServer {
     if (!doc) {
       throw new DynalistApiError("NotFound", "Document not found.");
     }
+
+    // One-shot hook: fire before returning data to simulate concurrent edits.
+    if (this.readDocHook) {
+      const hook = this.readDocHook;
+      this.readDocHook = null;
+      hook(fileId);
+    }
+
     // Clone nodes to match real API behavior: each response is independent
     // JSON, not a shared mutable reference to internal state. Without this,
     // in-place mutations from editDocument would silently update cached
