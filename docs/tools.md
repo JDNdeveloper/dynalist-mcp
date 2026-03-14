@@ -242,15 +242,15 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 
 ### `get_recent_changes`
 
-Get nodes created or modified within a time period. Timestamps in milliseconds since epoch. Date-only strings like '2025-03-11' are start-of-day for 'since' and end-of-day for 'until'.
+Get nodes created or modified within a time period. Accepts ISO 8601 date strings. Date-only strings like '2025-03-11' are start-of-day for 'since' and end-of-day for 'until'.
 
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
-| `since` | string \| number | yes |  | Start: ISO date (e.g. '2024-01-15') or ms timestamp |
-| `until` | string \| number | no |  | End: ISO date or ms timestamp (default: now) |
+| `since` | string | yes |  | Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z') |
+| `until` | string | no |  | End: ISO 8601 date or datetime (default: now) |
 | `type` | `"created"`, `"modified"`, `"both"` | no | "both" | 'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all (default). |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
 | `sort` | `"newest_first"`, `"oldest_first"` | no | "newest_first" | Sort order by timestamp |
@@ -285,8 +285,8 @@ Get nodes created or modified within a time period. Timestamps in milliseconds s
 | `content` | string | yes | Node text content |
 | `url` | string | yes | Dynalist URL |
 | `change_type` | `"created"`, `"modified"` | yes | Whether this node was created or modified in the time range |
-| `created` | number | yes | Creation timestamp (ms since epoch) |
-| `modified` | number | yes | Last modified timestamp (ms since epoch) |
+| `created` | string | yes | Creation timestamp (ISO 8601) |
+| `modified` | string | yes | Last modified timestamp (ISO 8601) |
 | `note` | string | no | Node note. Omitted when empty. |
 | `checked` | boolean | no | Checked (completed) state. Omitted when no checkbox. |
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
@@ -309,8 +309,8 @@ Get nodes created or modified within a time period. Timestamps in milliseconds s
       "content": "Buy groceries",
       "url": "https://dynalist.io/d/f_abc123#z=n_item789",
       "change_type": "created",
-      "created": 1710000000000,
-      "modified": 1710000000000
+      "created": "2025-03-11T12:00:00.000Z",
+      "modified": "2025-03-11T14:30:00.000Z"
     }
   ]
 }

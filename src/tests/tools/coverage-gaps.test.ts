@@ -249,7 +249,7 @@ describe("T6: get_recent_changes date parsing edge cases", () => {
     // "2025-03-11" for until should cover up to 23:59:59.999 UTC.
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: 0,
+      since: "1970-01-01",
       until: "2025-03-11",
     });
     const matches = result.matches as Record<string, unknown>[];
@@ -262,7 +262,7 @@ describe("T6: get_recent_changes date parsing edge cases", () => {
     // "2025-03-10" as until ends before the node's timestamp.
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: 0,
+      since: "1970-01-01",
       until: "2025-03-10",
     });
     const matches = result.matches as Record<string, unknown>[];
@@ -293,25 +293,25 @@ describe("T6: get_recent_changes date parsing edge cases", () => {
     expect(matches.some((m) => m.node_id === "t1")).toBe(false);
   });
 
-  test("millisecond timestamp works for since parameter", async () => {
+  test("full ISO datetime works for since and until", async () => {
     ctx = await createTestContext(timedSetup);
 
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: knownTs,
-      until: knownTs,
+      since: "2025-03-11T12:00:00.000Z",
+      until: "2025-03-11T12:00:00.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
     expect(matches.some((m) => m.node_id === "t1")).toBe(true);
   });
 
-  test("millisecond timestamp one ms after the node excludes it from until", async () => {
+  test("ISO datetime one second after the node excludes it from since", async () => {
     ctx = await createTestContext(timedSetup);
 
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: knownTs + 1,
-      until: knownTs + 100,
+      since: "2025-03-11T12:00:01.000Z",
+      until: "2025-03-11T12:01:00.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
     expect(matches.some((m) => m.node_id === "t1")).toBe(false);
@@ -333,7 +333,7 @@ describe("T6: get_recent_changes date parsing edge cases", () => {
 
     const err = await callToolError(ctx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: 0,
+      since: "1970-01-01",
       until: "garbage-date",
     });
     expect(err.error).toBe("InvalidInput");

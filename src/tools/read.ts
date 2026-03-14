@@ -96,8 +96,8 @@ const changeMatchSchema = z.object({
   content: z.string().describe("Node text content"),
   url: z.string().describe(URL_DESCRIPTION),
   change_type: z.enum(["created", "modified"]).describe("Whether this node was created or modified in the time range"),
-  created: z.number().describe("Creation timestamp (ms since epoch)"),
-  modified: z.number().describe("Last modified timestamp (ms since epoch)"),
+  created: z.string().describe("Creation timestamp (ISO 8601)"),
+  modified: z.string().describe("Last modified timestamp (ISO 8601)"),
   ...nodeMetadataFields,
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
@@ -637,13 +637,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "get_recent_changes",
     {
       description:
-        "Get nodes created or modified within a time period. Timestamps in milliseconds since " +
-        "epoch. Date-only strings like '2025-03-11' are start-of-day for 'since' and " +
+        "Get nodes created or modified within a time period. Accepts ISO 8601 date strings. " +
+        "Date-only strings like '2025-03-11' are start-of-day for 'since' and " +
         "end-of-day for 'until'.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        since: z.union([z.string(), z.number()]).describe("Start: ISO date (e.g. '2024-01-15') or ms timestamp"),
-        until: z.union([z.string(), z.number()]).optional().describe("End: ISO date or ms timestamp (default: now)"),
+        since: z.string().describe("Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z')"),
+        until: z.string().optional().describe("End: ISO 8601 date or datetime (default: now)"),
         type: z.enum(["created", "modified", "both"]).optional().default("both").describe(
           "'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all (default)."
         ),
@@ -671,8 +671,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       bypass_warning,
     }: {
       file_id: string;
-      since: string | number;
-      until?: string | number;
+      since: string;
+      until?: string;
       type: string;
       parent_levels: ParentLevels;
       sort: string;
@@ -685,8 +685,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const accessError = requireAccess(policy, "read", false);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      const parseTimestamp = (val: string | number, endOfDay: boolean = false): number => {
-        if (typeof val === "number") return val;
+      const parseTimestamp = (val: string, endOfDay: boolean = false): number => {
         const date = new Date(val);
         // If it's a date-only string and endOfDay is true, use end of day.
         if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
@@ -699,10 +698,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const untilTs = until ? parseTimestamp(until, true) : Date.now();
 
       if (isNaN(sinceTs)) {
-        return makeErrorResponse("InvalidInput", "Invalid 'since' date format");
+        return makeErrorResponse("InvalidInput", `Invalid 'since' value '${since}'. Expected ISO 8601 date (e.g. '2025-03-11') or datetime (e.g. '2025-03-11T09:30:00Z').`);
       }
       if (isNaN(untilTs)) {
-        return makeErrorResponse("InvalidInput", "Invalid 'until' date format");
+        return makeErrorResponse("InvalidInput", `Invalid 'until' value '${until}'. Expected ISO 8601 date (e.g. '2025-03-11') or datetime (e.g. '2025-03-11T09:30:00Z').`);
       }
 
       const doc = await store.read(file_id);
@@ -724,8 +723,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           const match: Record<string, unknown> = {
             node_id: node.id,
             content: node.content,
-            created: node.created,
-            modified: node.modified,
+            created: new Date(node.created).toISOString(),
+            modified: new Date(node.modified).toISOString(),
             url: buildDynalistUrl(file_id, node.id),
             change_type: createdInRange ? "created" : "modified",
           };
@@ -752,11 +751,11 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           return match;
         });
 
-      // Sort results.
+      // Sort results. ISO 8601 strings are lexicographically sortable.
       matches.sort((a, b) => {
-        const aTime = (a.change_type === "created" ? a.created : a.modified) as number;
-        const bTime = (b.change_type === "created" ? b.created : b.modified) as number;
-        return sort === "newest_first" ? bTime - aTime : aTime - bTime;
+        const aTime = (a.change_type === "created" ? a.created : a.modified) as string;
+        const bTime = (b.change_type === "created" ? b.created : b.modified) as string;
+        return sort === "newest_first" ? bTime.localeCompare(aTime) : aTime.localeCompare(bTime);
       });
 
       const result = {

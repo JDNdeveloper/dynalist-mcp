@@ -1673,7 +1673,7 @@ describe("get_recent_changes", () => {
   test("finds nodes within time range (default type: both)", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(result.file_id).toBe("doc1");
     // Default type is "both", so freshly created nodes are included.
@@ -1683,7 +1683,7 @@ describe("get_recent_changes", () => {
   test("type: modified excludes freshly created nodes", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       type: "modified",
     });
     // All nodes in the dummy server have created === modified, so
@@ -1695,7 +1695,7 @@ describe("get_recent_changes", () => {
   test("future since returns no matches", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: Date.now() + 100000,
+      since: new Date(Date.now() + 100000).toISOString(),
     });
     expect(result.count).toBe(0);
     expect(result.matches).toEqual([]);
@@ -1704,7 +1704,7 @@ describe("get_recent_changes", () => {
   test("invalid file returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "get_recent_changes", {
       file_id: "nonexistent",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -1712,7 +1712,7 @@ describe("get_recent_changes", () => {
   test("invalid until date returns error instead of silently returning no results", async () => {
     const err = await callToolError(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       until: "not-a-date",
     });
     expect(err.error).toBe("InvalidInput");
@@ -1734,7 +1734,7 @@ describe("get_recent_changes", () => {
     // Query with type: created, since the recent time.
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: Date.now() - 1000,
+      since: new Date(Date.now() - 1000).toISOString(),
       type: "created",
     });
     const matches = result.matches as Record<string, unknown>[];
@@ -1746,7 +1746,7 @@ describe("get_recent_changes", () => {
   test("type: both returns both created and modified", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       type: "both",
     });
     // All nodes were created recently, so they should all appear.
@@ -1756,7 +1756,7 @@ describe("get_recent_changes", () => {
   test("each match includes change_type field", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     const matches = result.matches as Record<string, unknown>[];
     for (const match of matches) {
@@ -1766,11 +1766,10 @@ describe("get_recent_changes", () => {
 
   // ─── Section 6b: date parsing ──────────────────────────────────────
 
-  test("since as millisecond timestamp: exact match", async () => {
-    const now = Date.now();
+  test("since as full ISO datetime: exact match", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: now + 100000,
+      since: new Date(Date.now() + 100000).toISOString(),
     });
     // Future timestamp, nothing should match.
     expect(result.count).toBe(0);
@@ -1787,8 +1786,8 @@ describe("get_recent_changes", () => {
   test("since after until: returns empty matches", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: Date.now() + 100000,
-      until: Date.now() - 100000,
+      since: new Date(Date.now() + 100000).toISOString(),
+      until: new Date(Date.now() - 100000).toISOString(),
     });
     expect(result.count).toBe(0);
   });
@@ -1807,14 +1806,14 @@ describe("get_recent_changes", () => {
 
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       sort: "newest_first",
     });
     const matches = result.matches as Record<string, unknown>[];
     for (let i = 1; i < matches.length; i++) {
-      const prevTime = (matches[i - 1].created as number);
-      const currTime = (matches[i].created as number);
-      expect(prevTime).toBeGreaterThanOrEqual(currTime);
+      const prevTime = matches[i - 1].created as string;
+      const currTime = matches[i].created as string;
+      expect(prevTime >= currTime).toBe(true);
     }
   });
 
@@ -1829,14 +1828,14 @@ describe("get_recent_changes", () => {
 
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       sort: "oldest_first",
     });
     const matches = result.matches as Record<string, unknown>[];
     for (let i = 1; i < matches.length; i++) {
-      const prevTime = (matches[i - 1].created as number);
-      const currTime = (matches[i].created as number);
-      expect(prevTime).toBeLessThanOrEqual(currTime);
+      const prevTime = matches[i - 1].created as string;
+      const currTime = matches[i].created as string;
+      expect(prevTime <= currTime).toBe(true);
     }
   });
 
@@ -1845,7 +1844,7 @@ describe("get_recent_changes", () => {
   test("parent_levels none: no parent context", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       parent_levels: "none",
     });
     const matches = result.matches as Record<string, unknown>[];
@@ -1857,7 +1856,7 @@ describe("get_recent_changes", () => {
   test("parent_levels immediate (default): one parent", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       parent_levels: "immediate",
     });
     const matches = result.matches as Record<string, unknown>[];
@@ -1873,7 +1872,7 @@ describe("get_recent_changes", () => {
   test("parent_levels all: full ancestor chain", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
@@ -1891,7 +1890,7 @@ describe("get_recent_changes", () => {
   test("bypass_warning true on small result: rejected as preemptive", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
       bypass_warning: true,
     });
     expect(result.warning).toBeDefined();
@@ -1904,7 +1903,7 @@ describe("get_recent_changes", () => {
   test("response includes file_id, title, url, count, matches", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
@@ -1916,7 +1915,7 @@ describe("get_recent_changes", () => {
   test("response includes version as a number", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(typeof result.version).toBe("number");
   });
@@ -1924,14 +1923,16 @@ describe("get_recent_changes", () => {
   test("each match includes node_id, content, created, modified, change_type, url", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     const matches = result.matches as Record<string, unknown>[];
     for (const match of matches) {
       expect(typeof match.node_id).toBe("string");
       expect(typeof match.content).toBe("string");
-      expect(typeof match.created).toBe("number");
-      expect(typeof match.modified).toBe("number");
+      expect(typeof match.created).toBe("string");
+      expect(typeof match.modified).toBe("string");
+      expect(match.created).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(match.modified).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(typeof match.change_type).toBe("string");
       expect(typeof match.url).toBe("string");
     }
@@ -1941,7 +1942,7 @@ describe("get_recent_changes", () => {
     // n1a is a plain node with no checkbox, heading, or color.
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     const matches = result.matches as Record<string, unknown>[];
     const n1a = matches.find((m) => m.node_id === "n1a")!;
@@ -1956,7 +1957,7 @@ describe("get_recent_changes", () => {
   test("note included only when non-empty", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     const matches = result.matches as Record<string, unknown>[];
     // n1b has a note. Other nodes do not.
@@ -2396,7 +2397,7 @@ describe("get_recent_changes date parsing", () => {
     // The node at 12:00 UTC should be included.
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: 0,
+      since: "1970-01-01",
       until: "2025-03-11",
     });
     const matches = result.matches as Record<string, unknown>[];
@@ -2405,31 +2406,30 @@ describe("get_recent_changes date parsing", () => {
     // But "2025-03-10" as until should NOT include the node.
     const result2 = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: 0,
+      since: "1970-01-01",
       until: "2025-03-10",
     });
     const matches2 = result2.matches as Record<string, unknown>[];
     expect(matches2.some((m) => m.node_id === "t1")).toBe(false);
   });
 
-  test("until as millisecond timestamp: exact match", async () => {
+  test("until as full ISO datetime: exact match", async () => {
     cfgCtx = await createTestContext(timedSetup);
 
-    const ts = new Date("2025-03-11T12:00:00.000Z").getTime();
-    // Using the exact timestamp as until should include the node.
+    // Using the exact ISO datetime as until should include the node.
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: 0,
-      until: ts,
+      since: "1970-01-01",
+      until: "2025-03-11T12:00:00.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
     expect(matches.some((m) => m.node_id === "t1")).toBe(true);
 
-    // One millisecond before should exclude it.
+    // One second before should exclude it.
     const result2 = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "timed_doc",
-      since: 0,
-      until: ts - 1,
+      since: "1970-01-01",
+      until: "2025-03-11T11:59:59.000Z",
     });
     const matches2 = result2.matches as Record<string, unknown>[];
     expect(matches2.some((m) => m.node_id === "t1")).toBe(false);
@@ -2477,7 +2477,7 @@ describe("get_recent_changes sorting by change_type", () => {
     // With newest_first, B should come before A.
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "sort_doc",
-      since: sinceTs,
+      since: new Date(sinceTs).toISOString(),
       sort: "newest_first",
       type: "both",
     });
@@ -2526,7 +2526,7 @@ describe("get_recent_changes size warnings", () => {
 
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "changes_doc",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(result.warning).toBeDefined();
   });
@@ -2536,7 +2536,7 @@ describe("get_recent_changes size warnings", () => {
 
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "changes_doc",
-      since: 0,
+      since: "1970-01-01",
     });
     const warning = result.warning as string;
     expect(warning).toContain("time period");
@@ -2549,7 +2549,7 @@ describe("get_recent_changes size warnings", () => {
 
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
       file_id: "changes_doc",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(result.warning).toBeDefined();
     expect(result.file_id).toBe("changes_doc");

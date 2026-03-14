@@ -190,7 +190,7 @@ describe("get_recent_changes with ACL", () => {
   test("denied document returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "get_recent_changes", {
       file_id: "denied_doc",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -198,7 +198,7 @@ describe("get_recent_changes with ACL", () => {
   test("read-policy document succeeds", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "readonly_doc",
-      since: 0,
+      since: "1970-01-01",
     });
     expect(result.file_id).toBe("readonly_doc");
     expect(result.count).toBeGreaterThan(0);

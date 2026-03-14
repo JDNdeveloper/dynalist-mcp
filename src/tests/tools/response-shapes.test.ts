@@ -218,7 +218,7 @@ describe("get_recent_changes response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const raw = await callTool(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
-      since: 0,
+      since: "1970-01-01",
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -235,8 +235,8 @@ describe("get_recent_changes response shape", () => {
       expect(typeof match.node_id).toBe("string");
       expect(typeof match.content).toBe("string");
       expect(typeof match.url).toBe("string");
-      expect(typeof match.created).toBe("number");
-      expect(typeof match.modified).toBe("number");
+      expect(typeof match.created).toBe("string");
+      expect(typeof match.modified).toBe("string");
       expect(typeof match.change_type).toBe("string");
     }
   });
@@ -244,7 +244,7 @@ describe("get_recent_changes response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "get_recent_changes", {
       file_id: "nonexistent",
-      since: 0,
+      since: "1970-01-01",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");

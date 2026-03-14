@@ -301,6 +301,8 @@ function exampleString(name: string): string {
   // Metadata strings.
   if (name === "version_warning") return "Document was modified by another client during write.";
   if (name === "warning") return "Response exceeds size threshold. Retry with bypass_warning: true.";
+  if (name === "created") return "2025-03-11T12:00:00.000Z";
+  if (name === "modified") return "2025-03-11T14:30:00.000Z";
   if (name === "change_type") return "modified";
   if (name === "type") return "document";
   if (name === "permission") return "owner";
@@ -316,7 +318,6 @@ function exampleNumber(name: string): number {
   if (name === "children_count") return 3;
   if (name === "max_depth") return 3;
   if (name === "index") return 0;
-  if (name === "created" || name === "modified") return 1710000000000;
   throw new Error(`No example number for field '${name}'. Add it to exampleNumber() in generate-docs.ts.`);
 }
 
