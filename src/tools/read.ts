@@ -23,6 +23,82 @@ import type { ParentLevels } from "../utils/dynalist-helpers";
 import { FILE_ID_DESCRIPTION, BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION } from "./descriptions";
 import { NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "./node-metadata";
 
+// ─── Output schemas for read tools ──────────────────────────────────
+
+// Shared fields for node summaries used in parents/children arrays.
+const nodeSummarySchema = z.object({
+  node_id: z.string().describe("Node ID"),
+  content: z.string().describe("Node text content"),
+});
+
+// Shared optional metadata fields present on output nodes and match objects.
+const nodeMetadataFields = {
+  note: z.string().optional().describe("Node note. Omitted when empty."),
+  checked: z.boolean().optional().describe("Checked (completed) state. Omitted when no checkbox."),
+  show_checkbox: z.boolean().optional().describe("Whether a checkbox is shown. Omitted when no checkbox."),
+  heading: z.enum(["h1", "h2", "h3"]).optional().describe(
+    "Heading level: 'h1', 'h2', 'h3'. Omitted when none."
+  ),
+  color: z.enum(["red", "orange", "yellow", "green", "blue", "purple"]).optional().describe(
+    "Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none."
+  ),
+  collapsed: z.boolean().describe("Whether the node is collapsed in the UI"),
+};
+
+// Recursive schema for the read_document node tree.
+const outputNodeSchema: z.ZodType<{
+  node_id: string;
+  content: string;
+  note?: string;
+  checked?: boolean;
+  show_checkbox?: boolean;
+  heading?: string;
+  color?: string;
+  collapsed: boolean;
+  depth_limited?: true;
+  children_count: number;
+  children: unknown[];
+}> = z.lazy(() =>
+  z.object({
+    node_id: z.string().describe("Node ID"),
+    content: z.string().describe("Node text content"),
+    ...nodeMetadataFields,
+    depth_limited: z.literal(true).optional().describe(
+      "Present when max_depth cut off traversal. Call read_document with this node_id to expand."
+    ),
+    children_count: z.number().describe("Total direct children, regardless of visibility"),
+    children: z.array(outputNodeSchema).describe("Child nodes. Empty when depth-limited or collapse-hidden."),
+  })
+);
+
+// Match object for search_in_document results.
+const searchMatchSchema = z.object({
+  node_id: z.string().describe("Node ID"),
+  content: z.string().describe("Node text content"),
+  url: z.string().describe("Dynalist deep link to this node"),
+  ...nodeMetadataFields,
+  parents: z.array(nodeSummarySchema).optional().describe(
+    "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
+  ),
+  children: z.array(nodeSummarySchema).optional().describe(
+    "Direct children. Present when include_children is true and node has children."
+  ),
+});
+
+// Match object for get_recent_changes results.
+const changeMatchSchema = z.object({
+  node_id: z.string().describe("Node ID"),
+  content: z.string().describe("Node text content"),
+  url: z.string().describe("Dynalist deep link to this node"),
+  change_type: z.enum(["created", "modified"]).describe("Whether this node was created or modified in the time range"),
+  created: z.number().describe("Creation timestamp (ms since epoch)"),
+  modified: z.number().describe("Last modified timestamp (ms since epoch)"),
+  ...nodeMetadataFields,
+  parents: z.array(nodeSummarySchema).optional().describe(
+    "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
+  ),
+});
+
 export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: list_documents
@@ -39,8 +115,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           file_id: z.string().describe("Document file ID"),
           title: z.string().describe("Document title"),
           url: z.string().describe("Dynalist URL for the document"),
-          permission: z.string().describe("Permission: none/read/edit/manage/owner"),
-          access_policy: z.string().optional().describe("Access policy if restricted: 'read' means read-only"),
+          permission: z.enum(["none", "read", "edit", "manage", "owner"]).describe("Permission level for this document"),
+          access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
         })).describe("All documents in the account"),
         folders: z.array(z.object({
           file_id: z.string().describe("Folder file ID"),
@@ -117,9 +193,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           title: z.string().describe("File title"),
           type: z.enum(["document", "folder"]).describe("Whether this is a document or folder"),
           url: z.string().optional().describe("Dynalist URL (documents only)"),
-          permission: z.string().optional().describe("Permission level (documents only)"),
+          permission: z.enum(["none", "read", "edit", "manage", "owner"]).optional().describe("Permission level (documents only)"),
           children: z.array(z.string()).optional().describe("Child file IDs (folders only)"),
-          access_policy: z.string().optional().describe("Access policy if restricted"),
+          access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
         })).describe("Matching documents and/or folders"),
       },
     },
@@ -211,15 +287,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           "Document version. Pass as expected_version to write tools."
         ),
         url: z.string().optional().describe("Dynalist URL"),
-        node: z.any().optional().describe(
-          "Node tree root. Fields: node_id, content, note (omitted when empty), checked, show_checkbox, " +
-          "heading ('h1'/'h2'/'h3', omitted when none), " +
-          "color ('red'/'orange'/'yellow'/'green'/'blue'/'purple', omitted when none), " +
-          "collapsed (user-collapsed, distinct from depth_limited), " +
-          "depth_limited (max_depth cutoff, distinct from collapsed), " +
-          "children_count (total children regardless of visibility), " +
-          "children (child nodes, empty when depth/collapse-hidden)."
-        ),
+        node: outputNodeSchema.optional().describe("Root of the node tree"),
         warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
       },
     },
@@ -335,11 +403,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         url: z.string().optional().describe("Dynalist URL"),
         count: z.number().optional().describe("Number of matches found"),
         query: z.string().optional().describe("The search query that was used"),
-        matches: z.array(z.any()).optional().describe(
-          "Matching nodes. Each has: node_id, content, note (if present), url, checked, " +
-          "show_checkbox, heading, color, collapsed, and optionally parents (array of {node_id, content}) " +
-          "and children (array of {node_id, content})."
-        ),
+        matches: z.array(searchMatchSchema).optional().describe("Matching nodes"),
         warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
       },
     },
@@ -479,11 +543,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         ),
         url: z.string().optional().describe("Dynalist URL"),
         count: z.number().optional().describe("Number of changes found"),
-        matches: z.array(z.any()).optional().describe(
-          "Changed nodes. Each has: node_id, content, note (if present), created, modified, " +
-          "url, change_type, checked, show_checkbox, heading, color, collapsed, and optionally " +
-          "parents (array of {node_id, content})."
-        ),
+        matches: z.array(changeMatchSchema).optional().describe("Changed nodes"),
         warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
       },
     },
