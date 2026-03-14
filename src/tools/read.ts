@@ -47,7 +47,7 @@ const nodeMetadataFields = {
   color: z.enum(["red", "orange", "yellow", "green", "blue", "purple"]).optional().describe(
     "Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none."
   ),
-  collapsed: z.boolean().describe("Whether the node is collapsed in the UI"),
+  collapsed: z.boolean().optional().describe("Whether the node is collapsed in the UI. Omitted when not collapsed."),
 };
 
 // Recursive schema for the read_document node tree.
@@ -59,7 +59,7 @@ const outputNodeSchema: z.ZodType<{
   show_checkbox?: boolean;
   heading?: string;
   color?: string;
-  collapsed: boolean;
+  collapsed?: boolean;
   depth_limited?: true;
   children_count: number;
   children: unknown[];
@@ -376,11 +376,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "These are orthogonal: max_depth does NOT expand collapsed nodes; " +
         "include_collapsed_children does NOT bypass the depth limit.\n\n" +
         "The starting node always shows its children regardless of collapsed state.\n\n" +
-        "Hidden children are signaled distinctly:\n" +
-        "- depth_limited: true means max_depth cut off traversal. " +
-        "Fix: read_document with that node_id.\n" +
-        "- collapsed: true + children_count > 0 means user-collapsed in UI. " +
-        "Fix: include_collapsed_children: true, or pass its node_id.",
+        "Hidden children are signaled by depth_limited: true (max_depth cut off traversal). " +
+        "Fix: read_document with that node_id.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().optional().describe(
@@ -562,10 +559,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             node_id: node.id,
             content: node.content,
             url: buildDynalistUrl(file_id, node.id),
-            collapsed: node.collapsed ?? false,
           };
 
           // Include optional fields only when present, consistent with read_document.
+          if (node.collapsed) match.collapsed = true;
           if (node.checked !== undefined) match.checked = node.checked;
           if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
           if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
@@ -729,10 +726,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             modified: node.modified,
             url: buildDynalistUrl(file_id, node.id),
             change_type: createdInRange ? "created" : "modified",
-            collapsed: node.collapsed ?? false,
           };
 
           // Include optional fields only when present, consistent with read_document.
+          if (node.collapsed) match.collapsed = true;
           if (node.checked !== undefined) match.checked = node.checked;
           if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
           if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];

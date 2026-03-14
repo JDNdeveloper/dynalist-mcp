@@ -114,9 +114,7 @@ These are orthogonal: max_depth does NOT expand collapsed nodes; include_collaps
 
 The starting node always shows its children regardless of collapsed state.
 
-Hidden children are signaled distinctly:
-- depth_limited: true means max_depth cut off traversal. Fix: read_document with that node_id.
-- collapsed: true + children_count > 0 means user-collapsed in UI. Fix: include_collapsed_children: true, or pass its node_id.
+Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Fix: read_document with that node_id.
 
 **Parameters:**
 
@@ -163,7 +161,6 @@ Hidden children are signaled distinctly:
   "node": {
     "node_id": "n_item789",
     "content": "Buy groceries",
-    "collapsed": false,
     "children_count": 3,
     "children": []
   }
@@ -218,7 +215,7 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
 | `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
-| `collapsed` | boolean | yes | Whether the node is collapsed in the UI |
+| `collapsed` | boolean | no | Whether the node is collapsed in the UI. Omitted when not collapsed. |
 | `parents` | object[] | no | Ancestor chain. Present when parent_levels is not 'none' and ancestors exist. |
 | `children` | object[] | no | Direct children. Present when include_children is true and node has children. |
 
@@ -235,8 +232,7 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
     {
       "node_id": "n_item789",
       "content": "Buy groceries",
-      "url": "https://dynalist.io/d/f_abc123#z=n_item789",
-      "collapsed": false
+      "url": "https://dynalist.io/d/f_abc123#z=n_item789"
     }
   ]
 }
@@ -294,7 +290,7 @@ Get nodes created or modified within a time period. Timestamps in milliseconds s
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
 | `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
-| `collapsed` | boolean | yes | Whether the node is collapsed in the UI |
+| `collapsed` | boolean | no | Whether the node is collapsed in the UI. Omitted when not collapsed. |
 | `parents` | object[] | no | Ancestor chain. Present when parent_levels is not 'none' and ancestors exist. |
 
 **Example response:**
@@ -312,8 +308,7 @@ Get nodes created or modified within a time period. Timestamps in milliseconds s
       "url": "https://dynalist.io/d/f_abc123#z=n_item789",
       "change_type": "created",
       "created": 1710000000000,
-      "modified": 1710000000000,
-      "collapsed": false
+      "modified": 1710000000000
     }
   ]
 }

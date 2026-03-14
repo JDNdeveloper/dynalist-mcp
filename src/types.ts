@@ -28,7 +28,7 @@ export interface OutputNode {
   show_checkbox?: boolean;
   heading?: string;
   color?: string;
-  collapsed: boolean;
+  collapsed?: boolean;
   depth_limited?: true;
   children_count: number;
   children: OutputNode[];

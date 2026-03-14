@@ -340,7 +340,6 @@ export function buildNodeTree(
   const output: OutputNode = {
     node_id: node.id,
     content: node.content,
-    collapsed: isCollapsed,
     children_count: childrenCount,
     children: outputChildren,
   };
@@ -349,6 +348,7 @@ export function buildNodeTree(
   if (options.includeNotes && node.note && node.note.trim()) {
     output.note = node.note;
   }
+  if (isCollapsed) output.collapsed = true;
   if (node.checked !== undefined) output.checked = node.checked;
   if (node.checkbox !== undefined) output.show_checkbox = node.checkbox;
   if (node.heading !== undefined && node.heading > 0) output.heading = NUMBER_TO_HEADING[node.heading];

@@ -539,7 +539,7 @@ describe("read_document", () => {
     expect(typeof result.url).toBe("string");
   });
 
-  test("every node includes node_id, content, collapsed, children_count, children", async () => {
+  test("every node includes node_id, content, children_count, children", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
@@ -548,9 +548,12 @@ describe("read_document", () => {
     function checkNodeFields(node: Record<string, unknown>) {
       expect(typeof node.node_id).toBe("string");
       expect(typeof node.content).toBe("string");
-      expect(typeof node.collapsed).toBe("boolean");
       expect(typeof node.children_count).toBe("number");
       expect(Array.isArray(node.children)).toBe(true);
+      // collapsed is omitted when false.
+      if ("collapsed" in node) {
+        expect(node.collapsed).toBe(true);
+      }
       for (const child of node.children as Record<string, unknown>[]) {
         checkNodeFields(child);
       }
@@ -571,6 +574,8 @@ describe("read_document", () => {
     expect(n1a).toBeDefined();
     // note should be omitted (empty string in source).
     expect(n1a.note).toBeUndefined();
+    // collapsed should be omitted when false.
+    expect(n1a.collapsed).toBeUndefined();
     // heading and color should be omitted when 0.
     expect(n1a.heading).toBeUndefined();
     expect(n1a.color).toBeUndefined();
@@ -897,7 +902,7 @@ describe("read_document", () => {
     });
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1 = rootChildren.find((c) => c.node_id === "n1")!;
-    expect(n1.collapsed).toBe(false);
+    expect(n1.collapsed).toBeUndefined();
     expect(n1.depth_limited).toBe(true);
     expect(n1.children).toEqual([]);
     expect(n1.children_count).toBe(2);
