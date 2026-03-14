@@ -20,14 +20,19 @@ import {
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import type { ParentLevels } from "../utils/dynalist-helpers";
-import { FILE_ID_DESCRIPTION, BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION } from "./descriptions";
+import {
+  FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION, NODE_ID_DESCRIPTION,
+  URL_DESCRIPTION, DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
+  VERSION_DESCRIPTION, SIZE_WARNING_DESCRIPTION, MATCH_COUNT_DESCRIPTION,
+  BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION,
+} from "./descriptions";
 import { NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "./node-metadata";
 
 // ─── Output schemas for read tools ──────────────────────────────────
 
 // Shared fields for node summaries used in parents/children arrays.
 const nodeSummarySchema = z.object({
-  node_id: z.string().describe("Node ID"),
+  node_id: z.string().describe(NODE_ID_DESCRIPTION),
   content: z.string().describe("Node text content"),
 });
 
@@ -60,7 +65,7 @@ const outputNodeSchema: z.ZodType<{
   children: unknown[];
 }> = z.lazy(() =>
   z.object({
-    node_id: z.string().describe("Node ID"),
+    node_id: z.string().describe(NODE_ID_DESCRIPTION),
     content: z.string().describe("Node text content"),
     ...nodeMetadataFields,
     depth_limited: z.literal(true).optional().describe(
@@ -73,9 +78,9 @@ const outputNodeSchema: z.ZodType<{
 
 // Match object for search_in_document results.
 const searchMatchSchema = z.object({
-  node_id: z.string().describe("Node ID"),
+  node_id: z.string().describe(NODE_ID_DESCRIPTION),
   content: z.string().describe("Node text content"),
-  url: z.string().describe("Dynalist deep link to this node"),
+  url: z.string().describe(URL_DESCRIPTION),
   ...nodeMetadataFields,
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
@@ -87,9 +92,9 @@ const searchMatchSchema = z.object({
 
 // Match object for get_recent_changes results.
 const changeMatchSchema = z.object({
-  node_id: z.string().describe("Node ID"),
+  node_id: z.string().describe(NODE_ID_DESCRIPTION),
   content: z.string().describe("Node text content"),
-  url: z.string().describe("Dynalist deep link to this node"),
+  url: z.string().describe(URL_DESCRIPTION),
   change_type: z.enum(["created", "modified"]).describe("Whether this node was created or modified in the time range"),
   created: z.number().describe("Creation timestamp (ms since epoch)"),
   modified: z.number().describe("Last modified timestamp (ms since epoch)"),
@@ -112,15 +117,15 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         count: z.number().describe("Total number of documents"),
         documents: z.array(z.object({
-          file_id: z.string().describe("Document file ID"),
-          title: z.string().describe("Document title"),
-          url: z.string().describe("Dynalist URL for the document"),
+          file_id: z.string().describe(FILE_ID_DESCRIPTION),
+          title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
+          url: z.string().describe(URL_DESCRIPTION),
           permission: z.enum(["none", "read", "edit", "manage", "owner"]).describe("Permission level for this document"),
           access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
         })).describe("All documents in the account"),
         folders: z.array(z.object({
-          file_id: z.string().describe("Folder file ID"),
-          title: z.string().describe("Folder title"),
+          file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
+          title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
           children: z.array(z.string()).describe("File IDs of documents/folders inside this folder"),
         })).describe("All folders in the account"),
         root_file_id: z.string().describe(
@@ -186,11 +191,11 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
       },
       outputSchema: {
-        count: z.number().describe("Number of matches found"),
+        count: z.number().describe(MATCH_COUNT_DESCRIPTION),
         query: z.string().describe("The search query that was used"),
         matches: z.array(z.object({
-          file_id: z.string().describe("File ID"),
-          title: z.string().describe("File title"),
+          file_id: z.string().describe(FILE_ID_DESCRIPTION),
+          title: z.string().describe("Document or folder title"),
           type: z.enum(["document", "folder"]).describe("Whether this is a document or folder"),
           url: z.string().optional().describe("Dynalist URL (documents only)"),
           permission: z.enum(["none", "read", "edit", "manage", "owner"]).optional().describe("Permission level (documents only)"),
@@ -281,14 +286,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().optional().describe("Document file ID"),
-        title: z.string().optional().describe("Document title"),
-        version: z.number().optional().describe(
-          "Document version. Pass as expected_version to write tools."
-        ),
-        url: z.string().optional().describe("Dynalist URL"),
+        file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
+        title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
+        version: z.number().optional().describe(VERSION_DESCRIPTION),
+        url: z.string().optional().describe(URL_DESCRIPTION),
         node: outputNodeSchema.optional().describe("Root of the node tree"),
-        warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
+        warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -395,16 +398,14 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().optional().describe("Document file ID"),
-        title: z.string().optional().describe("Document title"),
-        version: z.number().optional().describe(
-          "Document version. Pass as expected_version to write tools."
-        ),
-        url: z.string().optional().describe("Dynalist URL"),
-        count: z.number().optional().describe("Number of matches found"),
+        file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
+        title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
+        version: z.number().optional().describe(VERSION_DESCRIPTION),
+        url: z.string().optional().describe(URL_DESCRIPTION),
+        count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         query: z.string().optional().describe("The search query that was used"),
         matches: z.array(searchMatchSchema).optional().describe("Matching nodes"),
-        warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
+        warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -536,15 +537,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().optional().describe("Document file ID"),
-        title: z.string().optional().describe("Document title"),
-        version: z.number().optional().describe(
-          "Document version. Pass as expected_version to write tools."
-        ),
-        url: z.string().optional().describe("Dynalist URL"),
-        count: z.number().optional().describe("Number of changes found"),
+        file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
+        title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
+        version: z.number().optional().describe(VERSION_DESCRIPTION),
+        url: z.string().optional().describe(URL_DESCRIPTION),
+        count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         matches: z.array(changeMatchSchema).optional().describe("Changed nodes"),
-        warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
+        warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({

@@ -19,7 +19,9 @@ import {
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import {
-  FILE_ID_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, CHECKED_DESCRIPTION_INBOX,
+  FILE_ID_DESCRIPTION, NODE_ID_DESCRIPTION, URL_DESCRIPTION,
+  VERSION_WARNING_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION,
+  CHECKED_DESCRIPTION, CHECKED_DESCRIPTION_INBOX,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
   CONTENT_MULTILINE_GUIDANCE, EXPECTED_VERSION_DESCRIPTION,
 } from "./descriptions";
@@ -74,9 +76,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         checked: z.boolean().optional().describe(CHECKED_DESCRIPTION_INBOX),
       },
       outputSchema: {
-        file_id: z.string().describe("Inbox document file ID"),
-        node_id: z.string().describe("ID of the created node"),
-        url: z.string().describe("Dynalist URL for the created node"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        node_id: z.string().describe(NODE_ID_DESCRIPTION),
+        url: z.string().describe(URL_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({ content, note, show_checkbox, heading, color, checked }: { content: string; note?: string; show_checkbox?: boolean; heading?: HeadingValue; color?: ColorValue; checked?: boolean }) => {
@@ -146,10 +148,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         edited_count: z.number().describe("Number of nodes edited"),
         node_ids: z.array(z.string()).describe("IDs of all edited nodes"),
-        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
+        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -294,11 +296,11 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         total_created: z.number().describe("Total number of nodes created"),
         root_node_ids: z.array(z.string()).describe("IDs of all top-level inserted nodes"),
-        url: z.string().describe("Dynalist URL for the first created node"),
-        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
+        url: z.string().describe(URL_DESCRIPTION),
+        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({

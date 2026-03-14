@@ -14,7 +14,12 @@ import {
   makeErrorResponse,
   wrapToolHandler,
 } from "../utils/dynalist-helpers";
-import { CONFIRM_GUIDANCE } from "./descriptions";
+import {
+  CONFIRM_GUIDANCE, FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION,
+  PARENT_FOLDER_ID_DESCRIPTION, URL_DESCRIPTION,
+  DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
+  FOLDER_INDEX_DESCRIPTION,
+} from "./descriptions";
 
 export function registerFileTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -28,16 +33,14 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         "Create an empty document in a folder. Use the returned file_id with " +
         "insert_nodes to add content.",
       inputSchema: {
-        parent_folder_id: z.string().describe("Folder file ID to create the document in"),
-        title: z.string().optional().default("").describe("Document title"),
-        index: z.number().optional().default(-1).describe(
-          "Position in folder. 0 = first, -1 = last (default)."
-        ),
+        parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),
+        title: z.string().optional().default("").describe(DOCUMENT_TITLE_DESCRIPTION),
+        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("File ID of the new document"),
-        title: z.string().describe("Document title"),
-        url: z.string().describe("Dynalist URL for the new document"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
+        url: z.string().describe(URL_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -94,15 +97,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Create an empty folder inside another folder.",
       inputSchema: {
-        parent_folder_id: z.string().describe("Parent folder file ID to create in"),
-        title: z.string().optional().default("").describe("Folder title"),
-        index: z.number().optional().default(-1).describe(
-          "Position in parent. 0 = first, -1 = last (default)."
-        ),
+        parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),
+        title: z.string().optional().default("").describe(FOLDER_TITLE_DESCRIPTION),
+        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("File ID of the new folder"),
-        title: z.string().describe("Folder title"),
+        file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
+        title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -158,12 +159,12 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Rename a document. The file_id does not change when renaming.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID to rename"),
-        title: z.string().describe("New title"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID (unchanged)"),
-        title: z.string().describe("The new title"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({ file_id, title }: { file_id: string; title: string }) => {
@@ -205,12 +206,12 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Rename a folder. The file_id does not change when renaming.",
       inputSchema: {
-        file_id: z.string().describe("Folder file ID to rename"),
-        title: z.string().describe("New title"),
+        file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
+        title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Folder file ID (unchanged)"),
-        title: z.string().describe("The new title"),
+        file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
+        title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({ file_id, title }: { file_id: string; title: string }) => {
@@ -253,15 +254,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         "Move a document to a different folder, or reorder within its current folder. " +
         "Operates on the file tree, not document nodes.",
       inputSchema: {
-        file_id: z.string().describe("Document file ID to move"),
-        parent_folder_id: z.string().describe("Destination folder file ID"),
-        index: z.number().optional().default(-1).describe(
-          "Position in destination. 0 = first, -1 = last (default)."
-        ),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),
+        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Moved document file ID"),
-        parent_folder_id: z.string().describe("Destination folder file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -327,15 +326,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         "Move a folder to a different parent, or reorder within its current parent. " +
         "Contents move with it.",
       inputSchema: {
-        file_id: z.string().describe("Folder file ID to move"),
-        parent_folder_id: z.string().describe("Destination folder file ID"),
-        index: z.number().optional().default(-1).describe(
-          "Position in destination. 0 = first, -1 = last (default)."
-        ),
+        file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
+        parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),
+        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Moved folder file ID"),
-        parent_folder_id: z.string().describe("Destination folder file ID"),
+        file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
+        parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({

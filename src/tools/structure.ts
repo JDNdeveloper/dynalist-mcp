@@ -15,7 +15,10 @@ import {
   ToolInputError,
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
-import { FILE_ID_DESCRIPTION, CONFIRM_GUIDANCE, EXPECTED_VERSION_DESCRIPTION } from "./descriptions";
+import {
+  FILE_ID_DESCRIPTION, VERSION_WARNING_DESCRIPTION,
+  CONFIRM_GUIDANCE, EXPECTED_VERSION_DESCRIPTION,
+} from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
@@ -41,11 +44,11 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         deleted_count: z.number().describe("Number of nodes deleted"),
         deleted_ids: z.array(z.string()).describe("IDs of all deleted nodes (targets and descendants)."),
         promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
-        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
+        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -249,10 +252,10 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
-        file_id: z.string().describe("Document file ID"),
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moved_count: z.number().describe("Number of nodes moved"),
         node_ids: z.array(z.string()).describe("IDs of all moved nodes"),
-        version_warning: z.string().optional().describe("Warning if a concurrent edit was detected during the write."),
+        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
