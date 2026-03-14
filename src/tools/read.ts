@@ -47,7 +47,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           title: z.string().describe("Folder title"),
           children: z.array(z.string()).describe("File IDs of documents/folders inside this folder"),
         })).describe("All folders in the account"),
-        root_file_id: z.string().describe("File ID of the root folder"),
+        root_file_id: z.string().describe(
+          "File ID of the invisible root folder. Not a real folder in the UI. " +
+          "Its children are the top-level items. Never show this to users."
+        ),
       },
     },
     wrapToolHandler(async () => {
@@ -132,6 +135,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const matches = response.files
         .filter((f) => {
           if (policies.get(f.id) === "deny") return false;
+          if (f.type === "root") return false;
           const nameMatch = f.title?.toLowerCase().includes(queryLower);
           const typeMatch = type === "all" || f.type === type;
           return nameMatch && typeMatch;

@@ -114,6 +114,22 @@ ignores the collapsed field.
 - Document and folder deletion: the API does not support deleting documents or folders. \
 Use the Dynalist web or mobile UI.
 
+## Presenting information to users
+
+Do not present file IDs or node IDs to users, unless in the form of a URL. When showing the file hierarchy, \
+do not expose the root folder to users. Show all files and folders under root as top-level items. Example:
+
+\`\`\`
+- Work/
+    - Projects/
+        - Q1 Roadmap
+        - Meeting Notes
+    - Archive/
+- Personal/
+    - Reading List
+- Scratch Pad
+\`\`\`
+
 ## Presenting document content
 
 Render document content as indented bullet points mirroring Dynalist's structure. Use exactly \

@@ -88,14 +88,14 @@ describe("list_documents", () => {
     expect(nested!.title).toBe("Nested Folder");
   });
 
-  test("documents in root folder (not inside any subfolder)", async () => {
-    // inbox_doc is directly in root_folder per standardSetup.
+  test("root folder excluded from folders list", async () => {
+    // The root folder has type "root", not "folder", so it should not
+    // appear in the folders array. Its file_id is returned as root_file_id.
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const folders = result.folders as Record<string, unknown>[];
     const root = folders.find((f) => f.file_id === "root_folder");
-    expect(root).toBeDefined();
-    const rootChildren = root!.children as string[];
-    expect(rootChildren).toContain("inbox_doc");
+    expect(root).toBeUndefined();
+    expect(result.root_file_id).toBe("root_folder");
   });
 });
 

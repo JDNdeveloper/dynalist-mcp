@@ -46,8 +46,8 @@ export class DummyDynalistServer {
   init(): void {
     this.files.set(this.rootFileId, {
       id: this.rootFileId,
-      title: "Root",
-      type: "folder",
+      title: "",
+      type: "root",
       permission: 4,
       children: [],
     });
@@ -461,7 +461,7 @@ export class DummyDynalistServer {
       switch (change.action) {
         case "create": {
           const parentFile = this.files.get(change.parent_id!);
-          if (!parentFile || parentFile.type !== "folder") {
+          if (!parentFile || (parentFile.type !== "folder" && parentFile.type !== "root")) {
             results.push(false);
             break;
           }
@@ -524,7 +524,7 @@ export class DummyDynalistServer {
         case "move": {
           const file = this.files.get(change.file_id!);
           const destFolder = this.files.get(change.parent_id!);
-          if (!file || !destFolder || destFolder.type !== "folder") {
+          if (!file || !destFolder || (destFolder.type !== "folder" && destFolder.type !== "root")) {
             results.push(false);
             break;
           }

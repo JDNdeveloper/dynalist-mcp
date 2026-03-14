@@ -23,15 +23,18 @@ behaves, based on exhaustive testing against a real account.
     {
       id: string,
       title: string,
-      type: "document" | "folder",
+      type: "document" | "folder" | "root",
       permission: number,       // 0=none, 1=read, 2=edit, 3=manage, 4=owner
       collapsed?: boolean,      // folders only, not always present
-      children?: string[]       // folders only, array of child file IDs
+      children?: string[]       // folders and root only, array of child file IDs
     }
   ]
 }
 ```
 
+- Exactly one file has `type: "root"`. Its `id` matches `root_file_id`. It is a structural
+  container for the top-level files, not a user-visible folder. It has an empty title and
+  a `children` array listing the top-level file IDs.
 - Documents do not have `children`.
 - Permission is a number (0-4), but the MCP layer maps it to strings for readability:
   `"owner"`, `"manage"`, `"edit"`, `"read"`, `"none"`.

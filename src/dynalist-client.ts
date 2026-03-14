@@ -52,7 +52,8 @@ export class DynalistApiError extends Error {
 export interface DynalistFile {
   id: string;
   title: string;
-  type: "document" | "folder";
+  // The API returns "root" for the single root folder entry.
+  type: "document" | "folder" | "root";
   // 0=none, 1=read, 2=edit, 3=manage, 4=owner.
   permission: number;
   collapsed?: boolean;
