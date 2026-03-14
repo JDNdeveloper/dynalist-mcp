@@ -73,7 +73,6 @@ src/
 │   ├── structure.ts              # Structure tools (delete, move)
 │   └── files.ts                  # File management tools (create, rename, move)
 ├── utils/
-│   ├── url-parser.ts             # Build Dynalist URLs
 │   └── dynalist-helpers.ts       # Shared tool helpers (size check, tree builder, etc.)
 └── tests/
     └── tools/                    # Tool integration tests against dummy server
@@ -83,8 +82,7 @@ scripts/
 ├── generate-manifest.ts          # Generate dist/manifest.json from package.json
 ├── haiku-validation.ts           # Weak-model instruction validation harness
 └── release.sh                    # Tag, release, and upload .mcpb to GitHub
-assets/
-└── icon.png                      # Dynalist icon for the bundle
+
 ```
 
 ## MCP text: instructions vs. tool descriptions

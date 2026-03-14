@@ -124,7 +124,6 @@ src/
 │   ├── structure.ts              # Structure tools (delete, move)
 │   └── files.ts                  # File management tools
 ├── utils/
-│   ├── url-parser.ts             # Build Dynalist URLs
 │   └── dynalist-helpers.ts       # Shared tool helpers
 └── tests/
     └── tools/                    # Tool integration tests against dummy server
