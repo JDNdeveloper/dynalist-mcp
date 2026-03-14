@@ -127,8 +127,9 @@ they appear in the parent folder's children array.
 Render content as indented \`\u2022\` bullet lines mirroring Dynalist's structure. Always use \
 \`\u2022\` (unicode bullet), never \`-\`, \`*\`, or \`+\`. Append \`/\` to folder names. Show checked \
 items with strikethrough (~~Buy groceries~~). Only show node text content; omit metadata like \
-notes, colors, and headings. Applies to file trees, document content, summaries, mutation previews, \
-and confirmations.
+notes, colors, and headings. Do NOT attempt to render headings or colors in output unless you have \
+rich formatting capabilities (e.g. do not use \`### Foo\` to represent an h3 heading). Applies to \
+file trees, document content, summaries, mutation previews, and confirmations.
 
 ### Indentation rule
 
