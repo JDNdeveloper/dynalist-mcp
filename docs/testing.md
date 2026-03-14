@@ -69,7 +69,7 @@ Automated tests verify tool logic against the dummy server, but cannot catch iss
 
 ### Manual test plan
 
-A comprehensive test plan covers 13 areas across ~120 test cases, designed for an agent (typically Claude with Opus or Sonnet) connected to a live test Dynalist account via MCP. Test areas include:
+A [comprehensive test plan](live-test-plan.md) covers 13 areas across ~120 test cases, designed for an agent (typically Claude with Opus or Sonnet) connected to a live test Dynalist account via MCP. Test areas include:
 
 - `insert_nodes` positioning (child positions, sibling positions, explicit index, multi-item ordering, nested trees).
 - String enum round-trips for heading and color across insert, edit, and inbox tools.
@@ -86,9 +86,9 @@ A comprehensive test plan covers 13 areas across ~120 test cases, designed for a
 
 ### Weak-model instruction validation
 
-MCP instructions and tool descriptions must be clear enough for any model to follow, not just the most capable one. A separate validation harness tests this by running the same tool workflows with Claude Haiku (the smallest model in the Claude family) against a live test account.
+MCP instructions and tool descriptions must be clear enough for any model to follow, not just the most capable one. A [validation harness](../scripts/haiku-validation.ts) tests this by running the same tool workflows with Claude Haiku (the smallest model in the Claude family) against a live test account.
 
-The harness spawns non-interactive Claude CLI sessions with `--model claude-haiku-4-5-20251001`, each executing a natural-language prompt that requires the model to interpret tool descriptions, follow MCP instructions, and compose multi-step workflows. Tasks are organized into parallel pipelines, each operating in an isolated root folder to prevent cross-pipeline interference:
+The harness spawns non-interactive Claude CLI sessions, each executing a natural-language prompt that requires the model to interpret tool descriptions, follow MCP instructions, and compose multi-step workflows. Tasks are organized into parallel pipelines, each operating in an isolated root folder to prevent cross-pipeline interference:
 
 - **Positioning pipeline.** Tests all `insert_nodes` position values: `first_child`, `last_child`, `after`, `before`, with and without `reference_node_id`.
 - **Enums pipeline.** Tests heading/color string enum values on insert, edit, clear, and inbox. Tests nested tree insertion with metadata.

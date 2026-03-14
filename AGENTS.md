@@ -71,6 +71,7 @@ src/
 scripts/
 ├── bundle.sh                     # Build the .mcpb distribution artifact
 ├── generate-manifest.ts          # Generate dist/manifest.json from package.json
+├── haiku-validation.ts           # Weak-model instruction validation harness
 └── release.sh                    # Tag, release, and upload .mcpb to GitHub
 assets/
 └── icon.png                      # Dynalist icon for the bundle
