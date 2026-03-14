@@ -1061,3 +1061,188 @@ describe("getPolicies denial-retry on stale cache", () => {
     expect(findFileInTree(after.files as Record<string, unknown>[], "denied_doc")).toBeDefined();
   });
 });
+
+// ─── check_document_versions mixed allowed/denied IDs ─────────────────
+
+describe("check_document_versions mixed allowed/denied IDs", () => {
+  let vCtx: TestContext;
+
+  const VERSION_ACL_CONFIG = {
+    access: {
+      default: "deny" as const,
+      rules: [
+        { path: "/Allowed Folder/**", policy: "allow" as const },
+        { path: "/Inbox", policy: "allow" as const },
+      ],
+    },
+  };
+
+  function versionAclSetup(server: DummyDynalistServer): void {
+    server.addFolder("allowed_folder", "Allowed Folder", "root_folder");
+    server.addFolder("denied_folder", "Denied Folder", "root_folder");
+
+    server.addDocument("allowed_doc", "Allowed Doc", "allowed_folder", [
+      server.makeNode("root", "Allowed Doc", ["x1"]),
+      server.makeNode("x1", "Item", []),
+    ]);
+
+    server.addDocument("denied_doc", "Denied Doc", "denied_folder", [
+      server.makeNode("root", "Denied Doc", ["y1"]),
+      server.makeNode("y1", "Secret", []),
+    ]);
+
+    server.addDocument("inbox_doc", "Inbox", "root_folder", [
+      server.makeNode("inbox_root", "Inbox", []),
+    ]);
+    server.setInbox("inbox_doc", "inbox_root");
+  }
+
+  beforeEach(async () => {
+    vCtx = await createTestContext(versionAclSetup, VERSION_ACL_CONFIG);
+  });
+
+  afterEach(async () => {
+    await vCtx.cleanup();
+  });
+
+  test("mixed batch returns real versions for allowed and -1 for denied", async () => {
+    const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
+      file_ids: ["allowed_doc", "denied_doc"],
+    });
+    const versions = result.versions as Record<string, number>;
+    expect(versions.allowed_doc).toBeGreaterThan(0);
+    expect(versions.denied_doc).toBe(-1);
+  });
+
+  test("all denied IDs return version -1", async () => {
+    const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
+      file_ids: ["denied_doc"],
+    });
+    const versions = result.versions as Record<string, number>;
+    expect(versions.denied_doc).toBe(-1);
+  });
+
+  test("nonexistent ID returns -1 same as denied", async () => {
+    const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
+      file_ids: ["allowed_doc", "denied_doc", "fake_id"],
+    });
+    const versions = result.versions as Record<string, number>;
+    expect(versions.allowed_doc).toBeGreaterThan(0);
+    expect(versions.denied_doc).toBe(-1);
+    expect(versions.fake_id).toBe(-1);
+  });
+
+  test("empty file_ids array returns empty versions map", async () => {
+    const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
+      file_ids: [],
+    });
+    const versions = result.versions as Record<string, number>;
+    expect(Object.keys(versions)).toHaveLength(0);
+  });
+});
+
+// ─── Denied-content filtering in list and search ──────────────────────
+
+describe("denied-content filtering in list and search", () => {
+  let fCtx: TestContext;
+
+  const FILTER_ACL_CONFIG = {
+    access: {
+      default: "allow" as const,
+      rules: [
+        { path: "/Secret Folder/**", policy: "deny" as const },
+      ],
+    },
+  };
+
+  function filterSetup(server: DummyDynalistServer): void {
+    server.addFolder("public_folder", "Public Folder", "root_folder");
+    server.addFolder("secret_folder", "Secret Folder", "root_folder");
+
+    server.addDocument("public_doc", "Public Doc", "public_folder", [
+      server.makeNode("root", "Public Doc", []),
+    ]);
+
+    server.addDocument("secret_doc", "Secret Doc", "secret_folder", [
+      server.makeNode("root", "Secret Doc", []),
+    ]);
+
+    server.addDocument("inbox_doc", "Inbox", "root_folder", [
+      server.makeNode("inbox_root", "Inbox", []),
+    ]);
+    server.setInbox("inbox_doc", "inbox_root");
+  }
+
+  beforeEach(async () => {
+    fCtx = await createTestContext(filterSetup, FILTER_ACL_CONFIG);
+  });
+
+  afterEach(async () => {
+    await fCtx.cleanup();
+  });
+
+  test("list_documents excludes denied documents", async () => {
+    const result = await callToolOk(fCtx.mcpClient, "list_documents");
+    const all = flattenTree(result.files as Record<string, unknown>[]);
+    expect(all.find((d) => d.file_id === "secret_doc")).toBeUndefined();
+    // Public doc should still be present.
+    expect(all.find((d) => d.file_id === "public_doc")).toBeDefined();
+  });
+
+  test("list_documents excludes denied folders", async () => {
+    const result = await callToolOk(fCtx.mcpClient, "list_documents");
+    const all = flattenTree(result.files as Record<string, unknown>[]);
+    expect(all.find((f) => f.file_id === "secret_folder")).toBeUndefined();
+  });
+
+  test("list_documents filters denied items from recursive tree", async () => {
+    const result = await callToolOk(fCtx.mcpClient, "list_documents");
+    const all = flattenTree(result.files as Record<string, unknown>[]);
+    const allIds = all.map((f) => f.file_id);
+    expect(allIds).not.toContain("secret_folder");
+    expect(allIds).not.toContain("secret_doc");
+  });
+
+  test("list_documents count reflects filtered count", async () => {
+    const result = await callToolOk(fCtx.mcpClient, "list_documents");
+    const all = flattenTree(result.files as Record<string, unknown>[]);
+    const docs = all.filter((f) => f.type === "document");
+    expect(result.count).toBe(docs.length);
+    // secret_doc should not be included.
+    expect(docs.every((d) => d.file_id !== "secret_doc")).toBe(true);
+  });
+
+  test("search_documents excludes denied documents", async () => {
+    const result = await callToolOk(fCtx.mcpClient, "search_documents", {
+      query: "Doc",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    const secretMatch = matches.find((m) => m.file_id === "secret_doc");
+    expect(secretMatch).toBeUndefined();
+    const publicMatch = matches.find((m) => m.file_id === "public_doc");
+    expect(publicMatch).toBeDefined();
+  });
+
+  test("search_documents excludes denied folders", async () => {
+    const result = await callToolOk(fCtx.mcpClient, "search_documents", {
+      query: "Folder",
+      type: "folder",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    const secretFolder = matches.find((m) => m.file_id === "secret_folder");
+    expect(secretFolder).toBeUndefined();
+    const publicFolder = matches.find((m) => m.file_id === "public_folder");
+    expect(publicFolder).toBeDefined();
+  });
+
+  test("search_documents count reflects filtered count", async () => {
+    const result = await callToolOk(fCtx.mcpClient, "search_documents", {
+      query: "Doc",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(result.count).toBe(matches.length);
+    for (const m of matches) {
+      expect(m.file_id).not.toBe("secret_doc");
+    }
+  });
+});

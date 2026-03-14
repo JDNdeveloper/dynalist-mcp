@@ -1393,3 +1393,168 @@ describe("move_nodes", () => {
     expect(root.children).toEqual(["d", "e", "f", "c", "b", "a"]);
   });
 });
+
+// ─── move_nodes cross-parent sequential moves ─────────────────────────
+
+describe("move_nodes cross-parent sequential moves", () => {
+  let xpCtx: TestContext;
+
+  beforeEach(async () => {
+    xpCtx = await createTestContext((server) => {
+      // Build a tree with multiple parents and children to test
+      // cross-parent sequential moves.
+      //
+      // root -> [p1, p2, p3]
+      // p1 -> [a, b]
+      // p2 -> [c, d]
+      // p3 -> [e]
+      server.addDocument("xp_doc", "Cross Parent Doc", "root_folder", [
+        server.makeNode("root", "Cross Parent Doc", ["p1", "p2", "p3"]),
+        server.makeNode("p1", "Parent 1", ["a", "b"]),
+        server.makeNode("a", "A", []),
+        server.makeNode("b", "B", []),
+        server.makeNode("p2", "Parent 2", ["c", "d"]),
+        server.makeNode("c", "C", []),
+        server.makeNode("d", "D", []),
+        server.makeNode("p3", "Parent 3", ["e"]),
+        server.makeNode("e", "E", []),
+      ]);
+    });
+  });
+
+  afterEach(async () => {
+    await xpCtx.cleanup();
+  });
+
+  test("sequential moves between different parents", async () => {
+    // Move 'a' from p1 to p2, then move 'e' from p3 to p1.
+    // The second move must see that p1 lost 'a' from the first move.
+    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+      file_id: "xp_doc",
+      moves: [
+        { node_id: "a", reference_node_id: "p2", position: "first_child" },
+        { node_id: "e", reference_node_id: "p1", position: "first_child" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = xpCtx.server.documents.get("xp_doc")!;
+    const p1 = doc.nodes.find((n) => n.id === "p1")!;
+    const p2 = doc.nodes.find((n) => n.id === "p2")!;
+    const p3 = doc.nodes.find((n) => n.id === "p3")!;
+
+    // p1 should have [e, b] (e at first, b remained).
+    expect(p1.children).toEqual(["e", "b"]);
+    // p2 should have [a, c, d] (a at first, c and d remained).
+    expect(p2.children).toEqual(["a", "c", "d"]);
+    // p3 should be empty.
+    expect(p3.children).toEqual([]);
+  });
+
+  test("chain of cross-parent moves where each move changes the reference context", async () => {
+    // Move 'c' from p2 as last_child of p1.
+    // Move 'd' from p2 as last_child of p3.
+    // Move 'a' from p1 after 'c' in p1.
+    // After move 1: p1=[a,b,c], p2=[d], p3=[e].
+    // After move 2: p1=[a,b,c], p2=[], p3=[e,d].
+    // After move 3: p1=[b,c,a], p2=[], p3=[e,d].
+    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+      file_id: "xp_doc",
+      moves: [
+        { node_id: "c", reference_node_id: "p1", position: "last_child" },
+        { node_id: "d", reference_node_id: "p3", position: "last_child" },
+        { node_id: "a", reference_node_id: "c", position: "after" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = xpCtx.server.documents.get("xp_doc")!;
+    const p1 = doc.nodes.find((n) => n.id === "p1")!;
+    const p2 = doc.nodes.find((n) => n.id === "p2")!;
+    const p3 = doc.nodes.find((n) => n.id === "p3")!;
+
+    expect(p1.children).toEqual(["b", "c", "a"]);
+    expect(p2.children).toEqual([]);
+    expect(p3.children).toEqual(["e", "d"]);
+  });
+
+  test("later move uses reference node that was relocated by earlier move", async () => {
+    // Move 'a' as first_child of p3 (a goes from p1 to p3).
+    // Move 'e' after 'a' (reference is 'a', which is now in p3).
+    // The second move should place 'e' after 'a' within p3 (not the old parent).
+    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+      file_id: "xp_doc",
+      moves: [
+        { node_id: "a", reference_node_id: "p3", position: "first_child" },
+        { node_id: "e", reference_node_id: "a", position: "after" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = xpCtx.server.documents.get("xp_doc")!;
+    const p3 = doc.nodes.find((n) => n.id === "p3")!;
+    const p1 = doc.nodes.find((n) => n.id === "p1")!;
+
+    // p3 should have [a, e]: 'a' was moved to first_child of p3, then 'e' was
+    // moved to after 'a' (which is now in p3). 'e' was originally already in p3.
+    expect(p3.children).toEqual(["a", "e"]);
+    // p1 should only have 'b' remaining.
+    expect(p1.children).toEqual(["b"]);
+  });
+
+  test("move empties one parent then moves into the empty parent", async () => {
+    // Move 'e' out of p3 to p1, then move 'b' into (now empty) p3.
+    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+      file_id: "xp_doc",
+      moves: [
+        { node_id: "e", reference_node_id: "p1", position: "last_child" },
+        { node_id: "b", reference_node_id: "p3", position: "first_child" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = xpCtx.server.documents.get("xp_doc")!;
+    const p1 = doc.nodes.find((n) => n.id === "p1")!;
+    const p3 = doc.nodes.find((n) => n.id === "p3")!;
+
+    // p1 lost 'b' (moved to p3), gained 'e'. So p1=[a, e].
+    expect(p1.children).toEqual(["a", "e"]);
+    // p3 lost 'e', gained 'b'. So p3=[b].
+    expect(p3.children).toEqual(["b"]);
+  });
+
+  test("three-way swap across parents", async () => {
+    // Swap nodes across three parents in sequence:
+    // Move 'a' from p1 to first_child of p2.
+    // Move 'c' from p2 to first_child of p3.
+    // Move 'e' from p3 to first_child of p1.
+    //
+    // Starting: p1=[a,b], p2=[c,d], p3=[e].
+    // After move 1: p1=[b], p2=[a,c,d], p3=[e].
+    // After move 2: p1=[b], p2=[a,d], p3=[c,e].
+    // After move 3: p1=[e,b], p2=[a,d], p3=[c].
+    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+      file_id: "xp_doc",
+      moves: [
+        { node_id: "a", reference_node_id: "p2", position: "first_child" },
+        { node_id: "c", reference_node_id: "p3", position: "first_child" },
+        { node_id: "e", reference_node_id: "p1", position: "first_child" },
+      ],
+      expected_version: version,
+    });
+
+    const doc = xpCtx.server.documents.get("xp_doc")!;
+    const p1 = doc.nodes.find((n) => n.id === "p1")!;
+    const p2 = doc.nodes.find((n) => n.id === "p2")!;
+    const p3 = doc.nodes.find((n) => n.id === "p3")!;
+
+    expect(p1.children).toEqual(["e", "b"]);
+    expect(p2.children).toEqual(["a", "d"]);
+    expect(p3.children).toEqual(["c"]);
+  });
+});

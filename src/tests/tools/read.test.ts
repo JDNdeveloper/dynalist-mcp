@@ -2572,3 +2572,394 @@ describe("search_documents query echo", () => {
     expect(result.query).toBe("My Unique Search Query 123");
   });
 });
+
+// ─── get_recent_changes date parsing ──────────────────────────────────
+
+describe("get_recent_changes date parsing", () => {
+  let dateCtx: TestContext;
+
+  afterEach(async () => {
+    await dateCtx.cleanup();
+  });
+
+  // All tests use a node created at a known timestamp.
+  const knownTs = new Date("2025-03-11T12:00:00.000Z").getTime();
+
+  function timedSetup(server: DummyDynalistServer): void {
+    server.addDocument("timed_doc", "Timed Doc", "root_folder", [
+      server.makeNode("root", "Timed Doc", ["t1"]),
+      server.makeNode("t1", "Timed node", [], { created: knownTs, modified: knownTs }),
+    ]);
+  }
+
+  test("date-only string for since is treated as start-of-day UTC", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    // The node was created at 2025-03-11T12:00:00Z. Using "2025-03-11"
+    // as since should be midnight, so the node falls within range.
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "2025-03-11",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+  });
+
+  test("date-only string for since excludes nodes from the previous day", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    // Using "2025-03-12" as since should exclude a node from 2025-03-11T12:00.
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "2025-03-12",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+  });
+
+  test("date-only string for until is treated as end-of-day UTC", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    // "2025-03-11" for until should cover up to 23:59:59.999 UTC.
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "1970-01-01",
+      until: "2025-03-11",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+  });
+
+  test("date-only string for until on previous day excludes the node", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    // "2025-03-10" as until ends before the node's timestamp.
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "1970-01-01",
+      until: "2025-03-10",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+  });
+
+  test("full ISO timestamp is parsed correctly", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    // Using the exact ISO timestamp should include the node.
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "2025-03-11T12:00:00.000Z",
+      until: "2025-03-11T12:00:00.000Z",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+  });
+
+  test("full ISO timestamp one second later excludes the node from since", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "2025-03-11T12:00:01.000Z",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+  });
+
+  test("full ISO datetime works for since and until", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "2025-03-11T12:00:00.000Z",
+      until: "2025-03-11T12:00:00.000Z",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+  });
+
+  test("ISO datetime one second after the node excludes it from since", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    const result = await callToolOk(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "2025-03-11T12:00:01.000Z",
+      until: "2025-03-11T12:01:00.000Z",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+  });
+
+  test("invalid date format for since returns error", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    const err = await callToolError(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "not-a-date",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("since");
+  });
+
+  test("invalid date format for until returns error", async () => {
+    dateCtx = await createTestContext(timedSetup);
+
+    const err = await callToolError(dateCtx.mcpClient, "get_recent_changes", {
+      file_id: "timed_doc",
+      since: "1970-01-01",
+      until: "garbage-date",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("until");
+  });
+});
+
+// ─── read_document field omission ─────────────────────────────────────
+
+describe("read_document field omission", () => {
+  let omitCtx: TestContext;
+
+  afterEach(async () => {
+    await omitCtx.cleanup();
+  });
+
+  test("note field omitted when empty string", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("omit_doc", "Omit Test", "root_folder", [
+        server.makeNode("root", "Omit Test", ["n1"]),
+        server.makeNode("n1", "No note", [], { note: "" }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "omit_doc",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.note).toBeUndefined();
+  });
+
+  test("note field present when non-empty", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("note_doc", "Note Test", "root_folder", [
+        server.makeNode("root", "Note Test", ["n1"]),
+        server.makeNode("n1", "Has note", [], { note: "Important note" }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "note_doc",
+      max_depth: 10,
+      include_notes: true,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.note).toBe("Important note");
+  });
+
+  test("heading field omitted when 0", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("heading_doc", "Heading Test", "root_folder", [
+        server.makeNode("root", "Heading Test", ["n1"]),
+        server.makeNode("n1", "No heading", [], { heading: 0 }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "heading_doc",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.heading).toBeUndefined();
+  });
+
+  test("heading field present when non-zero", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("heading_doc2", "Heading Test 2", "root_folder", [
+        server.makeNode("root", "Heading Test 2", ["n1"]),
+        server.makeNode("n1", "H1 heading", [], { heading: 1 }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "heading_doc2",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.heading).toBe("h1");
+  });
+
+  test("color field omitted when 0", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("color_doc", "Color Test", "root_folder", [
+        server.makeNode("root", "Color Test", ["n1"]),
+        server.makeNode("n1", "No color", [], { color: 0 }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "color_doc",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.color).toBeUndefined();
+  });
+
+  test("color field present when non-zero", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("color_doc2", "Color Test 2", "root_folder", [
+        server.makeNode("root", "Color Test 2", ["n1"]),
+        server.makeNode("n1", "Red node", [], { color: 1 }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "color_doc2",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.color).toBe("red");
+  });
+
+  test("show_checkbox field omitted when not set on node", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("cb_doc", "Checkbox Test", "root_folder", [
+        server.makeNode("root", "Checkbox Test", ["n1"]),
+        // No checkbox or checked fields at all.
+        server.makeNode("n1", "Plain node", []),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "cb_doc",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.show_checkbox).toBeUndefined();
+    expect(n1.checked).toBeUndefined();
+  });
+
+  test("show_checkbox and checked fields present when set", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("cb_doc2", "Checkbox Test 2", "root_folder", [
+        server.makeNode("root", "Checkbox Test 2", ["n1"]),
+        server.makeNode("n1", "Checked node", [], { checkbox: true, checked: true }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "cb_doc2",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.show_checkbox).toBe(true);
+    expect(n1.checked).toBe(true);
+  });
+
+  test("all optional fields present simultaneously", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("all_fields_doc", "All Fields", "root_folder", [
+        server.makeNode("root", "All Fields", ["n1"]),
+        server.makeNode("n1", "Full node", [], {
+          note: "A note",
+          heading: 2,
+          color: 3,
+          checkbox: true,
+          checked: false,
+        }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "all_fields_doc",
+      max_depth: 10,
+      include_notes: true,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.note).toBe("A note");
+    expect(n1.heading).toBe("h2");
+    expect(n1.color).toBe("yellow");
+    expect(n1.show_checkbox).toBe(true);
+    expect(n1.checked).toBe(false);
+  });
+
+  test("all optional fields omitted simultaneously", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("no_fields_doc", "No Fields", "root_folder", [
+        server.makeNode("root", "No Fields", ["n1"]),
+        // makeNode sets note: "", no heading/color/checkbox/checked.
+        server.makeNode("n1", "Bare node", []),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "no_fields_doc",
+      max_depth: 10,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.note).toBeUndefined();
+    expect(n1.heading).toBeUndefined();
+    expect(n1.color).toBeUndefined();
+    expect(n1.show_checkbox).toBeUndefined();
+    expect(n1.checked).toBeUndefined();
+  });
+
+  test("note field omitted when include_notes is false, even if non-empty", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("note_off_doc", "Note Off", "root_folder", [
+        server.makeNode("root", "Note Off", ["n1"]),
+        server.makeNode("n1", "Has note but hidden", [], { note: "Should not appear" }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "note_off_doc",
+      max_depth: 10,
+      include_notes: false,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    expect(n1.note).toBeUndefined();
+  });
+
+  test("whitespace-only note is treated as empty and omitted", async () => {
+    omitCtx = await createTestContext((server) => {
+      server.addDocument("ws_doc", "Whitespace Note", "root_folder", [
+        server.makeNode("root", "Whitespace Note", ["n1"]),
+        server.makeNode("n1", "Whitespace note", [], { note: "   \n  " }),
+      ]);
+    });
+
+    const result = await callToolOk(omitCtx.mcpClient, "read_document", {
+      file_id: "ws_doc",
+      max_depth: 10,
+      include_notes: true,
+    });
+    const node = result.node as Record<string, unknown>;
+    const children = node.children as Record<string, unknown>[];
+    const n1 = children.find((c) => c.node_id === "n1")!;
+    // Whitespace-only notes should be omitted (buildNodeTree checks node.note.trim()).
+    expect(n1.note).toBeUndefined();
+  });
+});

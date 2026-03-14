@@ -2,7 +2,15 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { getConfig, getConfigVersion, ConfigError } from "../config";
+import { getConfig, getConfigVersion, ConfigError, setTestConfig } from "../config";
+import {
+  createTestContext,
+  callToolOk,
+  callToolError,
+  getVersion,
+  standardSetup,
+  type TestContext,
+} from "./tools/test-helpers";
 
 // ─── Test helpers ────────────────────────────────────────────────────
 
@@ -485,5 +493,111 @@ describe("config reload behavior", () => {
     // Write invalid config.
     writeTestConfig({ logLevel: "banana" });
     expect(() => getConfig()).toThrow(ConfigError);
+  });
+});
+
+// ─── Config reloading between tool invocations ──────────────────────
+
+describe("config reloading between tool invocations", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx.cleanup();
+  });
+
+  test("readOnly change is picked up on next tool invocation", async () => {
+    // Start with readOnly: false, so writes succeed.
+    ctx = await createTestContext(standardSetup, { readOnly: false });
+
+    const version = await getVersion(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      expected_version: version,
+      nodes: [{ node_id: "n1", content: "Updated" }],
+    });
+    expect(result.file_id).toBe("doc1");
+
+    // Switch to readOnly: true via setTestConfig.
+    setTestConfig({
+      readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+      sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
+
+      readOnly: true,
+      cache: { ttlSeconds: 300 },
+      logLevel: "warn",
+    });
+
+    // The next write tool invocation should see readOnly and refuse.
+    const version2 = await getVersion(ctx.mcpClient, "doc1");
+    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+      file_id: "doc1",
+      expected_version: version2,
+      nodes: [{ node_id: "n1", content: "Should fail" }],
+    });
+    expect(err.error).toBe("ReadOnly");
+    expect(err.message).toBe("Server is in read-only mode.");
+  });
+
+  test("readDefaults change affects read_document behavior", async () => {
+    // Start with includeChecked: true.
+    ctx = await createTestContext(standardSetup, {
+      readDefaults: { maxDepth: 10, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+    });
+
+    // n3 has checked: true. It should appear.
+    const result1 = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    const node1 = result1.node as Record<string, unknown>;
+    const children1 = node1.children as Record<string, unknown>[];
+    expect(children1.some((c) => c.node_id === "n3")).toBe(true);
+
+    // Switch includeChecked to false.
+    setTestConfig({
+      readDefaults: { maxDepth: 10, includeCollapsedChildren: false, includeNotes: true, includeChecked: false },
+      sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
+
+      readOnly: false,
+      cache: { ttlSeconds: 300 },
+      logLevel: "warn",
+    });
+
+    // n3 should no longer appear because the config now excludes checked items.
+    const result2 = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+    });
+    const node2 = result2.node as Record<string, unknown>;
+    const children2 = node2.children as Record<string, unknown>[];
+    expect(children2.some((c) => c.node_id === "n3")).toBe(false);
+  });
+
+  test("sizeWarning threshold change takes effect on next read", async () => {
+    // Start with high thresholds so nothing triggers a warning.
+    ctx = await createTestContext(standardSetup, {
+      sizeWarning: { warningTokenThreshold: 100000, maxTokenThreshold: 200000 },
+    });
+
+    const result1 = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+    expect(result1.warning).toBeUndefined();
+    expect(result1.node).toBeDefined();
+
+    // Lower thresholds so the same read triggers a warning.
+    setTestConfig({
+      readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+      sizeWarning: { warningTokenThreshold: 1, maxTokenThreshold: 24500 },
+
+      readOnly: false,
+      cache: { ttlSeconds: 300 },
+      logLevel: "warn",
+    });
+
+    const result2 = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+    expect(result2.warning).toBeDefined();
   });
 });

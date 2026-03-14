@@ -512,3 +512,74 @@ describe("response shapes", () => {
     expect(result.parent_folder_id).toBe("folder_b");
   });
 });
+
+// ─── File creation with out-of-bounds index ───────────────────────────
+
+describe("file creation with out-of-bounds index", () => {
+  let idxCtx: TestContext;
+
+  beforeEach(async () => {
+    idxCtx = await createTestContext(standardSetup);
+  });
+
+  afterEach(async () => {
+    await idxCtx.cleanup();
+  });
+
+  test("create_document with index far beyond folder child count succeeds", async () => {
+    // folder_a has 1 child (doc1). Using index=1000 should still create.
+    const result = await callToolOk(idxCtx.mcpClient, "create_document", {
+      parent_folder_id: "folder_a",
+      title: "Out of Bounds Doc",
+      index: 1000,
+    });
+    expect(result.file_id).toBeDefined();
+    expect(result.title).toBe("Out of Bounds Doc");
+
+    // Verify the document was created in the folder.
+    const folder = idxCtx.server.files.get("folder_a")!;
+    expect(folder.children).toContain(result.file_id as string);
+  });
+
+  test("create_folder with index far beyond parent child count succeeds", async () => {
+    // root_folder has a few children. Using index=1000 should still create.
+    const result = await callToolOk(idxCtx.mcpClient, "create_folder", {
+      parent_folder_id: "root_folder",
+      title: "Out of Bounds Folder",
+      index: 1000,
+    });
+    expect(result.file_id).toBeDefined();
+    expect(result.title).toBe("Out of Bounds Folder");
+
+    // Verify the folder was created.
+    const root = idxCtx.server.files.get("root_folder")!;
+    expect(root.children).toContain(result.file_id as string);
+  });
+
+  test("create_document with index 0 in empty folder places it first", async () => {
+    // Add an empty folder.
+    idxCtx.server.addFolder("empty_folder", "Empty Folder", "root_folder");
+    const result = await callToolOk(idxCtx.mcpClient, "create_document", {
+      parent_folder_id: "empty_folder",
+      title: "First Doc",
+      index: 0,
+    });
+    expect(result.file_id).toBeDefined();
+    const folder = idxCtx.server.files.get("empty_folder")!;
+    expect(folder.children).toHaveLength(1);
+    expect(folder.children![0]).toBe(result.file_id as string);
+  });
+
+  test("create_document with large index in folder with children appends at end", async () => {
+    // folder_a has [doc1]. Using index=999 should place the new doc after doc1.
+    const result = await callToolOk(idxCtx.mcpClient, "create_document", {
+      parent_folder_id: "folder_a",
+      title: "Appended Doc",
+      index: 999,
+    });
+    const folder = idxCtx.server.files.get("folder_a")!;
+    // The new doc should be at the end (splice with out-of-bounds index appends).
+    const lastChild = folder.children![folder.children!.length - 1];
+    expect(lastChild).toBe(result.file_id as string);
+  });
+});
