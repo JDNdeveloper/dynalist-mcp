@@ -21,16 +21,25 @@ Before any mutations, the agent MUST:
 
 ### Step 1: Create a test root and sub-roots
 
-Use `list_documents` (from step 0) to find the account root folder, then create a single **test root** folder (e.g. "Manual Test 2026-03-14 (a3f)"). The name includes today's date and a short random suffix to avoid collisions across runs. Inside it, create one **sub-root** per test group:
+Use `list_documents` (from step 0) to find the account root folder, then create a single **test root** folder (e.g. "Manual Test 2026-03-14 (a3f)"). The name includes today's date and a short random suffix to avoid collisions across runs. Inside it, create one **sub-root** per test group. Create the sub-root folders in parallel (multiple `create_folder` calls in a single message) to speed up setup:
 
-| Sub-root           | Sections            | Test document(s)                  |
-|--------------------|---------------------|-----------------------------------|
-| 1-positioning      | 1 (positioning)     | Positioning Test Doc              |
-| 2-enums-inbox      | 2, 10 (enums+inbox) | Enums Test Doc                    |
-| 3-delete-move      | 3, 4 (delete+move)  | Delete+Move Test Doc              |
-| 4-version-edit     | 5, 9 (version+edit) | Edit Test Doc                     |
-| 5-read-search      | 6, 7 (read+search)  | Read+Search Test Doc              |
-| 6-file-mgmt-misc   | 8, 11, 12, 13       | (creates its own docs and folders)|
+| Sub-root                | Sections            | Tests |
+|-------------------------|---------------------|-------|
+| 01-pos-child            | 1a                  | 5     |
+| 02-pos-sibling          | 1b                  | 6     |
+| 03-pos-index-multi-nest | 1c, 1d, 1e          | 9     |
+| 04-enum-heading         | 2a                  | 5     |
+| 05-enum-color           | 2b                  | 8     |
+| 06-enum-edit            | 2c                  | 6     |
+| 07-inbox-invalid        | 2d, 2e, 10          | 7     |
+| 08-delete-promote-multi | 3a, 3b              | 5     |
+| 09-delete-errors        | 3c, 3d, 3e          | 3     |
+| 10-move-positions       | 4a, 4b              | 5     |
+| 11-move-reorder-errors  | 4c, 4d, 4e          | 6     |
+| 12-version-edit         | 5, 9                | 7     |
+| 13-read                 | 6                   | 8     |
+| 14-search               | 7                   | 7     |
+| 15-file-mgmt-misc       | 8, 11, 12, 13      | 17    |
 
 ### Step 2: Spawn subagents
 
@@ -40,10 +49,11 @@ Launch one subagent per sub-root. Each subagent prompt should:
 2. Specify the sub-root folder file_id to work within.
 3. Instruct the agent to create its own test document(s) inside that folder.
 4. Instruct the agent to read back after every write and report PASS/FAIL per test case.
+5. Instruct the agent to move on quickly if a test case fails or behaves unexpectedly. Mark it FAIL (or SKIP if untestable) and proceed to the next test. Do not retry in a loop or spend time debugging.
 
 All subagents run in parallel. Since each operates in its own sub-root with its own documents, there is no risk of version conflicts or cross-contamination.
 
-**Note:** Sections 12 (check_document_versions) and 13 (get_recent_changes) read across documents. If other subagents are writing concurrently, these results may be noisy, but this is acceptable. Run all 6 subagents in parallel to keep total execution time down.
+**Note:** Sections 12 (check_document_versions) and 13 (get_recent_changes) read across documents. If other subagents are writing concurrently, these results may be noisy, but this is acceptable. Run all subagents in parallel to keep total execution time down.
 
 ### Step 3: Review results
 
@@ -145,8 +155,7 @@ All tools that accept heading/color use string enums. Verify the full value spac
 
 ### 3c. Root node
 
-- Attempt to delete with `node_ids: ["root"]`. Expect error.
-- Read the document to get the actual root node ID. Attempt to delete it. Expect error.
+- Attempt to delete with `node_ids: ["root"]`. Expect error. (The root node ID is always the literal string `"root"`, so this single test covers the case.)
 
 ### 3d. Duplicate node_ids
 
@@ -194,13 +203,16 @@ All tools that accept heading/color use string enums. Verify the full value spac
 
 - Two rapid edits where the second uses the version from the first read. If a concurrent edit happened between, verify the response includes `version_warning`.
 
+**Note:** This test requires a concurrent writer and cannot be exercised in a single-agent setup. Mark as SKIP if no concurrent writer is available.
+
 ## 6. read_document edge cases
 
-### 6a. Depth and collapsed interaction
+### 6a. Depth limiting
 
-- Read with `max_depth: 1, include_collapsed_children: false`. Collapsed nodes at depth 1 should show `collapsed: true`, `children: []`, `children_count: N`. No `depth_limited` flag (collapsed takes precedence).
-- Read with `max_depth: 1, include_collapsed_children: true`. Collapsed nodes at depth 1 should show children populated but grandchildren (depth 2) show `depth_limited: true`.
-- Read with `max_depth: null, include_collapsed_children: false`. Full depth traversal but collapsed nodes still hide children.
+The MCP API cannot set the collapsed state on nodes (it is UI-only), so collapsed-specific behavior cannot be tested here. These tests focus on `max_depth` behavior with non-collapsed nodes.
+
+- Read with `max_depth: 1`. Verify depth-1 nodes show `depth_limited: true`, `children_count` populated, `children: []`.
+- Read with `max_depth: null` (unlimited). Verify full depth traversal, no `depth_limited` flags.
 - Read with `max_depth: 0`. Only the target node, no children at all.
 
 ### 6b. Starting from a specific node
@@ -220,7 +232,9 @@ All tools that accept heading/color use string enums. Verify the full value spac
 
 ### 6e. Size warnings
 
-- Read a large document without `bypass_warning`. If a warning is returned, verify it suggests narrowing strategies.
+To trigger a size warning, first create a document with at least 100 top-level nodes (insert in batches).
+
+- Read the large document without `bypass_warning`. Verify a size warning is returned with narrowing suggestions.
 - Re-read with `bypass_warning: true`. Verify content is returned.
 - Attempt `bypass_warning: true` on a small document that would not trigger a warning. Expect rejection.
 
