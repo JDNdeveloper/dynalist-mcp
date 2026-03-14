@@ -119,38 +119,31 @@ Use the Dynalist web or mobile UI.
 Do not present file IDs or node IDs to users, unless in the form of a URL. When showing the file hierarchy, \
 do not expose the root folder to users. Show all files and folders under root as top-level items. \
 Folders and documents are intermixed in the UI, not grouped separately. Present them in the order \
-they appear in the parent folder's children array. Example:
-
-\`\`\`
-- Work/
-    - Projects/
-        - Q1 Roadmap
-        - Meeting Notes
-    - Archive/
-- Personal/
-    - Reading List
-- Scratch Pad
-\`\`\`
+they appear in the parent folder's children array.
 
 ## Presenting document content
 
-Render document content as indented bullet points mirroring Dynalist's structure. Use exactly \
-4 spaces per indentation level. Show checked items with strikethrough (~~Buy groceries~~). Example:
+Render content as indented \`\u2022\` bullet lines mirroring Dynalist's structure. Always use \
+\`\u2022\` (unicode bullet), never \`-\`, \`*\`, or \`+\`. Append \`/\` to folder names. Show checked \
+items with strikethrough (~~Buy groceries~~). Only show node text content; omit metadata like \
+notes, colors, and headings. Applies to file trees, document content, summaries, mutation previews, \
+and confirmations.
+
+### Indentation rule
+
+**IMPORTANT: Indentation consistency is critical.** Use exactly 2 spaces per indentation level. \
+Siblings must share the same indent. Example:
 
 \`\`\`
-- Project plan
-    - Phase 1
-        - Design mockups
-        - ~~User research~~
-    - Phase 2
-        - Implementation
+\u2022 Work/
+  \u2022 Projects/
+    \u2022 Q1 Roadmap
+    \u2022 Meeting Notes
+  \u2022 Archive/
+\u2022 Personal/
+  \u2022 Reading List
+\u2022 Scratch Pad
 \`\`\`
-
-Applies to summaries, read results, mutation previews, and confirmations.
-
-**IMPORTANT: Indentation consistency is critical.** Siblings must share the same indent. \
-Every child level adds exactly 4 spaces. Misaligned indentation is the most common mistake. \
-Verify alignment before outputting.
 
 For mutation previews/confirmations, use diff-style in a fenced code block. Prefix each line \
 with \`+\` for additions, \`-\` for deletions, or a space for unchanged context. The prefix \
@@ -160,14 +153,14 @@ changes sit (parent and siblings). Use \`...\` at the same indent to indicate om
 Indentation is relative to the topmost shown node. Example:
 
 \`\`\`
-  - Grocery list
-      ...
--     - Milk 2%
-+     - Milk
-+     - Eggs
--     - Butter
-      - Bread
-      ...
+  \u2022 Grocery list
+    ...
+-   \u2022 Milk 2%
++   \u2022 Milk
++   \u2022 Eggs
+-   \u2022 Butter
+    \u2022 Bread
+    ...
 \`\`\`
 
 ## Version tracking
