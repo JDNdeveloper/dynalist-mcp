@@ -275,18 +275,18 @@ describe("read_document", () => {
     expect(n1a.note).toBeUndefined();
   });
 
-  test("checkbox present only when true", async () => {
+  test("show_checkbox present only when true", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
     });
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    // n3 has checkbox: true.
+    // n3 has show_checkbox: true in MCP output.
     const n3 = rootChildren.find((c) => c.node_id === "n3")!;
-    expect(n3.checkbox).toBe(true);
-    // n1 does not have checkbox.
+    expect(n3.show_checkbox).toBe(true);
+    // n1 does not have show_checkbox.
     const n1 = rootChildren.find((c) => c.node_id === "n1")!;
-    expect(n1.checkbox).toBeUndefined();
+    expect(n1.show_checkbox).toBeUndefined();
   });
 
   test("checked present only when true", async () => {
@@ -1296,7 +1296,7 @@ describe("search_in_document", () => {
     expect(typeof result.version).toBe("number");
   });
 
-  test("plain node omits checked, checkbox, heading, color from match", async () => {
+  test("plain node omits checked, show_checkbox, heading, color from match", async () => {
     // n1a is a plain node with no checkbox, heading, or color.
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
@@ -1307,7 +1307,7 @@ describe("search_in_document", () => {
     expect(n1a).toBeDefined();
     // These should be omitted for plain nodes, consistent with read_document.
     expect(n1a.checked).toBeUndefined();
-    expect(n1a.checkbox).toBeUndefined();
+    expect(n1a.show_checkbox).toBeUndefined();
     expect(n1a.heading).toBeUndefined();
     expect(n1a.color).toBeUndefined();
   });
@@ -1614,7 +1614,7 @@ describe("get_recent_changes", () => {
     }
   });
 
-  test("plain node omits checked, checkbox, heading, color from match", async () => {
+  test("plain node omits checked, show_checkbox, heading, color from match", async () => {
     // n1a is a plain node with no checkbox, heading, or color.
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
@@ -1625,7 +1625,7 @@ describe("get_recent_changes", () => {
     expect(n1a).toBeDefined();
     // These should be omitted for plain nodes, consistent with read_document.
     expect(n1a.checked).toBeUndefined();
-    expect(n1a.checkbox).toBeUndefined();
+    expect(n1a.show_checkbox).toBeUndefined();
     expect(n1a.heading).toBeUndefined();
     expect(n1a.color).toBeUndefined();
   });

@@ -41,11 +41,11 @@ The instructions establish a mandatory workflow: call `read_document` before any
 
 ## Checkbox and checked state guidance
 
-Dynalist's checkbox semantics are subtle: items can be checked with or without a visible checkbox, and checking a parent visually greys out descendants in the UI. The shared guidance constants (`CHECKED_GUIDANCE`, `CHECKBOX_GUIDANCE`, `CHECKED_CHILDREN_GUIDANCE`) teach agents to:
+Dynalist's checkbox semantics are subtle: items can be checked with or without a visible checkbox, and checking a parent visually greys out descendants in the UI. The shared guidance constants (`CHECKED_GUIDANCE`, `SHOW_CHECKBOX_GUIDANCE`, `CHECKED_CHILDREN_GUIDANCE`) teach agents to:
 
-- Not add a checkbox unless explicitly asked.
+- Only set `show_checkbox` when siblings use checkboxes or the user explicitly requests it.
 - Not check children when checking a parent unless asked.
-- Only set the `checkbox` parameter when surrounding nodes use checkboxes or the user explicitly requests it.
+- Understand that `checked` works independently of `show_checkbox`.
 
 ## Partial insert recovery
 

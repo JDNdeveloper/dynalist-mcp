@@ -41,10 +41,6 @@ const SizeWarningSchema = z.object({
   maxTokenThreshold: z.number().default(24500),
 });
 
-const InboxSchema = z.object({
-  defaultCheckbox: z.boolean().default(false),
-});
-
 const CacheSchema = z.object({
   ttlSeconds: z.number().default(300),
 });
@@ -53,7 +49,6 @@ const ConfigSchema = z.object({
   access: AccessSchema.optional(),
   readDefaults: ReadDefaultsSchema.default({}),
   sizeWarning: SizeWarningSchema.default({}),
-  inbox: InboxSchema.default({}),
   readOnly: z.boolean().default(false),
   cache: CacheSchema.default({}),
   logLevel: z.enum(["error", "warn", "info", "debug"]).default("warn"),

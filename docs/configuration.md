@@ -31,9 +31,6 @@ Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_
     "warningTokenThreshold": 5000,
     "maxTokenThreshold": 24500
   },
-  "inbox": {
-    "defaultCheckbox": false
-  },
   "readOnly": false,
   "cache": {
     "ttlSeconds": 300
@@ -55,7 +52,6 @@ Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_
 | `readDefaults.includeChecked` | boolean | `true` | Default for including checked/completed nodes |
 | `sizeWarning.warningTokenThreshold` | number | `5000` | Token count that triggers a size warning |
 | `sizeWarning.maxTokenThreshold` | number | `24500` | Token count above which results are blocked entirely |
-| `inbox.defaultCheckbox` | boolean | `false` | Default checkbox state for inbox items |
 | `readOnly` | boolean | `false` | Reject all write operations when true |
 | `cache.ttlSeconds` | number | `300` | File tree cache TTL in seconds |
 | `logLevel` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` | `"warn"` | Log verbosity |

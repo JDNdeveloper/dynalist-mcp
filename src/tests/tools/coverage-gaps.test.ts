@@ -52,7 +52,7 @@ describe("T2: config reloading between tool invocations", () => {
     setTestConfig({
       readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
       sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-      inbox: { defaultCheckbox: false },
+
       readOnly: true,
       cache: { ttlSeconds: 300 },
       logLevel: "warn",
@@ -87,7 +87,7 @@ describe("T2: config reloading between tool invocations", () => {
     setTestConfig({
       readDefaults: { maxDepth: 10, includeCollapsedChildren: false, includeNotes: true, includeChecked: false },
       sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-      inbox: { defaultCheckbox: false },
+
       readOnly: false,
       cache: { ttlSeconds: 300 },
       logLevel: "warn",
@@ -119,7 +119,7 @@ describe("T2: config reloading between tool invocations", () => {
     setTestConfig({
       readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
       sizeWarning: { warningTokenThreshold: 1, maxTokenThreshold: 24500 },
-      inbox: { defaultCheckbox: false },
+
       readOnly: false,
       cache: { ttlSeconds: 300 },
       logLevel: "warn",
@@ -976,7 +976,7 @@ describe("T12: read_document field omission rules", () => {
     expect(n1.color).toBe("red");
   });
 
-  test("checkbox field omitted when not set on node", async () => {
+  test("show_checkbox field omitted when not set on node", async () => {
     ctx = await createTestContext((server) => {
       server.addDocument("cb_doc", "Checkbox Test", "root_folder", [
         server.makeNode("root", "Checkbox Test", ["n1"]),
@@ -992,11 +992,11 @@ describe("T12: read_document field omission rules", () => {
     const node = result.node as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
     const n1 = children.find((c) => c.node_id === "n1")!;
-    expect(n1.checkbox).toBeUndefined();
+    expect(n1.show_checkbox).toBeUndefined();
     expect(n1.checked).toBeUndefined();
   });
 
-  test("checkbox and checked fields present when set", async () => {
+  test("show_checkbox and checked fields present when set", async () => {
     ctx = await createTestContext((server) => {
       server.addDocument("cb_doc2", "Checkbox Test 2", "root_folder", [
         server.makeNode("root", "Checkbox Test 2", ["n1"]),
@@ -1011,7 +1011,7 @@ describe("T12: read_document field omission rules", () => {
     const node = result.node as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
     const n1 = children.find((c) => c.node_id === "n1")!;
-    expect(n1.checkbox).toBe(true);
+    expect(n1.show_checkbox).toBe(true);
     expect(n1.checked).toBe(true);
   });
 
@@ -1040,7 +1040,7 @@ describe("T12: read_document field omission rules", () => {
     expect(n1.note).toBe("A note");
     expect(n1.heading).toBe("h2");
     expect(n1.color).toBe("yellow");
-    expect(n1.checkbox).toBe(true);
+    expect(n1.show_checkbox).toBe(true);
     expect(n1.checked).toBe(false);
   });
 
@@ -1063,7 +1063,7 @@ describe("T12: read_document field omission rules", () => {
     expect(n1.note).toBeUndefined();
     expect(n1.heading).toBeUndefined();
     expect(n1.color).toBeUndefined();
-    expect(n1.checkbox).toBeUndefined();
+    expect(n1.show_checkbox).toBeUndefined();
     expect(n1.checked).toBeUndefined();
   });
 

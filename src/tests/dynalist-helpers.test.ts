@@ -102,7 +102,7 @@ describe("groupByLevel", () => {
       {
         content: "Styled node",
         note: "A note",
-        checkbox: true,
+        show_checkbox: true,
         checked: false,
         heading: "h2",
         color: "yellow",
@@ -112,7 +112,7 @@ describe("groupByLevel", () => {
     const levels = groupByLevel(roots);
     const node = levels[0][0];
     expect(node.note).toBe("A note");
-    expect(node.checkbox).toBe(true);
+    expect(node.show_checkbox).toBe(true);
     expect(node.checked).toBe(false);
     expect(node.heading).toBe("h2");
     expect(node.color).toBe("yellow");

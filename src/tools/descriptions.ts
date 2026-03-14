@@ -11,11 +11,12 @@
 // Guidance strings (shared policy wording, reused across descriptions and MCP instructions).
 export const CONFIRM_GUIDANCE =
   "Confirm intended changes with the user before calling this tool.";
+export const SHOW_CHECKBOX_GUIDANCE =
+  "Controls whether a checkbox is rendered in the UI. Does not affect " +
+  "checked state. Only set if siblings use checkboxes or the user asked.";
 export const CHECKED_GUIDANCE =
-  "Items can be checked with or without a visible checkbox. " +
-  "Do not add a checkbox unless explicitly asked.";
-export const CHECKBOX_GUIDANCE =
-  "Only set if explicitly asked or surrounding nodes use checkboxes. Omit when unsure.";
+  "Marks item as completed (greyed out). Works independently of " +
+  "show_checkbox.";
 export const CHECKED_CHILDREN_GUIDANCE =
   "Do not check children when checking a parent unless asked. " +
   "Dynalist greys out descendants visually.";
@@ -33,7 +34,9 @@ export const PARENT_LEVELS_DESCRIPTION =
   "Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root.";
 export const CHECKED_DESCRIPTION =
   `Checked (completed) state. ${CHECKED_GUIDANCE} ${CHECKED_CHILDREN_GUIDANCE}`;
-export const CHECKBOX_DESCRIPTION = CHECKBOX_GUIDANCE;
+export const CHECKED_DESCRIPTION_INBOX =
+  `Checked (completed) state. ${CHECKED_GUIDANCE}`;
+export const SHOW_CHECKBOX_DESCRIPTION = SHOW_CHECKBOX_GUIDANCE;
 export const HEADING_DESCRIPTION =
   "Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3.";
 export const COLOR_DESCRIPTION =

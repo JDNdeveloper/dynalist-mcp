@@ -101,7 +101,7 @@ Read a Dynalist document as a structured JSON node tree. Omit `node_id` to read 
 - If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the node tree.
 
 **Node properties:**
-- `checked`, `checkbox`: only present when the node has a checkbox. Omitted for plain nodes.
+- `checked`, `show_checkbox`: only present when the node has a checkbox. Omitted for plain nodes.
 - `heading`: `"h1"`, `"h2"`, `"h3"`. Omitted when none.
 - `color`: `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"`. Omitted when none.
 - `note`: omitted when empty (not present in JSON, saves tokens).
@@ -145,7 +145,7 @@ Search for text in a document. Use `parent_levels` to include ancestor breadcrum
 }
 ```
 
-`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels` is not `"none"` and ancestors exist. `children` is present only when `include_children: true` and the node has children.
+`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `show_checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels` is not `"none"` and ancestors exist. `children` is present only when `include_children: true` and the node has children.
 
 If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the match results.
 
@@ -187,7 +187,7 @@ Get nodes created or modified within a time period. Timestamps are milliseconds 
 }
 ```
 
-`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels` is not `"none"` and ancestors exist.
+`version` is the document version; pass as `expected_version` to write tools. `note` appears only when non-empty. `checked`, `show_checkbox`, `heading`, and `color` follow the same conditional inclusion rules as `read_document` (omitted at default values). `parents` is present only when `parent_levels` is not `"none"` and ancestors exist.
 
 If the response exceeds the size threshold, a warning response is returned with `file_id`, `title`, `version`, and `warning` instead of the match results.
 
@@ -218,10 +218,10 @@ Send a single item to your Dynalist inbox. The target document is the user's con
 |-----------|------|----------|---------|-------------|
 | `content` | string | yes | | Text content for the inbox item |
 | `note` | string | no | | Note for the item |
-| `checkbox` | boolean | no | config | Whether to add a checkbox |
+| `show_checkbox` | boolean | no | | Whether to add a checkbox |
 | `heading` | string | no | | `"none"` = no heading, `"h1"` = H1, `"h2"` = H2, `"h3"` = H3 |
 | `color` | string | no | | `"none"` = no color, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` |
-| `checked` | boolean | no | | Check state. Only meaningful when checkbox is true |
+| `checked` | boolean | no | | Checked (completed) state |
 
 **Response**:
 ```json
@@ -252,7 +252,7 @@ Node IDs are pre-validated before the write: if any node ID is not found in the 
 | `content` | string | no | New content text |
 | `note` | string | no | New note text. Set to `""` to clear. Supports multiline. |
 | `checked` | boolean | no | Checked state |
-| `checkbox` | boolean | no | Whether to show checkbox |
+| `show_checkbox` | boolean | no | Whether to show checkbox |
 | `heading` | string | no | `"none"` = no heading, `"h1"` = H1, `"h2"` = H2, `"h3"` = H3 |
 | `color` | string | no | `"none"` = no color, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` |
 
@@ -282,7 +282,7 @@ Example input:
 
 ### `insert_nodes`
 
-Insert one or more nodes into a Dynalist document as a JSON tree. Supports nested hierarchy and per-node fields (note, checkbox, checked, heading, color).
+Insert one or more nodes into a Dynalist document as a JSON tree. Supports nested hierarchy and per-node fields (note, show_checkbox, checked, heading, color).
 
 `reference_node_id` meaning depends on position: for `first_child`/`last_child` it is the parent (omit for document root); for `after`/`before` it is the sibling (required).
 
@@ -301,7 +301,7 @@ Insert one or more nodes into a Dynalist document as a JSON tree. Supports neste
 |-------|------|----------|-------------|
 | `content` | string | yes | Content text. Supports multiline. |
 | `note` | string | no | Note text. Supports multiline. |
-| `checkbox` | boolean | no | Whether to show a checkbox |
+| `show_checkbox` | boolean | no | Whether to show a checkbox |
 | `checked` | boolean | no | Checked (completed) state |
 | `heading` | string | no | `"none"` = no heading, `"h1"` = H1, `"h2"` = H2, `"h3"` = H3 |
 | `color` | string | no | `"none"` = no color, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` |
@@ -318,7 +318,7 @@ Example input:
       "content": "Top level item",
       "children": [
         { "content": "Child item", "note": "A note on this child" },
-        { "content": "Another child", "checkbox": true }
+        { "content": "Another child", "show_checkbox": true }
       ]
     },
     { "content": "Second top level item", "heading": "h1" }

@@ -274,8 +274,8 @@ To trigger a size warning, first create a document with at least 100 top-level n
 
 ### 9a. Partial updates
 
-- Edit only the `note` field of a node. Verify content, heading, color, checkbox, checked are all unchanged.
-- Edit only `checked: true` without specifying `checkbox`. Verify the node auto-enables checkbox.
+- Edit only the `note` field of a node. Verify content, heading, color, show_checkbox, checked are all unchanged.
+- Edit only `checked: true` without specifying `show_checkbox`. Verify the node auto-enables checkbox.
 - Edit a node with no mutable fields specified. Expect error.
 
 ### 9b. Multi-node edit
@@ -289,8 +289,8 @@ To trigger a size warning, first create a document with at least 100 top-level n
 ## 10. send_to_inbox edge cases
 
 - Send with empty content (whitespace only). Expect error.
-- Send with `checked: true` and no `checkbox`. Verify both checked and checkbox are true on readback.
-- Send with all metadata: heading, color, checkbox, checked, note. Verify full round-trip.
+- Send with `checked: true` and no `show_checkbox`. Verify both checked and checkbox are true on readback.
+- Send with all metadata: heading, color, show_checkbox, checked, note. Verify full round-trip.
 
 ## 11. Error recovery and URL handling
 

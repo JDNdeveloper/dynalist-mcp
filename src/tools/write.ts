@@ -19,9 +19,9 @@ import {
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import {
-  FILE_ID_DESCRIPTION, CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, HEADING_DESCRIPTION,
-  COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE, CONTENT_MULTILINE_GUIDANCE,
-  EXPECTED_VERSION_DESCRIPTION,
+  FILE_ID_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION, CHECKED_DESCRIPTION, CHECKED_DESCRIPTION_INBOX,
+  HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
+  CONTENT_MULTILINE_GUIDANCE, EXPECTED_VERSION_DESCRIPTION,
 } from "./descriptions";
 import { HEADING_VALUES, COLOR_VALUES, HEADING_TO_NUMBER, COLOR_TO_NUMBER } from "./node-metadata";
 import type { HeadingValue, ColorValue } from "./node-metadata";
@@ -66,12 +66,12 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
-        checkbox: z.boolean().optional().describe(
-          `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
+        show_checkbox: z.boolean().optional().describe(
+          `Whether to add a checkbox. ${SHOW_CHECKBOX_DESCRIPTION}`
         ),
         heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
         color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
-        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
+        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION_INBOX),
       },
       outputSchema: {
         file_id: z.string().describe("Inbox document file ID"),
@@ -79,7 +79,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         url: z.string().describe("Dynalist URL for the created node"),
       },
     },
-    wrapToolHandler(async ({ content, note, checkbox, heading, color, checked }: { content: string; note?: string; checkbox?: boolean; heading?: HeadingValue; color?: ColorValue; checked?: boolean }) => {
+    wrapToolHandler(async ({ content, note, show_checkbox, heading, color, checked }: { content: string; note?: string; show_checkbox?: boolean; heading?: HeadingValue; color?: ColorValue; checked?: boolean }) => {
       const config = getConfig();
 
       if (config.readOnly) {
@@ -100,12 +100,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         return makeErrorResponse("InvalidInput", "No content to add (empty input)");
       }
 
-      const effectiveCheckbox = checkbox ?? config.inbox.defaultCheckbox;
-
       const response = await client.sendToInbox({
         content,
         note,
-        checkbox: effectiveCheckbox,
+        checkbox: show_checkbox,
         heading: heading !== undefined ? HEADING_TO_NUMBER[heading] : undefined,
         color: color !== undefined ? COLOR_TO_NUMBER[color] : undefined,
         checked,
@@ -139,8 +137,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           content: z.string().optional().describe(`New content text. ${CONTENT_MULTILINE_GUIDANCE}`),
           note: z.string().optional().describe(`New note text. ${MULTILINE_GUIDANCE} Set to '' to clear.`),
           checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
-          checkbox: z.boolean().optional().describe(
-            `Whether to show a checkbox on this node. ${CHECKBOX_DESCRIPTION}`
+          show_checkbox: z.boolean().optional().describe(
+            `Whether to show a checkbox on this node. ${SHOW_CHECKBOX_DESCRIPTION}`
           ),
           heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
           color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
@@ -165,7 +163,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         content?: string;
         note?: string;
         checked?: boolean;
-        checkbox?: boolean;
+        show_checkbox?: boolean;
         heading?: HeadingValue;
         color?: ColorValue;
       }>;
@@ -192,7 +190,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         if (entry.content !== undefined) change.content = entry.content;
         if (entry.note !== undefined) change.note = entry.note;
         if (entry.checked !== undefined) change.checked = entry.checked;
-        if (entry.checkbox !== undefined) change.checkbox = entry.checkbox;
+        if (entry.show_checkbox !== undefined) change.checkbox = entry.show_checkbox;
         if (entry.heading !== undefined) change.heading = HEADING_TO_NUMBER[entry.heading];
         if (entry.color !== undefined) change.color = COLOR_TO_NUMBER[entry.color];
 
@@ -205,7 +203,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           entry.content !== undefined ||
           entry.note !== undefined ||
           entry.checked !== undefined ||
-          entry.checkbox !== undefined ||
+          entry.show_checkbox !== undefined ||
           entry.heading !== undefined ||
           entry.color !== undefined;
         if (!hasMutable) {
@@ -250,7 +248,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
   const jsonInputNodeSchema: z.ZodType<{
     content: string;
     note?: string;
-    checkbox?: boolean;
+    show_checkbox?: boolean;
     checked?: boolean;
     heading?: HeadingValue;
     color?: ColorValue;
@@ -259,8 +257,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     z.object({
       content: z.string().describe(`Content text. ${CONTENT_MULTILINE_GUIDANCE}`),
       note: z.string().optional().describe(`Note text. ${MULTILINE_GUIDANCE}`),
-      checkbox: z.boolean().optional().describe(
-        `Whether to add a checkbox. ${CHECKBOX_DESCRIPTION}`
+      show_checkbox: z.boolean().optional().describe(
+        `Whether to add a checkbox. ${SHOW_CHECKBOX_DESCRIPTION}`
       ),
       checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
       heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
@@ -434,7 +432,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 interface JsonInputNode {
   content: string;
   note?: string;
-  checkbox?: boolean;
+  show_checkbox?: boolean;
   checked?: boolean;
   heading?: HeadingValue;
   color?: ColorValue;
@@ -448,7 +446,7 @@ function jsonInputToTree(nodes: JsonInputNode[]): ParsedNode[] {
   return nodes.map((node) => ({
     content: node.content,
     note: node.note,
-    checkbox: node.checkbox,
+    show_checkbox: node.show_checkbox,
     checked: node.checked,
     heading: node.heading,
     color: node.color,

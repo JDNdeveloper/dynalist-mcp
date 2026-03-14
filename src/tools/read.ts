@@ -208,7 +208,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         ),
         url: z.string().optional().describe("Dynalist URL"),
         node: z.any().optional().describe(
-          "Node tree root. Fields: node_id, content, note (omitted when empty), checked, checkbox, " +
+          "Node tree root. Fields: node_id, content, note (omitted when empty), checked, show_checkbox, " +
           "heading ('h1'/'h2'/'h3', omitted when none), " +
           "color ('red'/'orange'/'yellow'/'green'/'blue'/'purple', omitted when none), " +
           "collapsed (user-collapsed, distinct from depth_limited), " +
@@ -333,7 +333,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         query: z.string().optional().describe("The search query that was used"),
         matches: z.array(z.any()).optional().describe(
           "Matching nodes. Each has: node_id, content, note (if present), url, checked, " +
-          "checkbox, heading, color, collapsed, and optionally parents (array of {node_id, content}) " +
+          "show_checkbox, heading, color, collapsed, and optionally parents (array of {node_id, content}) " +
           "and children (array of {node_id, content})."
         ),
         warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
@@ -382,7 +382,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
           // Include optional fields only when present, consistent with read_document.
           if (node.checked !== undefined) match.checked = node.checked;
-          if (node.checkbox !== undefined) match.checkbox = node.checkbox;
+          if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
           if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
           if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
 
@@ -477,7 +477,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         count: z.number().optional().describe("Number of changes found"),
         matches: z.array(z.any()).optional().describe(
           "Changed nodes. Each has: node_id, content, note (if present), created, modified, " +
-          "url, change_type, checked, checkbox, heading, color, collapsed, and optionally " +
+          "url, change_type, checked, show_checkbox, heading, color, collapsed, and optionally " +
           "parents (array of {node_id, content})."
         ),
         warning: z.string().optional().describe("Size warning message when result exceeds token threshold"),
@@ -555,7 +555,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
           // Include optional fields only when present, consistent with read_document.
           if (node.checked !== undefined) match.checked = node.checked;
-          if (node.checkbox !== undefined) match.checkbox = node.checkbox;
+          if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
           if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
           if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
 

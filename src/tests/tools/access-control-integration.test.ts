@@ -68,7 +68,6 @@ function updateTestConfig(overrides: Record<string, unknown>) {
   setTestConfig({
     readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
     sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-    inbox: { defaultCheckbox: false },
     readOnly: false,
     cache: { ttlSeconds: 300 },
     logLevel: "warn",

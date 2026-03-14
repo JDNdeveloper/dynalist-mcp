@@ -25,7 +25,7 @@ export interface OutputNode {
   content: string;
   note?: string;
   checked?: boolean;
-  checkbox?: boolean;
+  show_checkbox?: boolean;
   heading?: string;
   color?: string;
   collapsed: boolean;

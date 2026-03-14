@@ -55,10 +55,10 @@ describe("send_to_inbox", () => {
     expect(node.note).toBe("The one about distributed systems");
   });
 
-  test("sends item with checkbox, heading, and color", async () => {
+  test("sends item with show_checkbox, heading, and color", async () => {
     const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Important task",
-      checkbox: true,
+      show_checkbox: true,
       heading: "h2",
       color: "yellow",
     });
@@ -74,7 +74,7 @@ describe("send_to_inbox", () => {
   test("sends item with checked state", async () => {
     const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Already done",
-      checkbox: true,
+      show_checkbox: true,
       checked: true,
     });
 
@@ -82,41 +82,6 @@ describe("send_to_inbox", () => {
     const node = doc.nodes.find((n) => n.id === result.node_id)!;
     expect(node.checkbox).toBe(true);
     expect(node.checked).toBe(true);
-  });
-
-  // ─── Config defaults ────────────────────────────────────────────────
-
-  test("uses defaultCheckbox from config when checkbox is omitted", async () => {
-    // Recreate context with defaultCheckbox enabled.
-    await ctx.cleanup();
-    ctx = await createTestContext(standardSetup, {
-      inbox: { defaultCheckbox: true },
-    });
-
-    const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "Should have checkbox from config",
-    });
-
-    const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.id === result.node_id)!;
-    expect(node.checkbox).toBe(true);
-  });
-
-  test("explicit checkbox false overrides defaultCheckbox true", async () => {
-    await ctx.cleanup();
-    ctx = await createTestContext(standardSetup, {
-      inbox: { defaultCheckbox: true },
-    });
-
-    const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "No checkbox despite config",
-      checkbox: false,
-    });
-
-    const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.id === result.node_id)!;
-    // Explicit false overrides the config default of true.
-    expect(node.checkbox).toBe(false);
   });
 
   // ─── Validation: invalid string values ─────────────────────────────

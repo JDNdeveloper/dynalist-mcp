@@ -19,7 +19,7 @@ import type { HeadingValue, ColorValue } from "../tools/node-metadata";
 export interface ParsedNode {
   content: string;
   note?: string;
-  checkbox?: boolean;
+  show_checkbox?: boolean;
   checked?: boolean;
   heading?: string;
   color?: string;
@@ -33,7 +33,7 @@ export interface ParsedNode {
 export interface LevelNode {
   content: string;
   note?: string;
-  checkbox?: boolean;
+  show_checkbox?: boolean;
   checked?: boolean;
   heading?: string;
   color?: string;
@@ -53,7 +53,7 @@ export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
   const level0: LevelNode[] = roots.map((root, idx) => ({
     content: root.content,
     note: root.note,
-    checkbox: root.checkbox,
+    show_checkbox: root.show_checkbox,
     checked: root.checked,
     heading: root.heading,
     color: root.color,
@@ -74,7 +74,7 @@ export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
         nextLevel.push({
           content: child.content,
           note: child.note,
-          checkbox: child.checkbox,
+          show_checkbox: child.show_checkbox,
           checked: child.checked,
           heading: child.heading,
           color: child.color,
@@ -349,7 +349,7 @@ export function buildNodeTree(
     output.note = node.note;
   }
   if (node.checked !== undefined) output.checked = node.checked;
-  if (node.checkbox !== undefined) output.checkbox = node.checkbox;
+  if (node.checkbox !== undefined) output.show_checkbox = node.checkbox;
   if (node.heading !== undefined && node.heading > 0) output.heading = NUMBER_TO_HEADING[node.heading];
   if (node.color !== undefined && node.color > 0) output.color = NUMBER_TO_COLOR[node.color];
 
@@ -484,7 +484,7 @@ export async function insertTreeUnderParent(
       };
 
       if (node.note !== undefined) change.note = node.note;
-      if (node.checkbox !== undefined) change.checkbox = node.checkbox;
+      if (node.show_checkbox !== undefined) change.checkbox = node.show_checkbox;
       if (node.checked !== undefined) change.checked = node.checked;
       if (node.heading !== undefined) change.heading = HEADING_TO_NUMBER[node.heading as HeadingValue];
       if (node.color !== undefined) change.color = COLOR_TO_NUMBER[node.color as ColorValue];

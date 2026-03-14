@@ -57,7 +57,6 @@ describe("config loading", () => {
     expect(config.readDefaults.includeChecked).toBe(true);
     expect(config.sizeWarning.warningTokenThreshold).toBe(5000);
     expect(config.sizeWarning.maxTokenThreshold).toBe(24500);
-    expect(config.inbox.defaultCheckbox).toBe(false);
     expect(config.readOnly).toBe(false);
     expect(config.cache.ttlSeconds).toBe(300);
     expect(config.logLevel).toBe("warn");
@@ -85,7 +84,6 @@ describe("config loading", () => {
         includeChecked: false,
       },
       sizeWarning: { warningTokenThreshold: 1000, maxTokenThreshold: 5000 },
-      inbox: { defaultCheckbox: true },
       readOnly: true,
       cache: { ttlSeconds: 60 },
       logLevel: "debug",
@@ -98,7 +96,6 @@ describe("config loading", () => {
     expect(config.readDefaults.includeNotes).toBe(false);
     expect(config.readDefaults.includeChecked).toBe(false);
     expect(config.sizeWarning.warningTokenThreshold).toBe(1000);
-    expect(config.inbox.defaultCheckbox).toBe(true);
     expect(config.readOnly).toBe(true);
     expect(config.cache.ttlSeconds).toBe(60);
     expect(config.logLevel).toBe("debug");
@@ -229,32 +226,7 @@ describe("config size warning thresholds", () => {
   });
 });
 
-// ─── 2d. Inbox defaults ─────────────────────────────────────────────
-
-describe("config inbox defaults", () => {
-  beforeEach(() => {
-    setConfigEnv();
-  });
-
-  afterEach(() => {
-    cleanupConfig();
-    delete process.env.DYNALIST_MCP_CONFIG;
-  });
-
-  test("default inbox.defaultCheckbox is false", () => {
-    writeTestConfig({});
-    const config = getConfig();
-    expect(config.inbox.defaultCheckbox).toBe(false);
-  });
-
-  test("custom inbox.defaultCheckbox true is respected", () => {
-    writeTestConfig({ inbox: { defaultCheckbox: true } });
-    const config = getConfig();
-    expect(config.inbox.defaultCheckbox).toBe(true);
-  });
-});
-
-// ─── 2e. Cache settings ─────────────────────────────────────────────
+// ─── 2d. Cache settings ──────────────────────────────────────────────
 
 describe("config cache settings", () => {
   beforeEach(() => {

@@ -70,7 +70,7 @@ describe("edit_nodes", () => {
       expected_version: version,
       nodes: [
         { node_id: "n1", heading: "h2", color: "yellow" },
-        { node_id: "n2", note: "new note", checkbox: true },
+        { node_id: "n2", note: "new note", show_checkbox: true },
       ],
     });
     expect(result.edited_count).toBe(2);
@@ -205,7 +205,7 @@ describe("edit_nodes", () => {
 
   // ─── 10b: field independence ────────────────────────────────────────
 
-  test("edit only content preserves note, heading, color, checkbox, checked", async () => {
+  test("edit only content preserves note, heading, color, show_checkbox, checked", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.note = "keep this note";
@@ -283,7 +283,7 @@ describe("edit_nodes", () => {
     expect(node.color).toBe(6);
   });
 
-  test("edit only checkbox preserves everything else", async () => {
+  test("edit only show_checkbox preserves everything else", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.note = "note here";
@@ -293,7 +293,7 @@ describe("edit_nodes", () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", checkbox: true }],
+      nodes: [{ node_id: "n1", show_checkbox: true }],
     });
 
     expect(node.content).toBe(originalContent);
@@ -386,7 +386,7 @@ describe("edit_nodes", () => {
     }
   });
 
-  test("checkbox: false removes checkbox", async () => {
+  test("show_checkbox: false removes checkbox", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.checkbox = true;
@@ -395,18 +395,18 @@ describe("edit_nodes", () => {
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", checkbox: false }],
+      nodes: [{ node_id: "n1", show_checkbox: false }],
     });
 
     expect(node.checkbox).toBe(false);
   });
 
-  test("checked: true with checkbox: true marks node as checked", async () => {
+  test("checked: true with show_checkbox: true marks node as checked", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", checkbox: true, checked: true }],
+      nodes: [{ node_id: "n1", show_checkbox: true, checked: true }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -901,13 +901,13 @@ describe("insert_nodes", () => {
     expect(newNode.note).toBe("This is a note");
   });
 
-  test("node with checkbox and checked", async () => {
+  test("node with show_checkbox and checked", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
       reference_node_id: "root",
-      nodes: [{ content: "Todo", checkbox: true, checked: false }],
+      nodes: [{ content: "Todo", show_checkbox: true, checked: false }],
       position: "last_child",
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -931,14 +931,14 @@ describe("insert_nodes", () => {
     expect(newNode.checkbox).toBeUndefined();
   });
 
-  test("checkbox: false is preserved on insert", async () => {
+  test("show_checkbox: false is preserved on insert", async () => {
     // Regression: a truthy check previously dropped checkbox: false.
     const version = await getVersion(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
       expected_version: version,
       reference_node_id: "root",
-      nodes: [{ content: "No checkbox explicit", checkbox: false }],
+      nodes: [{ content: "No checkbox explicit", show_checkbox: false }],
       position: "last_child",
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -1045,7 +1045,7 @@ describe("insert_nodes", () => {
           content: "Child",
           note: "child note",
           color: "blue",
-          checkbox: true,
+          show_checkbox: true,
           checked: true,
         }],
       }],
@@ -1436,53 +1436,25 @@ describe("send_to_inbox", () => {
 
   // ─── 13b: checkbox behavior ────────────────────────────────────────
 
-  test("default config (defaultCheckbox: false) sends with checkbox false", async () => {
-    // Default config has inbox.defaultCheckbox = false. The handler
-    // always passes the effective checkbox value to the API.
+  test("omitting show_checkbox sends no checkbox to the API", async () => {
     await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "No checkbox item",
     });
 
     const doc = ctx.server.documents.get("inbox_doc")!;
     const node = doc.nodes.find((n) => n.content === "No checkbox item")!;
-    expect(node.checkbox).toBe(false);
+    expect(node.checkbox).toBeUndefined();
   });
 
-  test("config inbox.defaultCheckbox: true adds checkbox by default", async () => {
-    await ctx.cleanup();
-    ctx = await createTestContext(standardSetup, { inbox: { defaultCheckbox: true } });
-    await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "Checkbox default item",
-    });
-
-    const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.content === "Checkbox default item")!;
-    expect(node.checkbox).toBe(true);
-  });
-
-  test("explicit checkbox: true overrides config default of false", async () => {
+  test("explicit show_checkbox: true sends checkbox to API", async () => {
     await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Explicit checkbox",
-      checkbox: true,
+      show_checkbox: true,
     });
 
     const doc = ctx.server.documents.get("inbox_doc")!;
     const node = doc.nodes.find((n) => n.content === "Explicit checkbox")!;
     expect(node.checkbox).toBe(true);
-  });
-
-  test("explicit checkbox: false overrides config default of true", async () => {
-    await ctx.cleanup();
-    ctx = await createTestContext(standardSetup, { inbox: { defaultCheckbox: true } });
-    await callToolOk(ctx.mcpClient, "send_to_inbox", {
-      content: "No checkbox override",
-      checkbox: false,
-    });
-
-    const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.content === "No checkbox override")!;
-    // When checkbox is explicitly false, it is passed through to the API.
-    expect(node.checkbox).toBe(false);
   });
 
   // ─── 13b2: heading, color, checked ──────────────────────────────────
@@ -1507,10 +1479,10 @@ describe("send_to_inbox", () => {
     expect(node.color).toBe(4);
   });
 
-  test("sends with checked and checkbox", async () => {
+  test("sends with checked and show_checkbox", async () => {
     await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Checked item",
-      checkbox: true,
+      show_checkbox: true,
       checked: true,
     });
     const doc = ctx.server.documents.get("inbox_doc")!;
