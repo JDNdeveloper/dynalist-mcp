@@ -1,5 +1,7 @@
 # Dynalist MCP Server
 
+Other agent prompt files (e.g. `CLAUDE.md`) are symlinks to `AGENTS.md`. All edits should be made in `AGENTS.md`.
+
 MCP (Model Context Protocol) server that integrates Dynalist.io with Claude and other AI assistants. Allows reading, writing, searching, and organizing Dynalist documents programmatically.
 
 ## Build
