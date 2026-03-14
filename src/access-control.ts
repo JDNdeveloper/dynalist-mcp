@@ -277,11 +277,11 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
         errors.push("An id-anchored rule references an id that does not exist in the file tree.");
         continue;
       }
-      // Check for path drift.
+      // Check that the rule's path matches the ID's resolved path.
       const ruleBase = rule.path.normalize("NFC").replace(/\/\*\*?$/, "");
       if (resolvedPath !== ruleBase) {
-        log("error", `Access rule '${sanitizeForLog(rule.path)}' has id '${rule.id}' which now resolves to '${sanitizeForLog(resolvedPath)}'.`);
-        errors.push("An id-anchored rule's path no longer matches its id.");
+        log("error", `Access rule '${sanitizeForLog(rule.path)}' has id '${rule.id}' which resolves to '${sanitizeForLog(resolvedPath)}'.`);
+        errors.push("An id-anchored rule's path does not match its id.");
       }
     } else {
       // Path-only: the base path must match at least one file/folder.

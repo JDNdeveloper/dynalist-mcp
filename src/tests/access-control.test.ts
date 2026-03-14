@@ -655,7 +655,7 @@ describe("ID-anchored rules", () => {
     // Path drift is a config error.
     const err = await ac.getPolicy("ds", config).catch((e) => e);
     expect(err).toBeInstanceOf(ConfigError);
-    expect(err.message).toContain("no longer matches its id");
+    expect(err.message).toContain("does not match its id");
   });
 
   test("id-anchored move throws ConfigError with corrected path", async () => {
@@ -678,7 +678,7 @@ describe("ID-anchored rules", () => {
     // ID resolves to /Folder B/Private but config says /Private.
     const err = await ac.getPolicy("ds", config).catch((e) => e);
     expect(err).toBeInstanceOf(ConfigError);
-    expect(err.message).toContain("no longer matches its id");
+    expect(err.message).toContain("does not match its id");
   });
 
   test("id-anchored path drift includes glob suffix in suggested fix", async () => {
@@ -699,7 +699,7 @@ describe("ID-anchored rules", () => {
     // The error message should not reveal the resolved path.
     const err = await ac.getPolicy("ds", config).catch((e) => e);
     expect(err).toBeInstanceOf(ConfigError);
-    expect(err.message).toContain("no longer matches its id");
+    expect(err.message).toContain("does not match its id");
   });
 
   test("id-anchored rule where ID does not exist throws ConfigError", async () => {
@@ -735,7 +735,7 @@ describe("ID-anchored rules", () => {
     // Path drift is a ConfigError.
     const err = await ac.getPolicy("ds", config).catch((e) => e);
     expect(err).toBeInstanceOf(ConfigError);
-    expect(err.message).toContain("no longer matches its id");
+    expect(err.message).toContain("does not match its id");
   });
 });
 

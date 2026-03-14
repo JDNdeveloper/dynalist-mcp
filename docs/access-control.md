@@ -69,7 +69,7 @@ Rules can include an `id` field to anchor to a specific file ID:
 { "path": "/Work/Notes", "policy": "deny", "id": "abc123" }
 ```
 
-The `id` field serves two purposes: it disambiguates when multiple files share the same path (see [Duplicate titles](#duplicate-titles)), and it detects config staleness when files are renamed or moved. The path in the rule must match the ID's actual location in the file tree. If the file is renamed or moved and the rule's path no longer matches, validation fails and all tools are denied until the config is updated with the new path.
+The `id` field serves two purposes: it disambiguates when multiple files share the same path (see [Duplicate titles](#duplicate-titles)), and it validates that the rule's path is correct. The path in the rule must match the ID's actual location in the file tree. If the path does not match (due to a typo, rename, move, or other mistake), validation fails and all tools are denied until the config is fixed.
 
 ## Fail-closed behavior
 
