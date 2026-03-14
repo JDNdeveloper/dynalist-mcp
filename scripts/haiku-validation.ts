@@ -21,8 +21,8 @@
  *
  * Configuration:
  *   Override defaults with environment variables:
- *     COORDINATOR_MODEL  Model for setup/cleanup (default: claude-sonnet-4-6)
- *     VALIDATION_MODEL   Model under test (default: claude-haiku-4-5-20251001)
+ *     COORDINATOR_MODEL  Model for setup/cleanup (default: sonnet)
+ *     VALIDATION_MODEL   Model under test (default: haiku)
  *     OUTPUT_DIR          Output directory (default: /tmp/haiku-validation)
  *     MAX_TURNS           Max agent turns per task (default: 25)
  *     TASK_TIMEOUT_MS     Per-task timeout in ms (default: 180000)
@@ -38,10 +38,8 @@ import { fileURLToPath } from "url";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(SCRIPT_DIR, "..");
 
-const COORDINATOR_MODEL =
-  process.env.COORDINATOR_MODEL ?? "claude-sonnet-4-6";
-const VALIDATION_MODEL =
-  process.env.VALIDATION_MODEL ?? "claude-haiku-4-5-20251001";
+const COORDINATOR_MODEL = process.env.COORDINATOR_MODEL ?? "sonnet";
+const VALIDATION_MODEL = process.env.VALIDATION_MODEL ?? "haiku";
 const OUTPUT_DIR = process.env.OUTPUT_DIR ?? "/tmp/haiku-validation";
 const MAX_TURNS = Number(process.env.MAX_TURNS ?? 25);
 const TASK_TIMEOUT_MS = Number(process.env.TASK_TIMEOUT_MS ?? 180_000);
