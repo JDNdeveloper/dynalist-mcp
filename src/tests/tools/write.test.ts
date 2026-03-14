@@ -1092,7 +1092,6 @@ describe("insert_nodes", () => {
     expect(structured.inserted_count).toBe(2);
     expect(structured.total_count).toBe(4);
     expect(structured.first_node_id).toBeDefined();
-    expect(typeof structured.url).toBe("string");
 
     // Verify failed_at_depth is included in the structured response.
     expect(structured.failed_at_depth).toBeDefined();
@@ -1139,7 +1138,7 @@ describe("insert_nodes", () => {
 
   // ─── response shape ───────────────────────────────────────────────
 
-  test("response includes file_id, total_created, root_node_ids, and url", async () => {
+  test("response includes file_id, total_created, root_node_ids", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
       file_id: "doc1",
@@ -1153,8 +1152,6 @@ describe("insert_nodes", () => {
     expect(result.total_created).toBe(2);
     expect(Array.isArray(result.root_node_ids)).toBe(true);
     expect((result.root_node_ids as string[]).length).toBe(2);
-    expect(typeof result.url).toBe("string");
-    expect(result.url).toContain("doc1");
   });
 
   // ─── sibling-relative positioning (after/before) ─────────────────
@@ -1413,7 +1410,6 @@ describe("send_to_inbox", () => {
     });
     expect(result.file_id).toBe("inbox_doc");
     expect(result.node_id).toBeDefined();
-    expect(result.url).toContain("inbox_doc");
   });
 
   test("empty content returns error", async () => {
@@ -1493,14 +1489,12 @@ describe("send_to_inbox", () => {
 
   // ─── 13c: response shape ───────────────────────────────────────────
 
-  test("response includes file_id, node_id, and url", async () => {
+  test("response includes file_id, node_id", async () => {
     const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "shape item",
     });
 
     expect(result.file_id).toBe("inbox_doc");
     expect(typeof result.node_id).toBe("string");
-    expect(typeof result.url).toBe("string");
-    expect(result.url).toContain("inbox_doc");
   });
 });

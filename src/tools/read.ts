@@ -6,7 +6,6 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
-import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
 import {
@@ -22,7 +21,7 @@ import type { DocumentStore } from "../document-store";
 import type { ParentLevels } from "../utils/dynalist-helpers";
 import {
   FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION, NODE_ID_DESCRIPTION,
-  URL_DESCRIPTION, DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
+  DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
   VERSION_DESCRIPTION, SIZE_WARNING_DESCRIPTION, MATCH_COUNT_DESCRIPTION,
   BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION,
 } from "./descriptions";
@@ -80,7 +79,6 @@ const outputNodeSchema: z.ZodType<{
 const searchMatchSchema = z.object({
   node_id: z.string().describe(NODE_ID_DESCRIPTION),
   content: z.string().describe("Node text content"),
-  url: z.string().describe(URL_DESCRIPTION),
   ...nodeMetadataFields,
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
@@ -94,7 +92,6 @@ const searchMatchSchema = z.object({
 const changeMatchSchema = z.object({
   node_id: z.string().describe(NODE_ID_DESCRIPTION),
   content: z.string().describe("Node text content"),
-  url: z.string().describe(URL_DESCRIPTION),
   change_type: z.enum(["created", "modified"]).describe("Whether this node was created or modified in the time range"),
   created: z.string().describe("Creation timestamp (ISO 8601)"),
   modified: z.string().describe("Last modified timestamp (ISO 8601)"),
@@ -109,7 +106,6 @@ const fileTreeDocumentSchema = z.object({
   file_id: z.string().describe(FILE_ID_DESCRIPTION),
   title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
   type: z.literal("document").describe("File type"),
-  url: z.string().describe(URL_DESCRIPTION),
   permission: z.enum(["none", "read", "edit", "manage", "owner"]).describe(
     "Permission level for this document"
   ),
@@ -241,7 +237,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
               file_id: child.id,
               title: child.title,
               type: "document",
-              url: buildDynalistUrl(child.id),
               permission: getPermissionLabel(child.permission),
             };
             if (childPolicy === "read") {
@@ -302,8 +297,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       description:
         "Search for documents and folders by title. Filters the file tree only; does not search " +
         "node content. Use search_in_document to search inside a document.\n\n" +
-        "Each match has a type field ('document' or 'folder'). Document matches include url " +
-        "and permission. Folder matches include children (child file IDs) instead.",
+        "Each match has a type field ('document' or 'folder'). Document matches include " +
+        "permission. Folder matches include children (child file IDs) instead.",
       inputSchema: {
         query: z.string().describe("Text to search for in document/folder names (case-insensitive)"),
         type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
@@ -315,7 +310,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           file_id: z.string().describe(FILE_ID_DESCRIPTION),
           title: z.string().describe("Document or folder title"),
           type: z.enum(["document", "folder"]).describe("Whether this is a document or folder"),
-          url: z.string().optional().describe("Dynalist URL (documents only)"),
           permission: z.enum(["none", "read", "edit", "manage", "owner"]).optional().describe("Permission level (documents only)"),
           children: z.array(z.string()).optional().describe("Child file IDs (folders only)"),
           access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
@@ -345,7 +339,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             file_id: f.id,
             title: f.title,
             type: f.type,
-            url: f.type === "document" ? buildDynalistUrl(f.id) : undefined,
             permission: f.type === "document" ? getPermissionLabel(f.permission) : undefined,
             children: f.type === "folder" ? (f.children ?? []).filter((childId) => policies.get(childId) !== "deny") : undefined,
           };
@@ -404,7 +397,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
         version: z.number().optional().describe(VERSION_DESCRIPTION),
-        url: z.string().optional().describe(URL_DESCRIPTION),
         node: outputNodeSchema.optional().describe("Root of the node tree"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
@@ -481,15 +473,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         });
       }
 
-      const url = node_id
-        ? buildDynalistUrl(file_id, node_id)
-        : buildDynalistUrl(file_id);
-
       return makeResponse({
         file_id,
         title: doc.title,
         version: doc.version,
-        url,
         node: tree,
       });
     })
@@ -516,7 +503,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
         version: z.number().optional().describe(VERSION_DESCRIPTION),
-        url: z.string().optional().describe(URL_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         query: z.string().optional().describe("The search query that was used"),
         matches: z.array(searchMatchSchema).optional().describe("Matching nodes"),
@@ -560,7 +546,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           const match: Record<string, unknown> = {
             node_id: node.id,
             content: node.content,
-            url: buildDynalistUrl(file_id, node.id),
           };
 
           // Include optional fields only when present, consistent with read_document.
@@ -598,7 +583,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id,
         title: doc.title,
         version: doc.version,
-        url: buildDynalistUrl(file_id),
         count: matches.length,
         query,
         matches,
@@ -655,7 +639,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
         version: z.number().optional().describe(VERSION_DESCRIPTION),
-        url: z.string().optional().describe(URL_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         matches: z.array(changeMatchSchema).optional().describe("Changed nodes"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
@@ -725,7 +708,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             content: node.content,
             created: new Date(node.created).toISOString(),
             modified: new Date(node.modified).toISOString(),
-            url: buildDynalistUrl(file_id, node.id),
             change_type: createdInRange ? "created" : "modified",
           };
 
@@ -762,7 +744,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id,
         title: doc.title,
         version: doc.version,
-        url: buildDynalistUrl(file_id),
         count: matches.length,
         matches,
       };

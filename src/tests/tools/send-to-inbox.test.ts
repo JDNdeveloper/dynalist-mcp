@@ -33,8 +33,6 @@ describe("send_to_inbox", () => {
 
     expect(result.file_id).toBe("inbox_doc");
     expect(result.node_id).toBeString();
-    expect(result.url).toContain("inbox_doc");
-    expect(result.url).toContain(result.node_id as string);
 
     // Verify the node was created in the inbox document.
     const doc = ctx.server.documents.get("inbox_doc")!;

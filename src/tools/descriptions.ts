@@ -36,7 +36,6 @@ export const NODE_ID_DESCRIPTION = "Node ID";
 export const PARENT_FOLDER_ID_DESCRIPTION = "Parent folder file ID";
 
 // Common output fields.
-export const URL_DESCRIPTION = "Dynalist URL";
 export const DOCUMENT_TITLE_DESCRIPTION = "Document title";
 export const FOLDER_TITLE_DESCRIPTION = "Folder title";
 export const VERSION_DESCRIPTION =

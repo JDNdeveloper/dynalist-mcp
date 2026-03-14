@@ -6,7 +6,6 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient } from "../dynalist-client";
-import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
 import {
@@ -16,7 +15,7 @@ import {
 } from "../utils/dynalist-helpers";
 import {
   CONFIRM_GUIDANCE, FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION,
-  PARENT_FOLDER_ID_DESCRIPTION, URL_DESCRIPTION,
+  PARENT_FOLDER_ID_DESCRIPTION,
   DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
   FOLDER_INDEX_DESCRIPTION,
 } from "./descriptions";
@@ -40,7 +39,6 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
-        url: z.string().describe(URL_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -82,7 +80,6 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       return makeResponse({
         file_id: fileId,
         title,
-        url: buildDynalistUrl(fileId),
       });
     })
   );

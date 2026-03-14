@@ -62,13 +62,12 @@ describe("list_documents", () => {
     expect(findFile(files, "root_folder")).toBeUndefined();
   });
 
-  test("documents have file_id, title, type, url, permission", async () => {
+  test("documents have file_id, title, type, permission", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const doc1 = findFile(result.files as Record<string, unknown>[], "doc1");
     expect(doc1).toBeDefined();
     expect(doc1!.title).toBe("Test Document");
     expect(doc1!.type).toBe("document");
-    expect(doc1!.url).toContain("dynalist.io/d/doc1");
     expect(doc1!.permission).toBe("owner");
   });
 
@@ -486,7 +485,6 @@ describe("read_document", () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
     expect(result.file_id).toBe("doc1");
     expect(result.title).toBe("Test Document");
-    expect(result.url).toContain("dynalist.io/d/doc1");
     expect(result.node).toBeDefined();
   });
 
@@ -532,11 +530,10 @@ describe("read_document", () => {
 
   // ─── Section 4a: response shape and optional fields ────────────────
 
-  test("response includes file_id, title, url at top level", async () => {
+  test("response includes file_id, title at top level", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
-    expect(typeof result.url).toBe("string");
   });
 
   test("every node includes node_id, content, children_count, children", async () => {
@@ -668,14 +665,6 @@ describe("read_document", () => {
     expect(node.content).toBe("Test Document");
   });
 
-  test("URL includes node_id when node_id parameter is specified", async () => {
-    const result = await callToolOk(ctx.mcpClient, "read_document", {
-      file_id: "doc1",
-      node_id: "n1",
-      max_depth: 0,
-    });
-    expect(result.url).toContain("n1");
-  });
 
   // ─── max_depth behavior ──────────────────────────────────────────
 
@@ -1365,7 +1354,6 @@ describe("search_in_document", () => {
     for (const m of matches) {
       expect(m.node_id).toBeDefined();
       expect(m.content).toBeDefined();
-      expect(m.url).toBeDefined();
     }
   });
 
@@ -1598,14 +1586,13 @@ describe("search_in_document", () => {
 
   // ─── Section 5e: response shape ──────────────────────────────────
 
-  test("response includes file_id, title, url, count, query, matches", async () => {
+  test("response includes file_id, title, count, query, matches", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "First",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
-    expect(typeof result.url).toBe("string");
     expect(typeof result.count).toBe("number");
     expect(typeof result.query).toBe("string");
     expect(Array.isArray(result.matches)).toBe(true);
@@ -1635,7 +1622,7 @@ describe("search_in_document", () => {
     expect(n1a.color).toBeUndefined();
   });
 
-  test("each match includes node_id, content, url", async () => {
+  test("each match includes node_id, content", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "First",
@@ -1644,7 +1631,6 @@ describe("search_in_document", () => {
     for (const match of matches) {
       expect(typeof match.node_id).toBe("string");
       expect(typeof match.content).toBe("string");
-      expect(typeof match.url).toBe("string");
     }
   });
 
@@ -1900,14 +1886,13 @@ describe("get_recent_changes", () => {
 
   // ─── Section 6f: response shape ───────────────────────────────────
 
-  test("response includes file_id, title, url, count, matches", async () => {
+  test("response includes file_id, title, count, matches", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
       since: "1970-01-01",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
-    expect(typeof result.url).toBe("string");
     expect(typeof result.count).toBe("number");
     expect(Array.isArray(result.matches)).toBe(true);
   });
@@ -1934,7 +1919,6 @@ describe("get_recent_changes", () => {
       expect(match.created).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(match.modified).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(typeof match.change_type).toBe("string");
-      expect(typeof match.url).toBe("string");
     }
   });
 

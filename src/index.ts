@@ -116,7 +116,8 @@ Use the Dynalist web or mobile UI.
 
 ## Presenting information to users
 
-Do not present file IDs or node IDs to users, unless in the form of a URL. When showing the file hierarchy, \
+Do not present file IDs or node IDs to users, unless in the form of a URL (construct from the format above). \
+When showing the file hierarchy, \
 do not expose the root folder to users. Show all files and folders under root as top-level items. \
 Folders and documents are intermixed in the UI, not grouped separately. Present them in the order \
 they appear in the parent folder's children array.

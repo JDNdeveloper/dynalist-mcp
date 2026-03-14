@@ -7,7 +7,6 @@ import { DynalistClient, DynalistApiError } from "../dynalist-client";
 import { VersionMismatchError } from "../version-guard";
 import { ConfigError } from "../config";
 import type { EditDocumentChange } from "../dynalist-client";
-import { buildDynalistUrl } from "./url-parser";
 import type { NodeSummary, OutputNode, InsertTreeOptions } from "../types";
 import { HEADING_TO_NUMBER, COLOR_TO_NUMBER, NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "../tools/node-metadata";
 import type { HeadingValue, ColorValue } from "../tools/node-metadata";
@@ -393,9 +392,6 @@ export class PartialInsertError extends Error {
   }
 
   toStructuredResponse() {
-    const url = this.firstNodeId
-      ? buildDynalistUrl(this.fileId, this.firstNodeId)
-      : buildDynalistUrl(this.fileId);
     return {
       structuredContent: {
         error: "PartialInsert",
@@ -405,7 +401,6 @@ export class PartialInsertError extends Error {
         total_count: this.totalCount,
         first_node_id: this.firstNodeId ?? null,
         failed_at_depth: this.failedAtDepth,
-        url,
       },
       content: [{
         type: "text" as const,
@@ -417,7 +412,6 @@ export class PartialInsertError extends Error {
           total_count: this.totalCount,
           first_node_id: this.firstNodeId ?? null,
           failed_at_depth: this.failedAtDepth,
-          url,
         }),
       }],
       isError: true,

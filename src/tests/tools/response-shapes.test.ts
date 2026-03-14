@@ -149,7 +149,6 @@ describe("read_document response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.title).toBe("string");
-    expect(typeof data.url).toBe("string");
     expect(data.node).toBeDefined();
 
     // Validate the root node shape.
@@ -188,7 +187,6 @@ describe("search_in_document response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.title).toBe("string");
-    expect(typeof data.url).toBe("string");
     expect(typeof data.count).toBe("number");
     expect(typeof data.query).toBe("string");
     expect(Array.isArray(data.matches)).toBe(true);
@@ -199,7 +197,6 @@ describe("search_in_document response shape", () => {
     const match = matches[0];
     expect(typeof match.node_id).toBe("string");
     expect(typeof match.content).toBe("string");
-    expect(typeof match.url).toBe("string");
   });
 
   test("error response for non-existent document has correct envelope", async () => {
@@ -224,7 +221,6 @@ describe("get_recent_changes response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.title).toBe("string");
-    expect(typeof data.url).toBe("string");
     expect(typeof data.count).toBe("number");
     expect(Array.isArray(data.matches)).toBe(true);
 
@@ -234,7 +230,6 @@ describe("get_recent_changes response shape", () => {
       const match = matches[0];
       expect(typeof match.node_id).toBe("string");
       expect(typeof match.content).toBe("string");
-      expect(typeof match.url).toBe("string");
       expect(typeof match.created).toBe("string");
       expect(typeof match.modified).toBe("string");
       expect(typeof match.change_type).toBe("string");
@@ -331,7 +326,6 @@ describe("insert_nodes response shape", () => {
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.total_created).toBe("number");
     expect(Array.isArray(data.root_node_ids)).toBe(true);
-    expect(typeof data.url).toBe("string");
   });
 
   test("error response for empty nodes array has correct envelope", async () => {
@@ -368,7 +362,6 @@ describe("send_to_inbox response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.node_id).toBe("string");
-    expect(typeof data.url).toBe("string");
   });
 
   test("error response for empty content has correct envelope", async () => {
@@ -482,7 +475,6 @@ describe("create_document response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.title).toBe("string");
-    expect(typeof data.url).toBe("string");
   });
 
   test("error response for non-existent parent folder has correct envelope", async () => {

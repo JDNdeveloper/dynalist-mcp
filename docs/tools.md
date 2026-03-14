@@ -43,7 +43,6 @@ Scope controls:
       "file_id": "f_abc123",
       "title": "Project Notes",
       "type": "document",
-      "url": "https://dynalist.io/d/f_abc123#z=n_item789",
       "permission": "read"
     }
   ]
@@ -54,7 +53,7 @@ Scope controls:
 
 Search for documents and folders by title. Filters the file tree only; does not search node content. Use search_in_document to search inside a document.
 
-Each match has a type field ('document' or 'folder'). Document matches include url and permission. Folder matches include children (child file IDs) instead.
+Each match has a type field ('document' or 'folder'). Document matches include permission. Folder matches include children (child file IDs) instead.
 
 **Parameters:**
 
@@ -85,7 +84,6 @@ Each match has a type field ('document' or 'folder'). Document matches include u
 | `file_id` | string | yes | Document file ID |
 | `title` | string | yes | Document or folder title |
 | `type` | `"document"`, `"folder"` | yes | Whether this is a document or folder |
-| `url` | string | no | Dynalist URL (documents only) |
 | `permission` | `"none"`, `"read"`, `"edit"`, `"manage"`, `"owner"` | no | Permission level (documents only) |
 | `children` | string[] | no | Child file IDs (folders only) |
 | `access_policy` | `"read"` | no | Access policy if restricted. Omitted when unrestricted. |
@@ -149,7 +147,6 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
 | `version` | number | no | Document version. Pass as expected_version to write tools. |
-| `url` | string | no | Dynalist URL |
 | `node` | object | no | Root of the node tree |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
@@ -159,7 +156,6 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
   "file_id": "f_abc123",
   "title": "Project Notes",
   "version": 42,
-  "url": "https://dynalist.io/d/f_abc123#z=n_item789",
   "node": {
     "node_id": "n_item789",
     "content": "Buy groceries",
@@ -199,7 +195,6 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
 | `version` | number | no | Document version. Pass as expected_version to write tools. |
-| `url` | string | no | Dynalist URL |
 | `count` | number | no | Number of matches found |
 | `query` | string | no | The search query that was used |
 | `matches` | object[] | no | Matching nodes |
@@ -211,7 +206,6 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 | --- | --- | --- | --- |
 | `node_id` | string | yes | Node ID |
 | `content` | string | yes | Node text content |
-| `url` | string | yes | Dynalist URL |
 | `note` | string | no | Node note. Omitted when empty. |
 | `checked` | boolean | no | Checked (completed) state. Omitted when no checkbox. |
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
@@ -227,14 +221,12 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
   "file_id": "f_abc123",
   "title": "Project Notes",
   "version": 42,
-  "url": "https://dynalist.io/d/f_abc123#z=n_item789",
   "count": 1,
   "query": "groceries",
   "matches": [
     {
       "node_id": "n_item789",
-      "content": "Buy groceries",
-      "url": "https://dynalist.io/d/f_abc123#z=n_item789"
+      "content": "Buy groceries"
     }
   ]
 }
@@ -272,7 +264,6 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
 | `version` | number | no | Document version. Pass as expected_version to write tools. |
-| `url` | string | no | Dynalist URL |
 | `count` | number | no | Number of matches found |
 | `matches` | object[] | no | Changed nodes |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
@@ -283,7 +274,6 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
 | --- | --- | --- | --- |
 | `node_id` | string | yes | Node ID |
 | `content` | string | yes | Node text content |
-| `url` | string | yes | Dynalist URL |
 | `change_type` | `"created"`, `"modified"` | yes | Whether this node was created or modified in the time range |
 | `created` | string | yes | Creation timestamp (ISO 8601) |
 | `modified` | string | yes | Last modified timestamp (ISO 8601) |
@@ -301,13 +291,11 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
   "file_id": "f_abc123",
   "title": "Project Notes",
   "version": 42,
-  "url": "https://dynalist.io/d/f_abc123#z=n_item789",
   "count": 1,
   "matches": [
     {
       "node_id": "n_item789",
       "content": "Buy groceries",
-      "url": "https://dynalist.io/d/f_abc123#z=n_item789",
       "change_type": "created",
       "created": "2025-03-11T12:00:00.000Z",
       "modified": "2025-03-11T14:30:00.000Z"
@@ -385,14 +373,12 @@ Send an item to the Dynalist inbox. Target is the user's configured inbox. For s
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `node_id` | string | yes | Node ID |
-| `url` | string | yes | Dynalist URL |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "node_id": "n_item789",
-  "url": "https://dynalist.io/d/f_abc123#z=n_item789"
+  "node_id": "n_item789"
 }
 ```
 
@@ -504,7 +490,6 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 | `file_id` | string | yes | Document file ID |
 | `total_created` | number | yes | Total number of nodes created |
 | `root_node_ids` | string[] | yes | IDs of all top-level inserted nodes |
-| `url` | string | yes | Dynalist URL |
 | `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
@@ -514,8 +499,7 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
   "total_created": 1,
   "root_node_ids": [
     "n_new001"
-  ],
-  "url": "https://dynalist.io/d/f_abc123#z=n_item789"
+  ]
 }
 ```
 
@@ -656,14 +640,12 @@ Create an empty document in a folder. Use the returned file_id with insert_nodes
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `title` | string | yes | Document title |
-| `url` | string | yes | Dynalist URL |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "title": "Project Notes",
-  "url": "https://dynalist.io/d/f_abc123#z=n_item789"
+  "title": "Project Notes"
 }
 ```
 

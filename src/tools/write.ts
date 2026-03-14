@@ -5,7 +5,6 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId, type ReadDocumentResponse } from "../dynalist-client";
-import { buildDynalistUrl } from "../utils/url-parser";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
 import { withVersionGuard } from "../version-guard";
@@ -19,7 +18,7 @@ import {
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import {
-  FILE_ID_DESCRIPTION, NODE_ID_DESCRIPTION, URL_DESCRIPTION,
+  FILE_ID_DESCRIPTION, NODE_ID_DESCRIPTION,
   VERSION_WARNING_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION,
   CHECKED_DESCRIPTION, CHECKED_DESCRIPTION_INBOX,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
@@ -78,7 +77,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().describe(NODE_ID_DESCRIPTION),
-        url: z.string().describe(URL_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({ content, note, show_checkbox, heading, color, checked }: { content: string; note?: string; show_checkbox?: boolean; heading?: HeadingValue; color?: ColorValue; checked?: boolean }) => {
@@ -117,7 +115,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       return makeResponse({
         file_id: response.file_id,
         node_id: response.node_id,
-        url: buildDynalistUrl(response.file_id, response.node_id),
       });
     })
   );
@@ -299,7 +296,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         total_created: z.number().describe("Total number of nodes created"),
         root_node_ids: z.array(z.string()).describe("IDs of all top-level inserted nodes"),
-        url: z.string().describe(URL_DESCRIPTION),
         version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
@@ -413,16 +409,11 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       );
 
       const insertResult = guard.result;
-      const firstNodeId = insertResult.rootNodeIds[0] ?? null;
-      const url = firstNodeId
-        ? buildDynalistUrl(file_id, firstNodeId)
-        : buildDynalistUrl(file_id);
 
       const data: Record<string, unknown> = {
         file_id,
         total_created: insertResult.totalCreated,
         root_node_ids: insertResult.rootNodeIds,
-        url,
       };
       if (guard.versionWarning) data.version_warning = guard.versionWarning;
 

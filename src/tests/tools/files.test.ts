@@ -41,7 +41,6 @@ describe("create_document", () => {
     });
     expect(result.file_id).toBeDefined();
     expect(result.title).toBe("New Doc");
-    expect(result.url).toContain(result.file_id as string);
   });
 
   test("created document appears in list_documents", async () => {
@@ -449,14 +448,13 @@ describe("cache invalidation after file operations", () => {
 // ─── response shapes ─────────────────────────────────────────────────
 
 describe("response shapes", () => {
-  test("create_document response includes file_id, title, url", async () => {
+  test("create_document response includes file_id, title", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_document", {
       parent_folder_id: "folder_a",
       title: "Shape Test Doc",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
-    expect(typeof result.url).toBe("string");
     expect(result.title).toBe("Shape Test Doc");
   });
 
