@@ -126,6 +126,17 @@ Do not duplicate guidance across levels. If something is tool-specific, put it i
 - **Config reloading**: config file is checked for mtime changes on every tool invocation (stat only, no read unless changed). Invalid config fails closed.
 - **Cache invalidation**: file tree cache is invalidated after create/rename/move operations and on denial retries.
 
+## When a tool schema changes
+
+Changing a tool's input/output schema, description, or parameter descriptions can affect multiple files. After any such change:
+
+1. **Source file** (`src/tools/*.ts`): the primary edit.
+2. **Generated docs**: run `bun run generate-docs` (or `bun run check`). This regenerates `docs/tools.md`, `docs/configuration.md`, and `docs/api-coverage.md` from the source schemas.
+3. **MCP instructions** (`src/index.ts`): update if the change affects cross-tool workflow patterns, compositional patterns, or system-level concepts referenced in the `INSTRUCTIONS` constant.
+4. **Shared descriptions** (`src/tools/descriptions.ts`): update if the change affects a `*_GUIDANCE` or `*_DESCRIPTION` constant shared across tools.
+5. **Hand-maintained docs** (see list below): update any doc whose scope covers the changed behavior (e.g. `docs/agent-ux.md` for rendering changes, `docs/concurrency.md` for version guard changes).
+6. **Tests** (`src/tests/tools/`): add or update tests covering the new behavior.
+
 ## Documentation
 
 The following docs must be kept up to date when the corresponding features change:

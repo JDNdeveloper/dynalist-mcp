@@ -54,6 +54,8 @@ Scope controls:
 
 Search for documents and folders by title. Filters the file tree only; does not search node content. Use search_in_document to search inside a document.
 
+Each match has a type field ('document' or 'folder'). Document matches include url and permission. Folder matches include children (child file IDs) instead.
+
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
@@ -521,7 +523,7 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 
 ### `delete_nodes`
 
-Delete nodes and their subtrees from a document. Overlapping nodes (ancestor/descendant) are deduplicated.
+Delete nodes and their subtrees from a document.
 
 children: 'promote' re-parents children to the deleted node's parent instead of deleting them. Only for single-node deletions. Use only when the user wants to remove a grouping node while keeping its items.
 

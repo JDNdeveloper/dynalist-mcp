@@ -157,7 +157,7 @@ The access control system is best-effort and should not be relied upon as a hard
 
 1. **Content leakage**: content within allowed documents may contain links or references to denied documents, exposing their IDs or titles. The ACL system does not scrub content.
 2. **Cache staleness**: the file tree cache (default 5 minutes TTL) means external renames/moves may cause rules to match incorrectly until the cache refreshes.
-3. **Inbox bypass**: the inbox is always writable regardless of deny rules.
+3. **Inbox bypass**: the `send_to_inbox` tool cannot check per-document access because the inbox file ID is unknown until after sending. It respects `readOnly` mode and is blocked when the global access policy is not writable, but narrower deny rules cannot prevent inbox writes.
 
 Users who need strict isolation should use separate Dynalist accounts rather than relying solely on ACLs.
 

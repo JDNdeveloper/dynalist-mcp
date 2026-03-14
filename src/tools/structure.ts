@@ -29,8 +29,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Delete nodes and their subtrees from a document. Overlapping nodes " +
-        "(ancestor/descendant) are deduplicated.\n\n" +
+        "Delete nodes and their subtrees from a document.\n\n" +
         "children: 'promote' re-parents children to the deleted node's parent instead of deleting them. " +
         "Only for single-node deletions. Use only when the user wants to remove a grouping " +
         "node while keeping its items.",
