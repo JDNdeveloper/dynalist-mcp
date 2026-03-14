@@ -14,6 +14,7 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 - **Native-feeling output** via MCP instructions that guide agents to render outlines, show diff previews before writes, and handle large documents gracefully.
 - **Concurrent edit detection** so writes against stale data are caught before or immediately after they happen.
 - **Built-in caching** to minimize API calls across repeated reads, access control checks, and config reloads.
+- **Thoroughly tested** with an in-memory API mock, race simulation at every write-path window, and weak-model instruction validation using Claude Haiku.
 
 For Dynalist API documentation, see [apidocs.dynalist.io](https://apidocs.dynalist.io/).
 
@@ -81,6 +82,7 @@ Add the same JSON as above to your Claude Desktop config file:
 - [**Agent UX**](docs/agent-ux.md): How MCP instructions shape agent behavior for rendering, confirmations, size management, and composability.
 - [**Concurrency**](docs/concurrency.md): Version guards, position resolution, deletion ordering, cache invalidation, and race simulation testing.
 - [**Performance**](docs/performance.md): Document cache, file tree cache, config reloading, rate limit retry, change batching, and node maps.
+- [**Testing**](docs/testing.md): Dummy server, race simulation, agent-driven live testing, and weak-model instruction validation.
 
 ## Development
 

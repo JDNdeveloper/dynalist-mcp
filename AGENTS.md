@@ -129,6 +129,7 @@ The following docs must be kept up to date when the corresponding features chang
 - `docs/concurrency.md`: Version guards, position resolution, deletion ordering, cache invalidation, race testing. Update when write-path concurrency logic changes.
 - `docs/performance.md`: Document cache, file tree cache, config reloading, batching, node maps. Update when caching or performance-related logic changes.
 - `docs/dynalist-api-behavior.md`: Observed Dynalist API behavior and edge cases.
+- `docs/testing.md`: Dummy server, race simulation, agent-driven live testing, weak-model instruction validation. Update when testing strategies or infrastructure change.
 
 ## Bundling and releasing
 

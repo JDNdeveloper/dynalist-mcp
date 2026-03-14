@@ -63,15 +63,15 @@ The document store's warm-path version check acts as a secondary defense. When a
 
 ## Race simulation testing
 
-The test suite includes ~1,240 lines of dedicated race condition tests across five files:
+The test suite includes dedicated race condition tests across five files:
 
-| File | Lines | What it tests |
-|---|---|---|
-| `version-guard.test.ts` | 213 | Unit tests of the version guard in isolation. |
-| `version-guard-post-write-failure.test.ts` | 128 | Behavior when the post-write version check itself fails. |
-| `version-guard-integration.test.ts` | 374 | Every write tool uses the guard correctly; post-write concurrent detection works end-to-end. |
-| `version-guard-toctou.test.ts` | 212 | TOCTOU races: concurrent edits between the version guard's pre-check and the planning read inside the guarded function. |
-| `version-guard-races.test.ts` | 315 | Specific race window scenarios during write batches. |
+| File | What it tests |
+|---|---|
+| `version-guard.test.ts` | Unit tests of the version guard in isolation. |
+| `version-guard-post-write-failure.test.ts` | Behavior when the post-write version check itself fails. |
+| `version-guard-integration.test.ts` | Every write tool uses the guard correctly; post-write concurrent detection works end-to-end. |
+| `version-guard-toctou.test.ts` | TOCTOU races: concurrent edits between the version guard's pre-check and the planning read inside the guarded function. |
+| `version-guard-races.test.ts` | Specific race window scenarios during write batches. |
 
 The race tests use a dummy server that provides an `onNextRead(hook)` callback and a `simulateConcurrentEdit(fileId)` method. The hook injects a concurrent edit at a precise point in the tool's execution (e.g., during the planning read, between batch calls), then verifies that the post-write check detects the version delta mismatch and returns a `version_warning`.
 
