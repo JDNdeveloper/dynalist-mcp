@@ -34,6 +34,7 @@ function escapePathSegment(title: string): string {
  * including them in log messages to prevent log injection.
  */
 function sanitizeForLog(s: string): string {
+  // eslint-disable-next-line no-control-regex
   return s.replace(/[\x00-\x1f\x7f-\x9f]/g, (ch) =>
     `\\x${ch.charCodeAt(0).toString(16).padStart(2, "0")}`
   );

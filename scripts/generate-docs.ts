@@ -7,6 +7,32 @@ import type { ZodTypeAny } from "zod";
 import { readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
+// ─── Zod internal type helpers ──────────────────────────────────────
+
+/**
+ * Minimal type for Zod's internal `_def` property. Zod does not export
+ * this shape, so we declare just enough to introspect schemas without
+ * resorting to `any`.
+ */
+interface ZodInternalDef {
+  typeName?: string;
+  innerType?: ZodTypeAny;
+  schema?: ZodTypeAny;
+  defaultValue?: () => unknown;
+  value?: unknown;
+  values?: string[];
+  type?: ZodTypeAny;
+  valueType?: ZodTypeAny;
+  options?: ZodTypeAny[];
+  getter?: () => ZodTypeAny;
+  shape?: () => Record<string, ZodTypeAny>;
+}
+
+/** Access Zod's internal `_def` in a type-safe way. */
+function zodDef(schema: ZodTypeAny): ZodInternalDef {
+  return (schema as unknown as { _def: ZodInternalDef })._def;
+}
+
 // ─── Zod introspection ──────────────────────────────────────────────
 
 interface FieldInfo {
@@ -31,7 +57,7 @@ function unwrap(schema: ZodTypeAny): { inner: ZodTypeAny; optional: boolean; def
   let changed = true;
   while (changed) {
     changed = false;
-    const def = (current as any)._def;
+    const def = zodDef(current);
 
     if (def?.typeName === "ZodOptional") {
       optional = true;
@@ -62,10 +88,10 @@ function unwrap(schema: ZodTypeAny): { inner: ZodTypeAny; optional: boolean; def
  * Descriptions can live on any wrapper (ZodOptional, ZodDefault, ZodEffects, etc.).
  */
 function findDescription(schema: ZodTypeAny): string {
-  let current: any = schema;
+  let current: ZodTypeAny | null = schema;
   while (current) {
     if (current.description) return current.description;
-    const def = current._def;
+    const def = zodDef(current);
     if (!def) break;
     // Try innerType (ZodOptional, ZodDefault, ZodNullable) then schema (ZodEffects).
     current = def.innerType ?? def.schema ?? null;
@@ -78,7 +104,7 @@ function findDescription(schema: ZodTypeAny): string {
  */
 function zodTypeString(schema: ZodTypeAny, depth: number = 0): string {
   const { inner, nullable } = unwrap(schema);
-  const def = (inner as any)._def;
+  const def = zodDef(inner);
   const typeName: string = def?.typeName ?? "unknown";
 
   let result: string;
@@ -149,17 +175,17 @@ function extractFields(schemaMap: Record<string, ZodTypeAny>): FieldInfo[] {
     };
 
     // Extract nested object fields for array-of-objects or inline objects.
-    const innerDef = (inner as any)._def;
+    const innerDef = zodDef(inner);
     if (innerDef?.typeName === "ZodArray") {
       const elemSchema = innerDef.type;
       const elemUnwrapped = unwrap(elemSchema);
-      const elemDef = (elemUnwrapped.inner as any)._def;
+      const elemDef = zodDef(elemUnwrapped.inner);
       if (elemDef?.typeName === "ZodObject") {
         field.children = extractObjectFields(elemUnwrapped.inner);
       } else if (elemDef?.typeName === "ZodLazy") {
         // Recursive schema (e.g. outputNodeSchema, jsonInputNodeSchema).
         const resolved = elemDef.getter();
-        const resolvedDef = (resolved as any)._def;
+        const resolvedDef = zodDef(resolved);
         if (resolvedDef?.typeName === "ZodObject") {
           field.children = extractObjectFields(resolved);
         }
@@ -174,7 +200,7 @@ function extractFields(schemaMap: Record<string, ZodTypeAny>): FieldInfo[] {
  * Extract fields from a ZodObject (not the MCP Record format).
  */
 function extractObjectFields(schema: ZodTypeAny): FieldInfo[] {
-  const def = (schema as any)._def;
+  const def = zodDef(schema);
   if (def?.typeName !== "ZodObject") return [];
   const shape = def.shape();
   return Object.entries(shape).map(([name, fieldSchema]) => {
@@ -197,7 +223,7 @@ function extractObjectFields(schema: ZodTypeAny): FieldInfo[] {
  */
 function generateExample(name: string, schema: ZodTypeAny, depth: number = 0): unknown {
   const { inner, default_ } = unwrap(schema);
-  const def = (inner as any)._def;
+  const def = zodDef(inner);
   const typeName: string = def?.typeName ?? "unknown";
 
   // Use default if available.
@@ -319,7 +345,7 @@ interface CapturedTool {
 const capturedTools: CapturedTool[] = [];
 
 const mockServer = {
-  registerTool(name: string, options: any, _handler: any) {
+  registerTool(name: string, options: { description?: string; inputSchema?: Record<string, ZodTypeAny>; outputSchema?: Record<string, ZodTypeAny> }) {
     capturedTools.push({
       name,
       description: options.description ?? "",
@@ -341,14 +367,18 @@ const { registerWriteTools } = await import("../src/tools/write");
 const { registerStructureTools } = await import("../src/tools/structure");
 const { registerFileTools } = await import("../src/tools/files");
 
-const dummyClient = {} as any;
-const dummyAc = {} as any;
-const dummyStore = {} as any;
+import type { DynalistClient } from "../src/dynalist-client";
+import type { AccessController } from "../src/access-control";
+import type { DocumentStore } from "../src/document-store";
+
+const dummyClient = {} as unknown as DynalistClient;
+const dummyAc = {} as unknown as AccessController;
+const dummyStore = {} as unknown as DocumentStore;
 
 // Categories are derived automatically by tracking which tools each register
 // function adds. Adding/removing/renaming tools in the source requires zero
 // changes here.
-function captureGroup(title: string, registerFn: Function, ...args: unknown[]): { title: string; tools: string[] } {
+function captureGroup(title: string, registerFn: (...args: never[]) => void, ...args: unknown[]): { title: string; tools: string[] } {
   const before = capturedTools.length;
   registerFn(mockServer, ...args);
   return { title, tools: capturedTools.slice(before).map(t => t.name) };
@@ -525,7 +555,7 @@ interface ConfigFieldRow {
  */
 function walkConfigSchema(schema: ZodTypeAny, prefix: string = ""): ConfigFieldRow[] {
   const { inner } = unwrap(schema);
-  const innerDef = (inner as any)._def;
+  const innerDef = zodDef(inner);
   if (innerDef?.typeName !== "ZodObject") return [];
 
   const shape = innerDef.shape();
@@ -534,7 +564,7 @@ function walkConfigSchema(schema: ZodTypeAny, prefix: string = ""): ConfigFieldR
   for (const [name, fieldSchema] of Object.entries(shape)) {
     const s = fieldSchema as ZodTypeAny;
     const unwrapped = unwrap(s);
-    const leafDef = (unwrapped.inner as any)._def;
+    const leafDef = zodDef(unwrapped.inner);
     const path = prefix ? `${prefix}.${name}` : name;
 
     if (leafDef?.typeName === "ZodObject") {
@@ -631,7 +661,7 @@ function generateConfigurationMarkdown(): string {
 
   // Find the default log level from the schema.
   const logLevelDefault = unwrap(
-    (ConfigSchema as any)._def.shape().logLevel as ZodTypeAny
+    zodDef(ConfigSchema).shape!().logLevel
   ).default_;
   const defaultLevel = logLevelDefault ? JSON.parse(logLevelDefault) : "warn";
 

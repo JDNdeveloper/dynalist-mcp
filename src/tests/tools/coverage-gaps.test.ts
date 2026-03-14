@@ -9,7 +9,6 @@ import {
   createTestContext,
   callToolOk,
   callToolError,
-  callTool,
   getVersion,
   standardSetup,
   type TestContext,

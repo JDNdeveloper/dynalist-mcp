@@ -212,7 +212,7 @@ export class ToolInputError extends Error {
  * Wrap a tool handler in try/catch so that unhandled exceptions are returned
  * as structured MCP error responses instead of crashing the server.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
   return async (...args: any[]) => {
     try {
@@ -236,6 +236,7 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
     }
   };
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /** Accepted values for the parent_levels parameter. */
 export type ParentLevels = "none" | "immediate" | "all";

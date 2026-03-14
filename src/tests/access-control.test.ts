@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, beforeEach } from "bun:test";
 import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { AccessController, requireAccess, type Policy } from "../access-control";
-import { getConfig, getConfigVersion, ConfigError, type Config } from "../config";
+import { AccessController, requireAccess } from "../access-control";
+import { getConfig, ConfigError, type Config } from "../config";
 import { DummyDynalistServer, MockDynalistClient } from "./dummy-server";
 
 // ─── Test helpers ────────────────────────────────────────────────────
@@ -467,11 +467,11 @@ describe("AccessController.getPolicy", () => {
 // ─── AccessController.getPolicies (batch) ────────────────────────────
 
 describe("AccessController.getPolicies", () => {
-  let server: DummyDynalistServer;
+  let _server: DummyDynalistServer;
   let client: MockDynalistClient;
 
   beforeEach(() => {
-    ({ server, client } = setupServer());
+    ({ server: _server, client } = setupServer());
   });
 
   test("batch evaluation returns correct policies", async () => {

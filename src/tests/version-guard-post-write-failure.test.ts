@@ -100,7 +100,7 @@ describe("withVersionGuard post-write checkForUpdates failure", () => {
         client,
         fileId: "test_doc",
         expectedVersion: 5,
-        store: mockStore as any,
+        store: mockStore as unknown as import("../document-store").DocumentStore,
       },
       async () => ({ result: "ok", apiCallCount: 1 }),
     );

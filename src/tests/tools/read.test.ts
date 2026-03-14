@@ -3,7 +3,6 @@ import {
   createTestContext,
   callToolOk,
   callToolError,
-  callTool,
   getVersion,
   standardSetup,
   type TestContext,
@@ -752,7 +751,7 @@ describe("read_document", () => {
     });
 
     // Walk down to the deepest node to confirm nothing was depth-limited.
-    let current = result.node as Record<string, unknown>;
+    const current = result.node as Record<string, unknown>;
     function findChild(node: Record<string, unknown>, id: string): Record<string, unknown> | null {
       const children = node.children as Record<string, unknown>[];
       for (const child of children) {

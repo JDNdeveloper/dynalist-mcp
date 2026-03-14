@@ -18,6 +18,7 @@ function createClientWithMockedRequest() {
   let nodeCounter = 0;
 
   // Replace the private `request` method with a controlled fake.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (client as any).request = async (endpoint: string, body: Record<string, unknown>) => {
     calls.push({ endpoint, body });
 

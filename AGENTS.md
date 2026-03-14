@@ -18,14 +18,15 @@ bun run start        # Run the MCP server
 ## **IMPORTANT: After making ANY code changes, run `bun run check`.**
 
 ```bash
-bun run check        # Typecheck + tests + generate docs
+bun run check        # Typecheck + lint + tests + generate docs
 ```
 
-**This is mandatory before committing.** Under the hood, `check` runs three steps in order:
+**This is mandatory before committing.** Under the hood, `check` runs four steps in order:
 
 1. `bun run typecheck` (tsc --noEmit).
-2. `bun test` (full test suite against dummy server).
-3. `bun run generate-docs` (regenerate docs/tools.md, docs/configuration.md, docs/api-coverage.md from source schemas).
+2. `bun run lint` (ESLint).
+3. `bun test` (full test suite against dummy server).
+4. `bun run generate-docs` (regenerate docs/tools.md, docs/configuration.md, docs/api-coverage.md from source schemas).
 
 If any step fails, do not commit. Fix the issue first.
 
@@ -33,6 +34,7 @@ Individual steps if needed during development:
 
 ```bash
 bun run typecheck    # Just tsc --noEmit
+bun run lint         # Just ESLint
 bun test             # Just the test suite
 bun test --watch     # Watch mode for development
 bun run generate-docs # Just regenerate docs

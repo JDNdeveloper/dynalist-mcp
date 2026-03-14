@@ -491,7 +491,7 @@ describe("create_document response shape", () => {
       parent_folder_id: "nonexistent",
       title: "New Doc",
     });
-    const err = assertErrorEnvelope(raw);
+    assertErrorEnvelope(raw);
   });
 });
 
@@ -514,7 +514,7 @@ describe("create_folder response shape", () => {
       parent_folder_id: "nonexistent",
       title: "New Folder",
     });
-    const err = assertErrorEnvelope(raw);
+    assertErrorEnvelope(raw);
   });
 });
 
@@ -537,7 +537,7 @@ describe("rename_document response shape", () => {
       file_id: "nonexistent",
       title: "New Name",
     });
-    const err = assertErrorEnvelope(raw);
+    assertErrorEnvelope(raw);
   });
 });
 
@@ -560,7 +560,7 @@ describe("rename_folder response shape", () => {
       file_id: "nonexistent",
       title: "New Name",
     });
-    const err = assertErrorEnvelope(raw);
+    assertErrorEnvelope(raw);
   });
 });
 
@@ -592,7 +592,7 @@ describe("move_document response shape", () => {
       file_id: "doc1",
       parent_folder_id: "nonexistent",
     });
-    const err = assertErrorEnvelope(raw);
+    assertErrorEnvelope(raw);
   });
 });
 

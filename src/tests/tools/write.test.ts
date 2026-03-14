@@ -1424,7 +1424,7 @@ describe("send_to_inbox", () => {
   });
 
   test("sends with note on first item", async () => {
-    const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
+    await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Item with note",
       note: "This is a note",
     });
