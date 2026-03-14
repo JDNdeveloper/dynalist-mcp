@@ -37,7 +37,7 @@ Tests are organized in two directories:
 
 The integration test setup (`test-helpers.ts`) wires together the full server stack: `DummyDynalistServer` backing a `DynalistClient`, connected to the real `DocumentStore`, `AccessController`, `VersionGuard`, and tool handlers. This means integration tests exercise the same code paths as production, with only the HTTP layer replaced.
 
-Total test code as of 2026-03-14: ~13,750 lines across 22 test files.
+Total test code as of 2026-03-14: ~800 tests and ~14,000 lines across ~20 test files.
 
 ## Race simulation testing
 
