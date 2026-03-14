@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Typecheck and test.
-bun run typecheck
-bun test
+# Typecheck, test, and generate docs.
+bun run check
 
 # Clean build directory.
 rm -rf dist

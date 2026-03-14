@@ -74,11 +74,11 @@ Add the same JSON as above to your Claude Desktop config file:
 
 ## Documentation
 
-- [**Tools reference**](docs/tools.md): Parameter tables, response shapes, and usage notes for all tools.
-- [**Configuration**](docs/configuration.md): Config file reference, environment variables, field table, and logging.
+- [**Tools reference**](docs/tools.md): Parameter tables, response shapes, and examples for all tools. Generated from source schemas.
+- [**Configuration**](docs/configuration.md): Config file reference, environment variables, field table, and logging. Generated from source schemas.
 - [**Access control**](docs/access-control.md): Path-based ACL rules, glob syntax, specificity precedence, ID anchoring, and examples.
 - [**Client setup**](docs/client-setup.md): Troubleshooting, environment isolation, and additional MCP client details.
-- [**API coverage**](docs/api-coverage.md): Mapping between Dynalist API endpoints and MCP tools.
+- [**API coverage**](docs/api-coverage.md): Mapping between Dynalist API endpoints and MCP tools. Generated from source.
 - [**Agent UX**](docs/agent-ux.md): How MCP instructions shape agent behavior for rendering, confirmations, size management, and composability.
 - [**Concurrency**](docs/concurrency.md): Version guards, position resolution, deletion ordering, cache invalidation, and race simulation testing.
 - [**Performance**](docs/performance.md): Document cache, file tree cache, config reloading, rate limit retry, change batching, and node maps.

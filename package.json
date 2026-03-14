@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "check": "bun run typecheck && bun test && bun run generate-docs",
+    "generate-docs": "bun scripts/generate-docs.ts",
     "bundle": "bash scripts/bundle.sh",
     "release": "bash scripts/release.sh"
   },

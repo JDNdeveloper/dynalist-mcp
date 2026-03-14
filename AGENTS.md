@@ -4,7 +4,7 @@ Other agent prompt files (e.g. `CLAUDE.md`) are symlinks to `AGENTS.md`. All edi
 
 MCP (Model Context Protocol) server that integrates Dynalist.io with Claude and other AI assistants. Allows reading, writing, searching, and organizing Dynalist documents programmatically.
 
-## Build
+## Setup
 
 No build step. Bun runs TypeScript natively.
 
@@ -13,30 +13,37 @@ bun install          # Install dependencies
 bun run start        # Run the MCP server
 ```
 
-## Test
+> **Warning:** MCP Inspector and MCP clients (e.g. Claude Code) connect to a live Dynalist account and can modify and delete data. Make sure your `DYNALIST_API_TOKEN` points to a **test account**, not your real one. If you are unsure, list all documents and confirm they look like a test account's documents, not real ones.
+
+## **IMPORTANT: After making ANY code changes, run `bun run check`.**
 
 ```bash
-bun test             # Run the full test suite
+bun run check        # Typecheck + tests + generate docs
+```
+
+**This is mandatory before committing.** Under the hood, `check` runs three steps in order:
+
+1. `bun run typecheck` (tsc --noEmit).
+2. `bun test` (full test suite against dummy server).
+3. `bun run generate-docs` (regenerate docs/tools.md, docs/configuration.md, docs/api-coverage.md from source schemas).
+
+If any step fails, do not commit. Fix the issue first.
+
+Individual steps if needed during development:
+
+```bash
+bun run typecheck    # Just tsc --noEmit
+bun test             # Just the test suite
 bun test --watch     # Watch mode for development
+bun run generate-docs # Just regenerate docs
 ```
 
 Tests run against a dummy Dynalist server (in-memory) via the real MCP protocol. Test files are in `src/tests/tools/`.
 
-> **Warning:** MCP Inspector and MCP clients (e.g. Claude Code) connect to a live Dynalist account and can modify and delete data. Make sure your `DYNALIST_API_TOKEN` points to a **test account**, not your real one. If you are unsure, list all documents and confirm they look like a test account's documents, not real ones.
-
-## Typecheck
-
-```bash
-bun run typecheck    # Runs tsc --noEmit
-```
-
-**Required after making code changes.** Must pass before committing.
-
 ## Development workflow
 
 1. Make changes.
-2. Run `bun run typecheck` to verify no type errors.
-3. Run `bun test` to verify no regressions.
+2. Run `bun run check` to verify everything passes.
 
 ## Updating package.json
 
@@ -70,6 +77,7 @@ src/
     └── tools/                    # Tool integration tests against dummy server
 scripts/
 ├── bundle.sh                     # Build the .mcpb distribution artifact
+├── generate-docs.ts              # Generate docs/tools.md, configuration.md, api-coverage.md from source
 ├── generate-manifest.ts          # Generate dist/manifest.json from package.json
 ├── haiku-validation.ts           # Weak-model instruction validation harness
 └── release.sh                    # Tag, release, and upload .mcpb to GitHub
@@ -121,11 +129,11 @@ Do not duplicate guidance across levels. If something is tool-specific, put it i
 The following docs must be kept up to date when the corresponding features change:
 
 - `README.md`: Getting started, feature summary, connect instructions, security model.
-- `docs/tools.md`: Parameter tables, response shapes, and usage notes for all tools. Update when tool parameters, responses, or descriptions change.
-- `docs/configuration.md`: Config file reference, environment variables, field table, logging. Update when config schema or defaults change.
+- `docs/tools.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
+- `docs/configuration.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
 - `docs/access-control.md`: ACL rules, glob syntax, specificity, ID anchoring, examples. Update when access control behavior changes.
 - `docs/client-setup.md`: Claude Desktop, Claude Code, and general MCP client setup. Update when supported clients or connection instructions change.
-- `docs/api-coverage.md`: Mapping between Dynalist API endpoints and MCP tools. Update when tools are added or removed.
+- `docs/api-coverage.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
 - `docs/agent-ux.md`: How MCP instructions shape agent rendering, confirmations, size management, and composability. Update when instruction text or description constants change.
 - `docs/concurrency.md`: Version guards, position resolution, deletion ordering, cache invalidation, race testing. Update when write-path concurrency logic changes.
 - `docs/performance.md`: Document cache, file tree cache, config reloading, batching, node maps. Update when caching or performance-related logic changes.

@@ -8,6 +8,21 @@ import { log } from "./config";
 
 const API_BASE = "https://dynalist.io/api/v1";
 
+// Exported for codegen by scripts/generate-docs.ts.
+export const API_ENDPOINTS: Record<string, { path: string; docs: string }> = {
+  listFiles: { path: "/file/list", docs: "https://apidocs.dynalist.io/#get-all-documents-and-folders" },
+  editFiles: { path: "/file/edit", docs: "https://apidocs.dynalist.io/#make-change-to-documents-folders" },
+  readDocument: { path: "/doc/read", docs: "https://apidocs.dynalist.io/#get-content-of-a-document" },
+  editDocument: { path: "/doc/edit", docs: "https://apidocs.dynalist.io/#make-change-to-the-content-of-a-document" },
+  checkForUpdates: { path: "/doc/check_for_updates", docs: "https://apidocs.dynalist.io/#check-for-updates-of-documents" },
+  sendToInbox: { path: "/inbox/add", docs: "https://apidocs.dynalist.io/#add-to-inbox" },
+};
+
+// API endpoints intentionally not supported by any tool.
+export const UNSUPPORTED_ENDPOINTS = [
+  { path: "/upload", reason: "Impractical for LLM tool calls" },
+] as const;
+
 // Retry config: exponential backoff on TooManyRequests.
 // 5s base capped at 10s: 5s, 10s, 10s, ... up to 10 attempts (95s max).
 // The API rate limit window clears in ~45-50s, so 10 retries gives ~2x

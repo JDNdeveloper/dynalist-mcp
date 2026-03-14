@@ -19,40 +19,54 @@ const AccessRuleSchema = z.object({
 });
 
 const AccessSchema = z.object({
-  default: z.enum(["allow", "read", "deny"]).default("allow"),
-  rules: z.array(AccessRuleSchema).default([]).refine(
-    (rules) => {
-      const paths = rules.map((r) => r.path);
-      return new Set(paths).size === paths.length;
-    },
-    { message: "Duplicate path entries in access rules." },
-  ),
+  default: z.enum(["allow", "read", "deny"]).default("allow")
+    .describe("Default policy for files not matched by any rule"),
+  rules: z.array(AccessRuleSchema).default([])
+    .describe("Access control rules (see [Access control](access-control.md))")
+    .refine(
+      (rules) => {
+        const paths = rules.map((r) => r.path);
+        return new Set(paths).size === paths.length;
+      },
+      { message: "Duplicate path entries in access rules." },
+    ),
 });
 
 const ReadDefaultsSchema = z.object({
-  maxDepth: z.number().nullable().default(5),
-  includeCollapsedChildren: z.boolean().default(false),
-  includeNotes: z.boolean().default(true),
-  includeChecked: z.boolean().default(true),
+  maxDepth: z.number().nullable().default(5)
+    .describe("Default max depth for `read_document`. `null` = unlimited"),
+  includeCollapsedChildren: z.boolean().default(false)
+    .describe("Default for including collapsed nodes' children"),
+  includeNotes: z.boolean().default(true)
+    .describe("Default for including node notes in responses"),
+  includeChecked: z.boolean().default(true)
+    .describe("Default for including checked/completed nodes"),
 });
 
 const SizeWarningSchema = z.object({
-  warningTokenThreshold: z.number().default(5000),
-  maxTokenThreshold: z.number().default(24500),
+  warningTokenThreshold: z.number().default(5000)
+    .describe("Token count that triggers a size warning"),
+  maxTokenThreshold: z.number().default(24500)
+    .describe("Token count above which results are blocked entirely"),
 });
 
 const CacheSchema = z.object({
-  ttlSeconds: z.number().default(300),
+  ttlSeconds: z.number().default(300)
+    .describe("File tree cache TTL in seconds"),
 });
 
-const ConfigSchema = z.object({
+// Exported for codegen introspection by scripts/generate-docs.ts.
+export const ConfigSchema = z.object({
   access: AccessSchema.optional(),
   readDefaults: ReadDefaultsSchema.default({}),
   sizeWarning: SizeWarningSchema.default({}),
-  readOnly: z.boolean().default(false),
+  readOnly: z.boolean().default(false)
+    .describe("Reject all write operations when true"),
   cache: CacheSchema.default({}),
-  logLevel: z.enum(["error", "warn", "info", "debug"]).default("warn"),
-  logFile: z.string().optional(),
+  logLevel: z.enum(["error", "warn", "info", "debug"]).default("warn")
+    .describe("Log verbosity"),
+  logFile: z.string().optional()
+    .describe("File path to write logs to (in addition to stderr)"),
 });
 
 export type AccessRule = z.infer<typeof AccessRuleSchema>;
@@ -200,3 +214,31 @@ export function log(level: keyof typeof LOG_LEVELS, message: string): void {
     }
   }
 }
+
+// ─── Documentation metadata ─────────────────────────────────────────
+// Exported for codegen by scripts/generate-docs.ts.
+
+export const ENV_VARS = [
+  { name: "DYNALIST_API_TOKEN", required: true, description: "Your Dynalist API token from [dynalist.io/developer](https://dynalist.io/developer)" },
+  { name: "DYNALIST_MCP_CONFIG", required: false, description: "Override the config file path (default: `~/.dynalist-mcp.json`)" },
+] as const;
+
+export const LOG_LEVEL_DESCRIPTIONS: Record<string, string> = {
+  error: "failures only",
+  warn: "includes rate limit retries and access rule warnings",
+  info: "batch progress, config reloads",
+  debug: "full request/response details",
+};
+
+export const CONFIG_FILE_DESCRIPTION =
+  "Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_MCP_CONFIG`). " +
+  "All fields are optional with sensible defaults. Validated with Zod on load. Automatically " +
+  "reloaded when the file is modified (mtime-based check on every tool call). Invalid config " +
+  "fails closed (all tools error until fixed or removed).";
+
+export const LOGGING_DESCRIPTION =
+  "All log output goes to stderr (stdout is reserved for MCP protocol).";
+
+export const LOG_FILE_HINT =
+  "Set `logFile` to redirect logs to a file, useful for debugging since stderr " +
+  "from MCP subprocesses is not always visible.";
