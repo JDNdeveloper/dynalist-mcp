@@ -572,7 +572,7 @@ children: 'promote' re-parents children to the deleted node's parent instead of 
 
 ### `move_nodes`
 
-Move nodes (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects. Batch all related moves into one call. Separate calls each start from the document's current state.
+Move nodes (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects.
 
 Position values:
 - 'after'/'before': sibling of reference (same parent).
