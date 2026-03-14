@@ -69,7 +69,7 @@ Automated tests verify tool logic against the dummy server, but cannot catch iss
 
 ### Manual test plan
 
-A [comprehensive test plan](live-test-plan.md) covers 13 areas across ~120 test cases, designed for an agent (typically Claude with Opus or Sonnet) connected to a live test Dynalist account via MCP. Test areas include:
+A [comprehensive test plan](live-test-plan.md) covers 13 areas across ~120 test cases, designed for an agent (typically Claude with Opus or Sonnet) connected to a live test Dynalist account via MCP. The test plan includes a "How to run" section describing how to execute the tests as isolated parallel subagents, each in its own sub-root folder under a single test root. Test areas include:
 
 - `insert_nodes` positioning (child positions, sibling positions, explicit index, multi-item ordering, nested trees).
 - String enum round-trips for heading and color across insert, edit, and inbox tools.

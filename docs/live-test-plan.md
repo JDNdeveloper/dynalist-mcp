@@ -8,6 +8,53 @@ Manual test plan for exercising the Dynalist MCP server against a live test acco
 - `DYNALIST_API_TOKEN` pointing to a **test account**, not a real one.
 - At least one document with nested content (e.g. the default "Getting started with Dynalist").
 
+## How to run
+
+Tests are designed to run as parallel subagents, each in an isolated folder to prevent cross-contamination. The operator (you) acts as coordinator.
+
+### Step 0: Verify test account
+
+Before any mutations, the agent MUST:
+
+1. Ask the user to confirm this is a test account (not their real Dynalist).
+2. Call `list_documents` and verify the results look like a test account (few documents, no real personal data). If the account looks like a real account with substantial content, abort and alert the user.
+
+### Step 1: Create a test root and sub-roots
+
+Use `list_documents` (from step 0) to find the account root folder, then create a single **test root** folder (e.g. "Manual Test 2026-03-14"). Inside it, create one **sub-root** per test group:
+
+| Sub-root           | Sections            | Test document(s)                  |
+|--------------------|---------------------|-----------------------------------|
+| 1-positioning      | 1 (positioning)     | Positioning Test Doc              |
+| 2-enums-inbox      | 2, 10 (enums+inbox) | Enums Test Doc                    |
+| 3-delete-move      | 3, 4 (delete+move)  | Delete+Move Test Doc              |
+| 4-version-edit     | 5, 9 (version+edit) | Edit Test Doc                     |
+| 5-read-search      | 6, 7 (read+search)  | Read+Search Test Doc              |
+| 6-file-mgmt-misc   | 8, 11, 12, 13       | (creates its own docs and folders)|
+
+### Step 2: Spawn subagents
+
+Launch one subagent per sub-root. Each subagent prompt should:
+
+1. Reference this test plan file so the agent can read its assigned sections.
+2. Specify the sub-root folder file_id to work within.
+3. Instruct the agent to create its own test document(s) inside that folder.
+4. Instruct the agent to read back after every write and report PASS/FAIL per test case.
+
+All subagents run in parallel. Since each operates in its own sub-root with its own documents, there is no risk of version conflicts or cross-contamination.
+
+**Exception:** Sections 12 (check_document_versions) and 13 (get_recent_changes) read across documents. If other subagents are writing concurrently, these results may be noisy. For clean results, run the section 8/11/12/13 agent after the others complete, or accept minor noise.
+
+### Step 3: Review results
+
+Each subagent returns a PASS/FAIL summary. Collect all summaries and note any failures. For failures, read the agent's detailed output to determine whether the issue is in the MCP server, the tool descriptions, or the test setup.
+
+### Cleanup
+
+The Dynalist API cannot delete documents or folders. After all subagents complete, prompt the user to delete the test root folder in the Dynalist web UI. Since every sub-root and test document lives under the single test root, deleting it removes all test artifacts in one action.
+
+---
+
 ## 1. insert_nodes positioning
 
 The `insert_nodes` tool uses a `position` enum with a single `reference_node_id` whose meaning changes depending on the position value.
