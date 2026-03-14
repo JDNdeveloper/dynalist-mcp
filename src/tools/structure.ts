@@ -275,7 +275,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       // Reject moving the root node (literal "root" string check, no read needed).
       //
       // The Dynalist API does not reject this; it corrupts and permanently locks
-      // the document. See docs/dynalist_api_behavior.md.
+      // the document. See docs/dynalist-api-behavior.md.
       for (const move of moves) {
         if (move.node_id === "root") {
           return makeErrorResponse("InvalidInput", "Cannot move the root node of a document.");

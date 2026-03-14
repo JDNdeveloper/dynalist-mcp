@@ -126,7 +126,7 @@ The following docs must be kept up to date when the corresponding features chang
 - `docs/agent-ux.md`: How MCP instructions shape agent rendering, confirmations, size management, and composability. Update when instruction text or description constants change.
 - `docs/concurrency.md`: Version guards, position resolution, deletion ordering, cache invalidation, race testing. Update when write-path concurrency logic changes.
 - `docs/performance.md`: Document cache, file tree cache, config reloading, batching, node maps. Update when caching or performance-related logic changes.
-- `docs/dynalist_api_behavior.md`: Observed Dynalist API behavior and edge cases.
+- `docs/dynalist-api-behavior.md`: Observed Dynalist API behavior and edge cases.
 
 ## Bundling and releasing
 

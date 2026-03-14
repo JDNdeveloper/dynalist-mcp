@@ -2,7 +2,7 @@
  * In-memory Dynalist API mock for testing. Implements the same method
  * signatures as DynalistClient but stores all state in memory.
  *
- * Behavioral fidelity follows docs/dynalist_api_behavior.md.
+ * Behavioral fidelity follows docs/dynalist-api-behavior.md.
  */
 
 import {
