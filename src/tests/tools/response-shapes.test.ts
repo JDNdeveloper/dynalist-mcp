@@ -104,9 +104,19 @@ describe("list_documents response shape", () => {
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.count).toBe("number");
-    expect(Array.isArray(data.documents)).toBe(true);
-    expect(Array.isArray(data.folders)).toBe(true);
-    expect(typeof data.root_file_id).toBe("string");
+    expect(Array.isArray(data.files)).toBe(true);
+  });
+
+  test("error response for invalid folder_id has correct envelope", async () => {
+    const raw = await callTool(ctx.mcpClient, "list_documents", { folder_id: "nonexistent" });
+    const err = assertErrorEnvelope(raw);
+    expect(err.error).toBe("NotFound");
+  });
+
+  test("error response for document as folder_id has correct envelope", async () => {
+    const raw = await callTool(ctx.mcpClient, "list_documents", { folder_id: "doc1" });
+    const err = assertErrorEnvelope(raw);
+    expect(err.error).toBe("InvalidInput");
   });
 });
 

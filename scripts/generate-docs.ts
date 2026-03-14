@@ -257,6 +257,7 @@ function generateExample(name: string, schema: ZodTypeAny, depth: number = 0): u
 function exampleString(name: string): string {
   // IDs.
   if (name === "file_id" || name === "file_ids") return "f_abc123";
+  if (name === "folder_id") return "f_folder456";
   if (name === "parent_folder_id") return "f_folder456";
   if (name === "node_id" || name === "node_ids") return "n_item789";
   if (name === "reference_node_id") return "n_sibling012";

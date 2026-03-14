@@ -431,61 +431,81 @@ describe("send_to_inbox with ACL", () => {
 // 3k. list_documents with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
+/**
+ * Find a file entry by file_id in a recursive files tree.
+ */
+function findFileInTree(files: Record<string, unknown>[], fileId: string): Record<string, unknown> | undefined {
+  for (const f of files) {
+    if (f.file_id === fileId) return f;
+    if (Array.isArray(f.children)) {
+      const found = findFileInTree(f.children as Record<string, unknown>[], fileId);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Collect all file entries from a recursive files tree into a flat array.
+ */
+function flattenTree(files: Record<string, unknown>[]): Record<string, unknown>[] {
+  const result: Record<string, unknown>[] = [];
+  for (const f of files) {
+    result.push(f);
+    if (Array.isArray(f.children)) {
+      result.push(...flattenTree(f.children as Record<string, unknown>[]));
+    }
+  }
+  return result;
+}
+
 describe("list_documents with ACL", () => {
   test("denied documents are omitted from results", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
-    const deniedDoc = docs.find((d) => d.file_id === "denied_doc");
-    expect(deniedDoc).toBeUndefined();
+    const files = result.files as Record<string, unknown>[];
+    expect(findFileInTree(files, "denied_doc")).toBeUndefined();
   });
 
   test("denied folders are omitted from results", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    const deniedFolder = folders.find((f) => f.file_id === "denied_folder");
-    expect(deniedFolder).toBeUndefined();
+    const files = result.files as Record<string, unknown>[];
+    expect(findFileInTree(files, "denied_folder")).toBeUndefined();
   });
 
-  test("denied children IDs are filtered from parent folder children arrays", async () => {
+  test("denied items do not appear in any folder's children", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    // No visible folder should list any denied file ID in its children.
+    const all = flattenTree(result.files as Record<string, unknown>[]);
     const deniedIds = ["denied_folder", "denied_doc", "unruled_folder", "unruled_doc"];
-    for (const folder of folders) {
-      const children = folder.children as string[];
+    for (const entry of all) {
       for (const deniedId of deniedIds) {
-        expect(children).not.toContain(deniedId);
+        expect(entry.file_id).not.toBe(deniedId);
       }
     }
   });
 
   test("read-policy documents appear with access_policy: read", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
-    const readDoc = docs.find((d) => d.file_id === "readonly_doc");
+    const readDoc = findFileInTree(result.files as Record<string, unknown>[], "readonly_doc");
     expect(readDoc).toBeDefined();
     expect(readDoc!.access_policy).toBe("read");
   });
 
   test("allow-policy documents appear without access_policy field", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
-    const allowDoc = docs.find((d) => d.file_id === "allowed_doc");
+    const allowDoc = findFileInTree(result.files as Record<string, unknown>[], "allowed_doc");
     expect(allowDoc).toBeDefined();
     expect(allowDoc!.access_policy).toBeUndefined();
   });
 
   test("count reflects filtered count, not pre-filter count", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
+    const all = flattenTree(result.files as Record<string, unknown>[]);
+    const docs = all.filter((f) => f.type === "document");
     // denied_doc and unruled_doc (default: deny) should be filtered out.
     // Remaining: readonly_doc, allowed_doc, allowed_in_denied_doc, inbox_doc.
     expect(result.count).toBe(docs.length);
-    // The denied and unruled docs should not be in the list.
-    const deniedDoc = docs.find((d) => d.file_id === "denied_doc");
-    const unruledDoc = docs.find((d) => d.file_id === "unruled_doc");
-    expect(deniedDoc).toBeUndefined();
-    expect(unruledDoc).toBeUndefined();
+    expect(findFileInTree(result.files as Record<string, unknown>[], "denied_doc")).toBeUndefined();
+    expect(findFileInTree(result.files as Record<string, unknown>[], "unruled_doc")).toBeUndefined();
   });
 
   test("allow-override inside deny-parent: document appears despite parent being denied", async () => {
@@ -493,11 +513,9 @@ describe("list_documents with ACL", () => {
     // its parent "Denied Folder" matches /Denied Folder/** with deny policy.
     // The more specific exact-match rule should win.
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
-    const overrideDoc = docs.find((d) => d.file_id === "allowed_in_denied_doc");
+    const overrideDoc = findFileInTree(result.files as Record<string, unknown>[], "allowed_in_denied_doc");
     expect(overrideDoc).toBeDefined();
     expect(overrideDoc!.title).toBe("Allowed In Denied Doc");
-    // The allow policy should not produce an access_policy field.
     expect(overrideDoc!.access_policy).toBeUndefined();
   });
 });
@@ -996,8 +1014,7 @@ describe("getPolicies denial-retry on stale cache", () => {
   test("list_documents shows doc after it is moved out of denied folder", async () => {
     // Step 1: Prime the cache by calling list_documents.
     const before = await callToolOk(ctx.mcpClient, "list_documents");
-    const docsBefore = before.documents as Record<string, unknown>[];
-    expect(docsBefore.find((d) => d.file_id === "denied_doc")).toBeUndefined();
+    expect(findFileInTree(before.files as Record<string, unknown>[], "denied_doc")).toBeUndefined();
 
     // Step 2: Move the denied doc to the allowed folder directly on the
     // server, bypassing MCP tools (so the AC cache is NOT invalidated).
@@ -1010,7 +1027,6 @@ describe("getPolicies denial-retry on stale cache", () => {
     // Step 3: list_documents uses getPolicies (batch). With the fix,
     // the denial retry should refresh the cache and show the doc.
     const after = await callToolOk(ctx.mcpClient, "list_documents");
-    const docsAfter = after.documents as Record<string, unknown>[];
-    expect(docsAfter.find((d) => d.file_id === "denied_doc")).toBeDefined();
+    expect(findFileInTree(after.files as Record<string, unknown>[], "denied_doc")).toBeDefined();
   });
 });

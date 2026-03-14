@@ -22,33 +22,68 @@ afterEach(async () => {
 
 // ─── list_documents ──────────────────────────────────────────────────
 
+/**
+ * Helper to find a file entry by file_id within a recursive files tree.
+ */
+function findFile(files: Record<string, unknown>[], fileId: string): Record<string, unknown> | undefined {
+  for (const f of files) {
+    if (f.file_id === fileId) return f;
+    if (Array.isArray(f.children)) {
+      const found = findFile(f.children as Record<string, unknown>[], fileId);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Collect all entries from a recursive files tree into a flat array.
+ */
+function flattenFiles(files: Record<string, unknown>[]): Record<string, unknown>[] {
+  const result: Record<string, unknown>[] = [];
+  for (const f of files) {
+    result.push(f);
+    if (Array.isArray(f.children)) {
+      result.push(...flattenFiles(f.children as Record<string, unknown>[]));
+    }
+  }
+  return result;
+}
+
 describe("list_documents", () => {
-  test("returns all documents and folders", async () => {
+  // ─── Basic listing from root ──────────────────────────────────────
+
+  test("returns recursive file tree with correct document count", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     // Three documents: doc1, doc2, inbox_doc.
     expect(result.count).toBe(3);
-    expect(result.documents).toBeInstanceOf(Array);
-    expect(result.folders).toBeInstanceOf(Array);
-    expect(result.root_file_id).toBe("root_folder");
+    expect(Array.isArray(result.files)).toBe(true);
+    // Root folder is not included in the output.
+    const files = result.files as Record<string, unknown>[];
+    expect(findFile(files, "root_folder")).toBeUndefined();
   });
 
-  test("documents have id, title, url, permission", async () => {
+  test("documents have file_id, title, type, url, permission", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
-    const doc1 = docs.find((d) => d.file_id === "doc1");
+    const doc1 = findFile(result.files as Record<string, unknown>[], "doc1");
     expect(doc1).toBeDefined();
     expect(doc1!.title).toBe("Test Document");
+    expect(doc1!.type).toBe("document");
     expect(doc1!.url).toContain("dynalist.io/d/doc1");
     expect(doc1!.permission).toBe("owner");
   });
 
-  test("folders have id, title, children", async () => {
+  test("folders have file_id, title, type, children array", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    const folderA = folders.find((f) => f.file_id === "folder_a");
+    const folderA = findFile(result.files as Record<string, unknown>[], "folder_a");
     expect(folderA).toBeDefined();
     expect(folderA!.title).toBe("Folder A");
-    expect(folderA!.children).toContain("doc1");
+    expect(folderA!.type).toBe("folder");
+    expect(Array.isArray(folderA!.children)).toBe(true);
+    // doc1 should be inside folder_a's children.
+    const children = folderA!.children as Record<string, unknown>[];
+    const doc1 = children.find((c) => c.file_id === "doc1");
+    expect(doc1).toBeDefined();
   });
 
   test("count reflects document count, not folder count", async () => {
@@ -56,47 +91,330 @@ describe("list_documents", () => {
     expect(result.count).toBe(3);
   });
 
-  // ─── Section 7a: additional list_documents tests ──────────────────
+  // ─── folder_id parameter ──────────────────────────────────────────
 
-  test("response includes root_file_id", async () => {
-    const result = await callToolOk(ctx.mcpClient, "list_documents");
-    expect(result.root_file_id).toBe("root_folder");
-    expect(typeof result.root_file_id).toBe("string");
+  test("folder_id scopes listing to that folder's children", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      folder_id: "folder_a",
+    });
+    const files = result.files as Record<string, unknown>[];
+    // folder_a contains doc1. The folder itself is not in the output.
+    expect(findFile(files, "folder_a")).toBeUndefined();
+    expect(files.some((f) => f.file_id === "doc1")).toBe(true);
+    expect(result.count).toBe(1);
   });
 
-  test("folder children arrays contain file IDs as strings", async () => {
+  test("folder_id pointing to a document returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "list_documents", {
+      folder_id: "doc1",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("invalid folder_id returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "list_documents", {
+      folder_id: "nonexistent",
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
+  // ─── max_depth behavior ───────────────────────────────────────────
+
+  test("max_depth: null (default) returns full recursive tree", async () => {
+    // Add a nested folder with a document inside folder_a.
+    ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
+    ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
+      ctx.server.makeNode("root", "Nested Doc", []),
+    ]);
+
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    for (const folder of folders) {
-      const children = folder.children as string[];
-      for (const child of children) {
-        expect(typeof child).toBe("string");
-      }
+    const nestedDoc = findFile(result.files as Record<string, unknown>[], "nested_doc");
+    expect(nestedDoc).toBeDefined();
+    expect(nestedDoc!.title).toBe("Nested Doc");
+    // No depth_limited markers anywhere.
+    const all = flattenFiles(result.files as Record<string, unknown>[]);
+    for (const f of all) {
+      expect(f.depth_limited).toBeUndefined();
     }
   });
 
-  // ─── Section 7b: edge cases ────────────────────────────────────────
+  test("max_depth: 0 returns empty files array", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 0,
+    });
+    const files = result.files as Record<string, unknown>[];
+    expect(files).toEqual([]);
+    expect(result.count).toBe(0);
+  });
 
-  test("nested folders are all returned", async () => {
-    // Add a nested folder inside folder_a.
+  test("max_depth: 1 returns direct children, sub-folders depth-limited", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 1,
+    });
+    const files = result.files as Record<string, unknown>[];
+
+    // folder_a should be present but depth-limited.
+    const folderA = files.find((f) => f.file_id === "folder_a");
+    expect(folderA).toBeDefined();
+    expect(folderA!.depth_limited).toBe(true);
+    expect(folderA!.children_count).toBe(1);
+    expect(folderA!.children).toEqual([]);
+
+    // inbox_doc should be present as a top-level document.
+    const inbox = files.find((f) => f.file_id === "inbox_doc");
+    expect(inbox).toBeDefined();
+    expect(inbox!.type).toBe("document");
+
+    // Documents at depth 1 are counted, but nested docs are not.
+    expect(result.count).toBe(1);
+  });
+
+  test("max_depth: 2 returns two levels deep", async () => {
+    // Add a nested folder with a document inside folder_a.
+    ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
+    ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
+      ctx.server.makeNode("root", "Nested Doc", []),
+    ]);
+
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 2,
+    });
+    const files = result.files as Record<string, unknown>[];
+    const folderA = files.find((f) => f.file_id === "folder_a");
+    expect(folderA).toBeDefined();
+    expect(folderA!.depth_limited).toBeUndefined();
+
+    // folder_a's children should be visible.
+    const folderAChildren = folderA!.children as Record<string, unknown>[];
+    const doc1 = folderAChildren.find((c) => c.file_id === "doc1");
+    expect(doc1).toBeDefined();
+
+    // folder_nested should be depth-limited at depth 2.
+    const nested = folderAChildren.find((c) => c.file_id === "folder_nested");
+    expect(nested).toBeDefined();
+    expect(nested!.depth_limited).toBe(true);
+    expect(nested!.children_count).toBe(1);
+    expect(nested!.children).toEqual([]);
+  });
+
+  // ─── Nested folder structures ─────────────────────────────────────
+
+  test("nested folders appear inside parent folder's children", async () => {
     ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
 
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    const nested = folders.find((f) => f.file_id === "folder_nested");
+    const folderA = findFile(result.files as Record<string, unknown>[], "folder_a");
+    expect(folderA).toBeDefined();
+    const children = folderA!.children as Record<string, unknown>[];
+    const nested = children.find((c) => c.file_id === "folder_nested");
     expect(nested).toBeDefined();
-    expect(nested!.title).toBe("Nested Folder");
+    expect(nested!.type).toBe("folder");
   });
 
-  test("root folder included in folders list with children order preserved", async () => {
+  test("empty folders have empty children array", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    const root = folders.find((f) => f.file_id === "root_folder");
-    expect(root).toBeDefined();
-    expect(result.root_file_id).toBe("root_folder");
-    // Root's children array preserves insertion order from standardSetup.
-    const rootChildren = root!.children as string[];
-    expect(rootChildren).toContain("inbox_doc");
+    const folderB = findFile(result.files as Record<string, unknown>[], "folder_b");
+    expect(folderB).toBeDefined();
+    // folder_b only contains doc2.
+    const children = folderB!.children as Record<string, unknown>[];
+    expect(children.length).toBe(1);
+
+    // Add a truly empty folder.
+    ctx.server.addFolder("empty_folder", "Empty Folder", "root_folder");
+    const result2 = await callToolOk(ctx.mcpClient, "list_documents");
+    const empty = findFile(result2.files as Record<string, unknown>[], "empty_folder");
+    expect(empty).toBeDefined();
+    expect(empty!.children).toEqual([]);
+  });
+
+  // ─── Order preservation ───────────────────────────────────────────
+
+  test("files appear in parent folder's children order", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+    // Root's children order from standardSetup: folder_a, folder_b, inbox_doc.
+    const fileIds = files.map((f) => f.file_id);
+    const folderAIdx = fileIds.indexOf("folder_a");
+    const folderBIdx = fileIds.indexOf("folder_b");
+    const inboxIdx = fileIds.indexOf("inbox_doc");
+    expect(folderAIdx).toBeLessThan(folderBIdx);
+    expect(folderBIdx).toBeLessThan(inboxIdx);
+  });
+
+  // ─── Count accuracy ──────────────────────────────────────────────
+
+  test("count only counts documents, not folders", async () => {
+    ctx.server.addFolder("extra_folder", "Extra Folder", "root_folder");
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    // Still 3 documents (doc1, doc2, inbox_doc). Extra folder does not count.
+    expect(result.count).toBe(3);
+  });
+
+  test("count includes documents in nested folders", async () => {
+    ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
+    ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
+      ctx.server.makeNode("root", "Nested Doc", []),
+    ]);
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    // 3 original + 1 nested = 4.
+    expect(result.count).toBe(4);
+  });
+
+  // ─── depth_limited signaling ──────────────────────────────────────
+
+  test("depth_limited and children_count omitted when not applicable", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+    // Documents should not have depth_limited or children_count.
+    const inbox = findFile(files, "inbox_doc");
+    expect(inbox).toBeDefined();
+    expect(inbox!.depth_limited).toBeUndefined();
+    expect(inbox!.children_count).toBeUndefined();
+
+    // Non-depth-limited folders should not have depth_limited.
+    const folderA = findFile(files, "folder_a");
+    expect(folderA).toBeDefined();
+    expect(folderA!.depth_limited).toBeUndefined();
+  });
+
+  // ─── folder_id + max_depth combined ─────────────────────────────────
+
+  test("folder_id with max_depth: 1 shows only direct children of target folder", async () => {
+    ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
+    ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
+      ctx.server.makeNode("root", "Nested Doc", []),
+    ]);
+
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      folder_id: "folder_a",
+      max_depth: 1,
+    });
+    const files = result.files as Record<string, unknown>[];
+
+    // doc1 is a direct child of folder_a and should be visible.
+    const doc1 = files.find((f) => f.file_id === "doc1");
+    expect(doc1).toBeDefined();
+    expect(doc1!.type).toBe("document");
+
+    // folder_nested is a direct child but should be depth-limited.
+    const nested = files.find((f) => f.file_id === "folder_nested");
+    expect(nested).toBeDefined();
+    expect(nested!.depth_limited).toBe(true);
+    expect(nested!.children_count).toBe(1);
+    expect(nested!.children).toEqual([]);
+
+    // nested_doc should not appear anywhere.
+    expect(findFile(files, "nested_doc")).toBeUndefined();
+    expect(result.count).toBe(1);
+  });
+
+  test("folder_id with max_depth: 0 returns empty files", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      folder_id: "folder_a",
+      max_depth: 0,
+    });
+    expect(result.files).toEqual([]);
+    expect(result.count).toBe(0);
+  });
+
+  test("folder_id pointing to empty folder returns empty files", async () => {
+    ctx.server.addFolder("empty_folder", "Empty", "root_folder");
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      folder_id: "empty_folder",
+    });
+    expect(result.files).toEqual([]);
+    expect(result.count).toBe(0);
+  });
+
+  // ─── Deep nesting (3+ levels) ──────────────────────────────────────
+
+  test("max_depth: 3 with 4-level nesting truncates at the right level", async () => {
+    // Build: root -> folder_a -> level2 -> level3 -> deep_doc.
+    ctx.server.addFolder("level2", "Level 2", "folder_a");
+    ctx.server.addFolder("level3", "Level 3", "level2");
+    ctx.server.addDocument("deep_doc", "Deep Doc", "level3", [
+      ctx.server.makeNode("root", "Deep Doc", []),
+    ]);
+
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 3,
+    });
+    const files = result.files as Record<string, unknown>[];
+
+    // Depth 1: folder_a visible, not depth-limited.
+    const folderA = files.find((f) => f.file_id === "folder_a");
+    expect(folderA).toBeDefined();
+    expect(folderA!.depth_limited).toBeUndefined();
+
+    // Depth 2: level2 visible inside folder_a, not depth-limited.
+    const folderAChildren = folderA!.children as Record<string, unknown>[];
+    const level2 = folderAChildren.find((c) => c.file_id === "level2");
+    expect(level2).toBeDefined();
+    expect(level2!.depth_limited).toBeUndefined();
+
+    // Depth 3: level3 visible inside level2, IS depth-limited.
+    const level2Children = level2!.children as Record<string, unknown>[];
+    const level3 = level2Children.find((c) => c.file_id === "level3");
+    expect(level3).toBeDefined();
+    expect(level3!.depth_limited).toBe(true);
+    expect(level3!.children_count).toBe(1);
+    expect(level3!.children).toEqual([]);
+
+    // deep_doc should not be reachable.
+    expect(findFile(files, "deep_doc")).toBeUndefined();
+
+    // Count: doc1 (depth 2) + inbox_doc (depth 1) + doc2 (depth 2) = 3.
+    // deep_doc is hidden behind depth limit.
+    expect(result.count).toBe(3);
+  });
+
+  // ─── Count with max_depth truncation ──────────────────────────────
+
+  test("count excludes documents hidden by max_depth", async () => {
+    ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
+    ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
+      ctx.server.makeNode("root", "Nested Doc", []),
+    ]);
+
+    // With unlimited depth, all 4 docs are counted.
+    const full = await callToolOk(ctx.mcpClient, "list_documents");
+    expect(full.count).toBe(4);
+
+    // With max_depth: 1, only top-level documents are counted.
+    const shallow = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 1,
+    });
+    expect(shallow.count).toBe(1);
+
+    // With max_depth: 2, docs in folder_a and folder_b are visible.
+    const medium = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 2,
+    });
+    // inbox_doc (depth 1) + doc1 (depth 2) + doc2 (depth 2) = 3.
+    // nested_doc is at depth 3 (root -> folder_a -> folder_nested -> nested_doc).
+    expect(medium.count).toBe(3);
+  });
+
+  // ─── folder_id + count with nested docs ────────────────────────────
+
+  test("folder_id count includes all visible nested documents", async () => {
+    ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
+    ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
+      ctx.server.makeNode("root", "Nested Doc", []),
+    ]);
+
+    // Unlimited depth from folder_a: doc1 + nested_doc = 2.
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      folder_id: "folder_a",
+    });
+    expect(result.count).toBe(2);
+
+    // max_depth: 1 from folder_a: only doc1 visible.
+    const shallow = await callToolOk(ctx.mcpClient, "list_documents", {
+      folder_id: "folder_a",
+      max_depth: 1,
+    });
+    expect(shallow.count).toBe(1);
   });
 });
 
@@ -2252,9 +2570,7 @@ describe("list_documents empty account", () => {
 
     const result = await callToolOk(emptyCtx.mcpClient, "list_documents");
     expect(result.count).toBe(0);
-    expect(result.documents).toEqual([]);
-    // There is still the root folder.
-    expect(result.folders).toBeDefined();
+    expect(result.files).toEqual([]);
   });
 });
 

@@ -104,6 +104,48 @@ const changeMatchSchema = z.object({
   ),
 });
 
+// Document entry in the list_documents file tree.
+const fileTreeDocumentSchema = z.object({
+  file_id: z.string().describe(FILE_ID_DESCRIPTION),
+  title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
+  type: z.literal("document").describe("File type"),
+  url: z.string().describe(URL_DESCRIPTION),
+  permission: z.enum(["none", "read", "edit", "manage", "owner"]).describe(
+    "Permission level for this document"
+  ),
+  access_policy: z.enum(["read"]).optional().describe(
+    "Access policy if restricted. Omitted when unrestricted."
+  ),
+});
+
+// Recursive folder entry in the list_documents file tree.
+const fileTreeFolderSchema: z.ZodType<{
+  file_id: string;
+  title: string;
+  type: "folder";
+  depth_limited?: true;
+  children_count?: number;
+  children: unknown[];
+}> = z.lazy(() =>
+  z.object({
+    file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
+    title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
+    type: z.literal("folder").describe("File type"),
+    depth_limited: z.literal(true).optional().describe(
+      "Present when max_depth cut off traversal. Call list_documents with this folder's file_id to expand."
+    ),
+    children_count: z.number().optional().describe(
+      "Direct children count. Present only when depth_limited is true."
+    ),
+    children: z.array(fileTreeEntrySchema).describe(
+      "Child documents and folders. Empty when depth-limited or folder is empty."
+    ),
+  })
+);
+
+// Union of document and folder entries.
+const fileTreeEntrySchema = z.union([fileTreeDocumentSchema, fileTreeFolderSchema]);
+
 export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   // ═════════════════════════════════════════════════════════════════════
   // TOOL: list_documents
@@ -112,67 +154,141 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "list_documents",
     {
       description:
-        "List all documents and folders. Returns the folder hierarchy with children arrays. " +
-        "Use returned file_id values in other tools.",
+        "List documents and folders as a recursive tree. Returns a files array of " +
+        "intermixed documents and folders. Use returned file_id values in other tools.\n\n" +
+        "Scope controls:\n" +
+        "- folder_id: starting folder. Omit for root.\n" +
+        "- max_depth: folder nesting depth. 1 = direct children only (sub-folders " +
+        "show depth_limited: true), null = unlimited (default).",
+      inputSchema: {
+        folder_id: z.string().optional().describe(
+          "Starting folder. Omit to list from the top level."
+        ),
+        max_depth: z.number().nullable().optional().describe(
+          "Depth of folder nesting to include. 1 = direct children only, " +
+          "2 = children + grandchildren, null = unlimited (default)."
+        ),
+      },
       outputSchema: {
-        count: z.number().describe("Total number of documents"),
-        documents: z.array(z.object({
-          file_id: z.string().describe(FILE_ID_DESCRIPTION),
-          title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
-          url: z.string().describe(URL_DESCRIPTION),
-          permission: z.enum(["none", "read", "edit", "manage", "owner"]).describe("Permission level for this document"),
-          access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
-        })).describe("All documents in the account"),
-        folders: z.array(z.object({
-          file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
-          title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
-          children: z.array(z.string()).describe("File IDs of documents/folders inside this folder"),
-        })).describe("All folders in the account"),
-        root_file_id: z.string().describe(
-          "File ID of the invisible root folder. Not a real folder in the UI. " +
-          "Its children are the top-level items. Never show this to users."
+        count: z.number().describe("Total number of documents in the result"),
+        files: z.array(fileTreeEntrySchema).describe(
+          "Recursive file tree of intermixed documents and folders."
         ),
       },
     },
-    wrapToolHandler(async () => {
+    wrapToolHandler(async ({
+      folder_id,
+      max_depth,
+    }: {
+      folder_id?: string;
+      max_depth?: number | null;
+    }) => {
       const config = getConfig();
       const response = await client.listFiles();
+
+      // Build a lookup map for all files.
+      const fileMap = new Map(response.files.map((f) => [f.id, f]));
+
+      // Validate folder_id if provided.
+      if (folder_id !== undefined) {
+        const target = fileMap.get(folder_id);
+        if (!target) {
+          return makeErrorResponse("NotFound", `Folder '${folder_id}' not found`);
+        }
+        if (target.type === "document") {
+          return makeErrorResponse("InvalidInput", `'${folder_id}' is a document, not a folder`);
+        }
+      }
 
       // Build policies for all files to filter denied ones.
       const allIds = response.files.map((f) => f.id);
       const policies = await ac.getPolicies(allIds, config);
 
-      const documents = response.files
-        .filter((f) => f.type === "document" && policies.get(f.id) !== "deny")
-        .map((f) => {
-          const policy = policies.get(f.id)!;
-          const doc: Record<string, unknown> = {
-            file_id: f.id,
-            title: f.title,
-            url: buildDynalistUrl(f.id),
-            permission: getPermissionLabel(f.permission),
-          };
-          if (policy === "read") {
-            doc.access_policy = "read";
+      // Resolve effective max_depth: undefined means use default (null = unlimited).
+      const effectiveMaxDepth = max_depth === undefined ? null : max_depth;
+
+      // Recursively build the file tree from a folder's children.
+      let documentCount = 0;
+
+      function buildFileTree(folderId: string, currentDepth: number): Record<string, unknown>[] {
+        const folder = fileMap.get(folderId);
+        if (!folder) return [];
+
+        // If past the depth limit, return nothing. The caller is
+        // responsible for signaling depth_limited on the folder entry.
+        if (effectiveMaxDepth !== null && currentDepth > effectiveMaxDepth) {
+          return [];
+        }
+
+        const result: Record<string, unknown>[] = [];
+
+        for (const childId of folder.children ?? []) {
+          const child = fileMap.get(childId);
+          if (!child) continue;
+
+          const childPolicy = policies.get(childId);
+          if (childPolicy === "deny") {
+            // Denied folders are omitted, but their allowed children are
+            // promoted to this level so they remain reachable in the tree.
+            if (child.type === "folder" || child.type === "root") {
+              result.push(...buildFileTree(childId, currentDepth));
+            }
+            continue;
           }
-          return doc;
-        });
 
-      const folders = response.files
-        .filter((f) => (f.type === "folder" || f.type === "root") && policies.get(f.id) !== "deny")
-        .map((f) => ({
-          file_id: f.id,
-          title: f.title,
-          children: (f.children ?? []).filter((childId) => policies.get(childId) !== "deny"),
-        }));
+          if (child.type === "document") {
+            const doc: Record<string, unknown> = {
+              file_id: child.id,
+              title: child.title,
+              type: "document",
+              url: buildDynalistUrl(child.id),
+              permission: getPermissionLabel(child.permission),
+            };
+            if (childPolicy === "read") {
+              doc.access_policy = "read";
+            }
+            documentCount++;
+            result.push(doc);
+          } else if (child.type === "folder") {
+            // Count visible children for depth-limited reporting.
+            const visibleChildCount = (child.children ?? []).filter(
+              (id) => policies.get(id) !== "deny"
+            ).length;
 
-      // root_file_id is always returned regardless of ACL. It is structural
-      // metadata agents need to navigate the folder hierarchy, not content.
+            // Check if we have reached the depth limit.
+            if (effectiveMaxDepth !== null && currentDepth >= effectiveMaxDepth) {
+              const entry: Record<string, unknown> = {
+                file_id: child.id,
+                title: child.title,
+                type: "folder",
+                depth_limited: true,
+                children_count: visibleChildCount,
+                children: [],
+              };
+              result.push(entry);
+            } else {
+              const children = buildFileTree(child.id, currentDepth + 1);
+              const entry: Record<string, unknown> = {
+                file_id: child.id,
+                title: child.title,
+                type: "folder",
+                children,
+              };
+              result.push(entry);
+            }
+          }
+        }
+
+        return result;
+      }
+
+      // Start from the target folder (or root).
+      const startFolderId = folder_id ?? response.root_file_id;
+      const files = buildFileTree(startFolderId, 1);
+
       return makeResponse({
-        count: documents.length,
-        documents,
-        folders,
-        root_file_id: response.root_file_id,
+        count: documentCount,
+        files,
       });
     })
   );

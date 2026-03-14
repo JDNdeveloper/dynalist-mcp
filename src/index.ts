@@ -93,8 +93,8 @@ empty children, pass the node's node_id to read_document (the starting node alwa
 or re-request with include_collapsed_children: true.
 - Drilling into depth-limited nodes: if a node has depth_limited: true, call read_document \
 with that node's node_id to zoom into the subtree.
-- File organization: list_documents shows the folder hierarchy. Use create_*, move_*, \
-rename_* tools to organize.
+- File organization: list_documents returns a recursive file tree. Use folder_id to scope \
+to a subfolder, max_depth to limit nesting. Use create_*, move_*, rename_* tools to organize.
 - File vs node management: file tools (create_document, move_document, etc.) operate on \
 the file tree. Node tools (insert_nodes, edit_nodes, etc.) operate within a document. \
 Do not confuse file IDs with node IDs.

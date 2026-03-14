@@ -7,6 +7,20 @@ import {
   type TestContext,
 } from "./test-helpers";
 
+/**
+ * Find a file entry by file_id in a recursive list_documents tree.
+ */
+function findInFileTree(files: Record<string, unknown>[], fileId: string): Record<string, unknown> | undefined {
+  for (const f of files) {
+    if (f.file_id === fileId) return f;
+    if (Array.isArray(f.children)) {
+      const found = findInFileTree(f.children as Record<string, unknown>[], fileId);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 let ctx: TestContext;
 
 beforeEach(async () => {
@@ -37,8 +51,7 @@ describe("create_document", () => {
     });
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = listResult.documents as Record<string, unknown>[];
-    const found = docs.find((d) => d.file_id === createResult.file_id);
+    const found = findInFileTree(listResult.files as Record<string, unknown>[], createResult.file_id as string);
     expect(found).toBeDefined();
     expect(found!.title).toBe("Created Doc");
   });
@@ -103,8 +116,7 @@ describe("create_folder", () => {
     });
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = listResult.folders as Record<string, unknown>[];
-    const found = folders.find((f) => f.file_id === createResult.file_id);
+    const found = findInFileTree(listResult.files as Record<string, unknown>[], createResult.file_id as string);
     expect(found).toBeDefined();
     expect(found!.title).toBe("Visible Folder");
   });
@@ -161,8 +173,7 @@ describe("rename_document", () => {
     });
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = listResult.documents as Record<string, unknown>[];
-    const doc = docs.find((d) => d.file_id === "doc1")!;
+    const doc = findInFileTree(listResult.files as Record<string, unknown>[], "doc1")!;
     expect(doc.title).toBe("Fresh Title");
   });
 
@@ -194,8 +205,7 @@ describe("rename_folder", () => {
     });
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = listResult.folders as Record<string, unknown>[];
-    const folder = folders.find((f) => f.file_id === "folder_a")!;
+    const folder = findInFileTree(listResult.files as Record<string, unknown>[], "folder_a")!;
     expect(folder.title).toBe("New Folder Name");
   });
 

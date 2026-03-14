@@ -6,57 +6,47 @@
 
 ### `list_documents`
 
-List all documents and folders. Returns the folder hierarchy with children arrays. Use returned file_id values in other tools.
+List documents and folders as a recursive tree. Returns a files array of intermixed documents and folders. Use returned file_id values in other tools.
 
-**Parameters**: none.
+Scope controls:
+- folder_id: starting folder. Omit for root.
+- max_depth: folder nesting depth. 1 = direct children only (sub-folders show depth_limited: true), null = unlimited (default).
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `folder_id` | string | no | Starting folder. Omit to list from the top level. |
+| `max_depth` | number \| null | no | Depth of folder nesting to include. 1 = direct children only, 2 = children + grandchildren, null = unlimited (default). |
+
+**Example input:**
+```json
+{
+  "folder_id": "f_folder456",
+  "max_depth": 3
+}
+```
 
 **Response:**
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `count` | number | yes | Total number of documents |
-| `documents` | object[] | yes | All documents in the account |
-| `folders` | object[] | yes | All folders in the account |
-| `root_file_id` | string | yes | File ID of the invisible root folder. Not a real folder in the UI. Its children are the top-level items. Never show this to users. |
-
-**`documents` element fields:**
-
-| Field | Type | Always present | Description |
-| --- | --- | --- | --- |
-| `file_id` | string | yes | Document file ID |
-| `title` | string | yes | Document title |
-| `url` | string | yes | Dynalist URL |
-| `permission` | `"none"`, `"read"`, `"edit"`, `"manage"`, `"owner"` | yes | Permission level for this document |
-| `access_policy` | `"read"` | no | Access policy if restricted. Omitted when unrestricted. |
-
-**`folders` element fields:**
-
-| Field | Type | Always present | Description |
-| --- | --- | --- | --- |
-| `file_id` | string | yes | Folder file ID |
-| `title` | string | yes | Folder title |
-| `children` | string[] | yes | File IDs of documents/folders inside this folder |
+| `count` | number | yes | Total number of documents in the result |
+| `files` | object \| object (recursive)[] | yes | Recursive file tree of intermixed documents and folders. |
 
 **Example response:**
 ```json
 {
   "count": 1,
-  "documents": [
+  "files": [
     {
       "file_id": "f_abc123",
       "title": "Project Notes",
+      "type": "document",
       "url": "https://dynalist.io/d/f_abc123#z=n_item789",
       "permission": "read"
     }
-  ],
-  "folders": [
-    {
-      "file_id": "f_abc123",
-      "title": "Project Notes",
-      "children": []
-    }
-  ],
-  "root_file_id": "f_root000"
+  ]
 }
 ```
 

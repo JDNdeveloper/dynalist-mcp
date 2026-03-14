@@ -594,6 +594,20 @@ describe("T8: check_document_versions mixed allowed/denied IDs", () => {
 // T9: list_documents/search_documents denied-content filtering
 // ═══════════════════════════════════════════════════════════════════════
 
+/**
+ * Flatten a recursive list_documents files tree into a flat array.
+ */
+function flattenListFiles(files: Record<string, unknown>[]): Record<string, unknown>[] {
+  const result: Record<string, unknown>[] = [];
+  for (const f of files) {
+    result.push(f);
+    if (Array.isArray(f.children)) {
+      result.push(...flattenListFiles(f.children as Record<string, unknown>[]));
+    }
+  }
+  return result;
+}
+
 describe("T9: denied-content filtering", () => {
   let ctx: TestContext;
 
@@ -634,34 +648,30 @@ describe("T9: denied-content filtering", () => {
 
   test("list_documents excludes denied documents", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
-    const secretDoc = docs.find((d) => d.file_id === "secret_doc");
-    expect(secretDoc).toBeUndefined();
+    const all = flattenListFiles(result.files as Record<string, unknown>[]);
+    expect(all.find((d) => d.file_id === "secret_doc")).toBeUndefined();
     // Public doc should still be present.
-    const publicDoc = docs.find((d) => d.file_id === "public_doc");
-    expect(publicDoc).toBeDefined();
+    expect(all.find((d) => d.file_id === "public_doc")).toBeDefined();
   });
 
   test("list_documents excludes denied folders", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    const secretFolder = folders.find((f) => f.file_id === "secret_folder");
-    expect(secretFolder).toBeUndefined();
+    const all = flattenListFiles(result.files as Record<string, unknown>[]);
+    expect(all.find((f) => f.file_id === "secret_folder")).toBeUndefined();
   });
 
-  test("list_documents filters denied IDs from parent folder children arrays", async () => {
+  test("list_documents filters denied items from recursive tree", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const folders = result.folders as Record<string, unknown>[];
-    const root = folders.find((f) => f.file_id === "root_folder");
-    expect(root).toBeDefined();
-    const children = root!.children as string[];
-    expect(children).not.toContain("secret_folder");
-    expect(children).not.toContain("secret_doc");
+    const all = flattenListFiles(result.files as Record<string, unknown>[]);
+    const allIds = all.map((f) => f.file_id);
+    expect(allIds).not.toContain("secret_folder");
+    expect(allIds).not.toContain("secret_doc");
   });
 
   test("list_documents count reflects filtered count", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const docs = result.documents as Record<string, unknown>[];
+    const all = flattenListFiles(result.files as Record<string, unknown>[]);
+    const docs = all.filter((f) => f.type === "document");
     expect(result.count).toBe(docs.length);
     // secret_doc should not be included.
     expect(docs.every((d) => d.file_id !== "secret_doc")).toBe(true);
