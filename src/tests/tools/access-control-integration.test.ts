@@ -12,11 +12,13 @@ import { DummyDynalistServer } from "../dummy-server";
 // ─── Shared setup ─────────────────────────────────────────────────────
 
 /**
- * Set up a file tree with four folders, each containing one document.
- * The ACL config maps each folder path to a different policy.
+ * Set up a file tree with several folders and documents under various
+ * ACL policies (deny, read, allow, and default-deny).
  *
  * Tree structure:
  *   Root > Denied Folder   > Denied Doc
+ *                          > Allowed In Denied Doc
+ *                          > Denied Subfolder > Deep Allowed Doc
  *        > ReadOnly Folder > ReadOnly Doc
  *        > Allowed Folder  > Allowed Doc
  *        > Unruled Folder  > Unruled Doc   (no explicit rule, uses default)
@@ -38,6 +40,15 @@ function aclSetup(server: DummyDynalistServer): void {
   server.addDocument("allowed_in_denied_doc", "Allowed In Denied Doc", "denied_folder", [
     server.makeNode("root", "Allowed In Denied Doc", ["aidn1"]),
     server.makeNode("aidn1", "Override content", []),
+  ]);
+
+  // Nested denied subfolder inside the denied folder, containing an
+  // allowed document. Tests that promotion works through multiple
+  // levels of denied ancestors.
+  server.addFolder("denied_subfolder", "Denied Subfolder", "denied_folder");
+  server.addDocument("deep_allowed_doc", "Deep Allowed Doc", "denied_subfolder", [
+    server.makeNode("root", "Deep Allowed Doc", ["dadn1"]),
+    server.makeNode("dadn1", "Deep override content", []),
   ]);
 
   server.addDocument("readonly_doc", "ReadOnly Doc", "readonly_folder", [
@@ -82,6 +93,7 @@ const ACL_CONFIG = {
     rules: [
       { path: "/Denied Folder/**", policy: "deny" as const },
       { path: "/Denied Folder/Allowed In Denied Doc", policy: "allow" as const },
+      { path: "/Denied Folder/Denied Subfolder/Deep Allowed Doc", policy: "allow" as const },
       { path: "/ReadOnly Folder/**", policy: "read" as const },
       { path: "/Allowed Folder/**", policy: "allow" as const },
       { path: "/Inbox", policy: "allow" as const },
@@ -475,7 +487,7 @@ describe("list_documents with ACL", () => {
   test("denied items do not appear in any folder's children", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const all = flattenTree(result.files as Record<string, unknown>[]);
-    const deniedIds = ["denied_folder", "denied_doc", "unruled_folder", "unruled_doc"];
+    const deniedIds = ["denied_folder", "denied_subfolder", "denied_doc", "unruled_folder", "unruled_doc"];
     for (const entry of all) {
       for (const deniedId of deniedIds) {
         expect(entry.file_id).not.toBe(deniedId);
@@ -502,7 +514,7 @@ describe("list_documents with ACL", () => {
     const all = flattenTree(result.files as Record<string, unknown>[]);
     const docs = all.filter((f) => f.type === "document");
     // denied_doc and unruled_doc (default: deny) should be filtered out.
-    // Remaining: readonly_doc, allowed_doc, allowed_in_denied_doc, inbox_doc.
+    // Remaining: readonly_doc, allowed_doc, allowed_in_denied_doc, deep_allowed_doc, inbox_doc.
     expect(result.count).toBe(docs.length);
     expect(findFileInTree(result.files as Record<string, unknown>[], "denied_doc")).toBeUndefined();
     expect(findFileInTree(result.files as Record<string, unknown>[], "unruled_doc")).toBeUndefined();
@@ -517,6 +529,25 @@ describe("list_documents with ACL", () => {
     expect(overrideDoc).toBeDefined();
     expect(overrideDoc!.title).toBe("Allowed In Denied Doc");
     expect(overrideDoc!.access_policy).toBeUndefined();
+  });
+
+  test("allow-override through multiple denied ancestors: document promoted to top level", async () => {
+    // "Deep Allowed Doc" sits inside "Denied Subfolder" which is inside
+    // "Denied Folder". Both ancestor folders are denied, so the document
+    // must be promoted through two levels of denied folders to the root.
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+
+    // The document should appear at the top level of the tree, not
+    // nested inside any folder. Using a shallow search (no recursion)
+    // to verify it was promoted all the way to root.
+    const topLevelDoc = files.find((f) => f.file_id === "deep_allowed_doc");
+    expect(topLevelDoc).toBeDefined();
+    expect(topLevelDoc!.title).toBe("Deep Allowed Doc");
+
+    // Neither denied folder should appear anywhere in the tree.
+    expect(findFileInTree(files, "denied_folder")).toBeUndefined();
+    expect(findFileInTree(files, "denied_subfolder")).toBeUndefined();
   });
 });
 
