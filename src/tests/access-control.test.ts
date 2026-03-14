@@ -1830,3 +1830,47 @@ describe("fail-closed on listFiles error", () => {
     expect(policies.get("id2")).toBe("deny");
   });
 });
+
+// ─── Root-level globs (/* and /**) ───────────────────────────────────
+//
+// NOTE: The bare glob shorthand (path: "*" and "**") is tested in
+// config.test.ts where the Zod transform is exercised. These tests
+// verify the canonical form behaves correctly in access control.
+
+describe("root-level globs /* and /**", () => {
+  let client: MockDynalistClient;
+
+  beforeEach(() => {
+    ({ client } = setupServer());
+  });
+
+  test("/** matches all files recursively", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/**", policy: "deny" }],
+      },
+    });
+    // Every file should be denied.
+    expect(await ac.getPolicy("da", config)).toBe("deny");
+    expect(await ac.getPolicy("ds", config)).toBe("deny");
+    expect(await ac.getPolicy("fa", config)).toBe("deny");
+  });
+
+  test("/* matches only direct children of root", async () => {
+    const ac = new AccessController(client);
+    const config = makeConfig({
+      access: {
+        default: "allow",
+        rules: [{ path: "/*", policy: "deny" }],
+      },
+    });
+    // Top-level folders are direct children of root.
+    expect(await ac.getPolicy("fa", config)).toBe("deny");
+    expect(await ac.getPolicy("fb", config)).toBe("deny");
+    // Documents nested inside folders are not direct children of root.
+    expect(await ac.getPolicy("da", config)).toBe("allow");
+    expect(await ac.getPolicy("ds", config)).toBe("allow");
+  });
+});

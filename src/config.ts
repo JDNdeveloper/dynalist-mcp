@@ -12,6 +12,7 @@ import { z } from "zod";
 
 const AccessRuleSchema = z.object({
   path: z.string()
+    .transform((p) => (p === "*" || p === "**") ? `/${p}` : p)
     .refine((p) => p.startsWith("/"), { message: "Access rule path must start with '/'" })
     .transform((p) => p.normalize("NFC")),
   policy: z.enum(["allow", "read", "deny"]),

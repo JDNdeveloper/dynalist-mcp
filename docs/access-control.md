@@ -46,7 +46,7 @@ Rules support two glob suffixes:
 - `/**` (recursive): matches the path itself and all descendants at any depth.
 - `/*` (single-level): matches only direct children, not the path itself or deeper descendants.
 
-No other glob patterns are supported. Interior globs like `/foo/*/bar` or `/foo/**/bar` are rejected during validation. Literal asterisks in titles must be escaped as `\*` in rule paths (written as `\\*` in JSON). A path without a glob suffix targets a single document or folder exactly.
+Bare `**` and `*` (without a leading slash) are accepted as shorthand for `/**` and `/*` respectively. No other glob patterns are supported. Interior globs like `/foo/*/bar` or `/foo/**/bar` are rejected during validation. Literal asterisks in titles must be escaped as `\*` in rule paths (written as `\\*` in JSON). A path without a glob suffix targets a single document or folder exactly.
 
 Dangling backslashes (an odd number of trailing `\` before the glob suffix or at the end of a non-glob path) are also rejected during validation.
 

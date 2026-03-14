@@ -417,6 +417,35 @@ describe("config access control", () => {
     });
     expect(() => getConfig()).toThrow(ConfigError);
   });
+
+  test("bare ** shorthand is transformed to /**", () => {
+    writeTestConfig({
+      access: {
+        rules: [{ path: "**", policy: "deny" }],
+      },
+    });
+    const config = getConfig();
+    expect(config.access?.rules[0].path).toBe("/**");
+  });
+
+  test("bare * shorthand is transformed to /*", () => {
+    writeTestConfig({
+      access: {
+        rules: [{ path: "*", policy: "read" }],
+      },
+    });
+    const config = getConfig();
+    expect(config.access?.rules[0].path).toBe("/*");
+  });
+
+  test("non-root bare glob like Docs/** is still rejected", () => {
+    writeTestConfig({
+      access: {
+        rules: [{ path: "Documents/**", policy: "allow" }],
+      },
+    });
+    expect(() => getConfig()).toThrow(ConfigError);
+  });
 });
 
 // ─── 2h. Reload behavior ───────────────────────────────────────────
