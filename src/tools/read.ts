@@ -78,7 +78,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         });
 
       const folders = response.files
-        .filter((f) => f.type === "folder" && policies.get(f.id) !== "deny")
+        .filter((f) => (f.type === "folder" || f.type === "root") && policies.get(f.id) !== "deny")
         .map((f) => ({
           file_id: f.id,
           title: f.title,

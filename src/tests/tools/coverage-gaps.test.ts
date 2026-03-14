@@ -650,15 +650,13 @@ describe("T9: denied-content filtering", () => {
   });
 
   test("list_documents filters denied IDs from parent folder children arrays", async () => {
-    // The root folder has type "root" so it does not appear in the folders
-    // list, but denied IDs must still be absent from all children arrays.
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const folders = result.folders as Record<string, unknown>[];
-    for (const folder of folders) {
-      const children = folder.children as string[];
-      expect(children).not.toContain("secret_folder");
-      expect(children).not.toContain("secret_doc");
-    }
+    const root = folders.find((f) => f.file_id === "root_folder");
+    expect(root).toBeDefined();
+    const children = root!.children as string[];
+    expect(children).not.toContain("secret_folder");
+    expect(children).not.toContain("secret_doc");
   });
 
   test("list_documents count reflects filtered count", async () => {

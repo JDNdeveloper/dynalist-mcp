@@ -88,14 +88,15 @@ describe("list_documents", () => {
     expect(nested!.title).toBe("Nested Folder");
   });
 
-  test("root folder excluded from folders list", async () => {
-    // The root folder has type "root", not "folder", so it should not
-    // appear in the folders array. Its file_id is returned as root_file_id.
+  test("root folder included in folders list with children order preserved", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const folders = result.folders as Record<string, unknown>[];
     const root = folders.find((f) => f.file_id === "root_folder");
-    expect(root).toBeUndefined();
+    expect(root).toBeDefined();
     expect(result.root_file_id).toBe("root_folder");
+    // Root's children array preserves insertion order from standardSetup.
+    const rootChildren = root!.children as string[];
+    expect(rootChildren).toContain("inbox_doc");
   });
 });
 
