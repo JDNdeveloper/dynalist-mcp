@@ -362,6 +362,14 @@ The API returns numeric permission levels on files:
 - Both ISO date strings (`"2026-03-12"`) and millisecond integers are accepted as
   query parameters in our MCP tools.
 
+## Root node ID
+
+In all observed API responses, the root node of every document has the literal ID
+`"root"`. `findRootNodeId` relies on this: it checks for a node with `id === "root"`
+before falling back to the traversal algorithm (first node not referenced as any other
+node's child). This avoids misidentifying orphaned nodes as the root when they happen
+to appear earlier in the `nodes` array.
+
 ## Orphaned nodes
 
 Nodes whose parent has been deleted via the raw API (single-node delete) become orphaned:

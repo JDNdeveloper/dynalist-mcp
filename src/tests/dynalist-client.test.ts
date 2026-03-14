@@ -113,4 +113,38 @@ describe("findRootNodeId", () => {
     ];
     expect(findRootNodeId(nodes)).toBe("root");
   });
+
+  test("orphan before root returns root, not orphan", () => {
+    // Orphan "zombie" is not referenced as a child by any node and appears
+    // before "root" in the array. The function must still return "root".
+    const nodes = [
+      makeNode("zombie"),
+      makeNode("root", ["a", "b"]),
+      makeNode("a"),
+      makeNode("b"),
+    ];
+    expect(findRootNodeId(nodes)).toBe("root");
+  });
+
+  test("multiple orphans plus root returns root", () => {
+    const nodes = [
+      makeNode("orphan1"),
+      makeNode("orphan2"),
+      makeNode("orphan3"),
+      makeNode("root", ["child"]),
+      makeNode("child"),
+    ];
+    expect(findRootNodeId(nodes)).toBe("root");
+  });
+
+  test("non-standard root ID falls back to traversal", () => {
+    // No node has ID "root", so the function falls back to the first node
+    // not referenced as a child.
+    const nodes = [
+      makeNode("top", ["x", "y"]),
+      makeNode("x"),
+      makeNode("y"),
+    ];
+    expect(findRootNodeId(nodes)).toBe("top");
+  });
 });
