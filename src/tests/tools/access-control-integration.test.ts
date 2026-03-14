@@ -575,14 +575,12 @@ describe("search_documents with ACL", () => {
     expect(readMatch!.access_policy).toBe("read");
   });
 
-  test("denied children IDs filtered from folder children in search results", async () => {
-    // Search for "Folder" to get folder results.
+  test("denied folders excluded from search results", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_documents", {
       query: "Folder",
       type: "folder",
     });
     const matches = result.matches as Record<string, unknown>[];
-    // The denied folder itself should be excluded.
     const deniedFolder = matches.find((m) => m.file_id === "denied_folder");
     expect(deniedFolder).toBeUndefined();
   });

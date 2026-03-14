@@ -53,7 +53,7 @@ Scope controls:
 
 Search for documents and folders by title. Filters the file tree only; does not search node content. Use search_in_document to search inside a document.
 
-Each match has a type field ('document' or 'folder'). Document matches include permission. Folder matches include children (child file IDs) instead.
+Each match has a type field ('document' or 'folder'). Document matches include permission.
 
 **Parameters:**
 
@@ -85,7 +85,6 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 | `title` | string | yes | Document or folder title |
 | `type` | `"document"`, `"folder"` | yes | Whether this is a document or folder |
 | `permission` | `"none"`, `"read"`, `"edit"`, `"manage"`, `"owner"` | no | Permission level (documents only) |
-| `children` | string[] | no | Child file IDs (folders only) |
 | `access_policy` | `"read"` | no | Access policy if restricted. Omitted when unrestricted. |
 
 **Example response:**
@@ -177,7 +176,6 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 | `query` | string | yes |  | Text to search for (case-insensitive) |
 | `search_notes` | boolean | no | true | Also search in notes |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
-| `include_children` | boolean | no | false | Include direct children of each match |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. Do NOT set true on first request. |
 
 **Example input:**
@@ -211,9 +209,7 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
 | `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
-| `collapsed` | boolean | no | Whether the node is collapsed in the UI. Omitted when not collapsed. |
 | `parents` | object[] | no | Ancestor chain. Present when parent_levels is not 'none' and ancestors exist. |
-| `children` | object[] | no | Direct children. Present when include_children is true and node has children. |
 
 **Example response:**
 ```json

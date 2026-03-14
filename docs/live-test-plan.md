@@ -251,11 +251,6 @@ To trigger a size warning, first create a document with at least 100 top-level n
 - Create a node with a keyword only in the note, not the content. Search with `search_notes: true`. Verify it is found.
 - Search the same keyword with `search_notes: false`. Verify it is NOT found.
 
-### 7c. include_children
-
-- Search with `include_children: true`. Verify matches include direct children (not grandchildren).
-- Search with `include_children: false` (default). Verify no children in matches.
-
 ## 8. File management edge cases
 
 ### 8a. create_document

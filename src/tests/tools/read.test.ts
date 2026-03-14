@@ -1379,19 +1379,6 @@ describe("search_in_document", () => {
     expect(parents[0].node_id).toBe("n1");
   });
 
-  test("include_children returns direct children", async () => {
-    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
-      file_id: "doc1",
-      query: "First item",
-      include_children: true,
-    });
-    const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1")!;
-    expect(match.children).toBeDefined();
-    const children = match.children as Record<string, unknown>[];
-    expect(children.length).toBe(2);
-  });
-
   test("query echoed back", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
@@ -1531,47 +1518,7 @@ describe("search_in_document", () => {
     expect(rootMatch!.parents).toBeUndefined();
   });
 
-  // ─── Section 5c: children inclusion ────────────────────────────────
-
-  test("include_children false (default): no children in match", async () => {
-    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
-      file_id: "doc1",
-      query: "First item",
-      include_children: false,
-    });
-    const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1")!;
-    expect(match.children).toBeUndefined();
-  });
-
-  test("include_children true on leaf node: no children field", async () => {
-    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
-      file_id: "doc1",
-      query: "Child A",
-      include_children: true,
-    });
-    const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1a")!;
-    // n1a has no children, so the children field is not set.
-    expect(match.children).toBeUndefined();
-  });
-
-  test("children are NOT recursive (only direct children)", async () => {
-    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
-      file_id: "doc1",
-      query: "Test Document",
-      include_children: true,
-    });
-    const matches = result.matches as Record<string, unknown>[];
-    const rootMatch = matches.find((m) => m.node_id === "root")!;
-    const children = rootMatch.children as Record<string, unknown>[];
-    // Root's direct children are n1, n2, n3. No grandchildren should appear.
-    for (const child of children) {
-      expect(child.children).toBeUndefined();
-    }
-  });
-
-  // ─── Section 5d: size warnings ────────────────────────────────────
+  // ─── Section 5c: size warnings ─────────────────────────────────────
 
   test("bypass_warning true on small result: rejected with preemptive usage message", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
@@ -2293,7 +2240,7 @@ describe("search_in_document size warnings", () => {
     expect(result.warning).toBeDefined();
   });
 
-  test("warning suggests narrowing query, parent_levels none, include_children false", async () => {
+  test("warning suggests narrowing query and parent_levels none", async () => {
     cfgCtx = await createTestContext(manyNodesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
@@ -2303,7 +2250,6 @@ describe("search_in_document size warnings", () => {
     const warning = result.warning as string;
     expect(warning).toContain("query");
     expect(warning).toContain("parent_levels: \"none\"");
-    expect(warning).toContain("include_children: false");
   });
 
   test("bypass_warning true on large result under max threshold succeeds", async () => {

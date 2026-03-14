@@ -50,7 +50,6 @@ Read and search tools minimize response size through selective field inclusion:
 - **Notes** are included only when non-empty.
 - **Heading** and **color** are included only when set to a non-default value (not `none`/`0`).
 - **Parent context** is only computed when `parent_levels` is not `"none"`.
-- **Children** in search results are only included when `include_children` is `true`.
 
 This sparse output reduces JSON serialization overhead and token consumption for typical documents where most nodes have no heading, color, or note.
 

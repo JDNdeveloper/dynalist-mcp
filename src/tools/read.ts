@@ -46,6 +46,10 @@ const nodeMetadataFields = {
   color: z.enum(["red", "orange", "yellow", "green", "blue", "purple"]).optional().describe(
     "Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none."
   ),
+};
+
+// Collapsed state is only relevant for tree traversal (read_document), not flat result sets.
+const collapsedField = {
   collapsed: z.boolean().optional().describe("Whether the node is collapsed in the UI. Omitted when not collapsed."),
 };
 
@@ -67,6 +71,7 @@ const outputNodeSchema: z.ZodType<{
     node_id: z.string().describe(NODE_ID_DESCRIPTION),
     content: z.string().describe("Node text content"),
     ...nodeMetadataFields,
+    ...collapsedField,
     depth_limited: z.literal(true).optional().describe(
       "Present when max_depth cut off traversal. Call read_document with this node_id to expand."
     ),
@@ -83,9 +88,6 @@ const searchMatchSchema = z.object({
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
   ),
-  children: z.array(nodeSummarySchema).optional().describe(
-    "Direct children. Present when include_children is true and node has children."
-  ),
 });
 
 // Match object for get_recent_changes results.
@@ -96,6 +98,7 @@ const changeMatchSchema = z.object({
   created: z.string().describe("Creation timestamp (ISO 8601)"),
   modified: z.string().describe("Last modified timestamp (ISO 8601)"),
   ...nodeMetadataFields,
+  ...collapsedField,
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
   ),
@@ -298,7 +301,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "Search for documents and folders by title. Filters the file tree only; does not search " +
         "node content. Use search_in_document to search inside a document.\n\n" +
         "Each match has a type field ('document' or 'folder'). Document matches include " +
-        "permission. Folder matches include children (child file IDs) instead.",
+        "permission.",
       inputSchema: {
         query: z.string().describe("Text to search for in document/folder names (case-insensitive)"),
         type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
@@ -311,7 +314,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           title: z.string().describe("Document or folder title"),
           type: z.enum(["document", "folder"]).describe("Whether this is a document or folder"),
           permission: z.enum(["none", "read", "edit", "manage", "owner"]).optional().describe("Permission level (documents only)"),
-          children: z.array(z.string()).optional().describe("Child file IDs (folders only)"),
           access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
         })).describe("Matching documents and/or folders"),
       },
@@ -340,7 +342,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             title: f.title,
             type: f.type,
             permission: f.type === "document" ? getPermissionLabel(f.permission) : undefined,
-            children: f.type === "folder" ? (f.children ?? []).filter((childId) => policies.get(childId) !== "deny") : undefined,
           };
           if (policy === "read") {
             match.access_policy = "read";
@@ -496,7 +497,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         query: z.string().describe("Text to search for (case-insensitive)"),
         search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
-        include_children: z.boolean().optional().default(false).describe("Include direct children of each match"),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
       outputSchema: {
@@ -514,14 +514,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       query,
       search_notes,
       parent_levels,
-      include_children,
       bypass_warning,
     }: {
       file_id: string;
       query: string;
       search_notes: boolean;
       parent_levels: ParentLevels;
-      include_children: boolean;
       bypass_warning: boolean;
     }) => {
       const config = getConfig();
@@ -549,7 +547,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           };
 
           // Include optional fields only when present, consistent with read_document.
-          if (node.collapsed) match.collapsed = true;
           if (node.checked !== undefined) match.checked = node.checked;
           if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
           if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
@@ -565,15 +562,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             if (parents.length > 0) {
               match.parents = parents.map(p => ({ node_id: p.id, content: p.content }));
             }
-          }
-
-          if (include_children && node.children && node.children.length > 0) {
-            match.children = node.children
-              .map(childId => {
-                const childNode = nodeMap.get(childId);
-                return childNode ? { node_id: childNode.id, content: childNode.content } : null;
-              })
-              .filter((c): c is { node_id: string; content: string } => c !== null);
           }
 
           return match;
@@ -595,7 +583,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         [
           "Use a more specific query to reduce matches",
           "Use parent_levels: \"none\" to exclude parent context",
-          "Use include_children: false to exclude children",
         ],
         config.sizeWarning.warningTokenThreshold,
         config.sizeWarning.maxTokenThreshold,
