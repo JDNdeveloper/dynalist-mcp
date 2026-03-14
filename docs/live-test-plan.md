@@ -21,7 +21,7 @@ Before any mutations, the agent MUST:
 
 ### Step 1: Create a test root and sub-roots
 
-Use `list_documents` (from step 0) to find the account root folder, then create a single **test root** folder (e.g. "Manual Test 2026-03-14"). Inside it, create one **sub-root** per test group:
+Use `list_documents` (from step 0) to find the account root folder, then create a single **test root** folder (e.g. "Manual Test 2026-03-14 (a3f)"). The name includes today's date and a short random suffix to avoid collisions across runs. Inside it, create one **sub-root** per test group:
 
 | Sub-root           | Sections            | Test document(s)                  |
 |--------------------|---------------------|-----------------------------------|
@@ -43,7 +43,7 @@ Launch one subagent per sub-root. Each subagent prompt should:
 
 All subagents run in parallel. Since each operates in its own sub-root with its own documents, there is no risk of version conflicts or cross-contamination.
 
-**Exception:** Sections 12 (check_document_versions) and 13 (get_recent_changes) read across documents. If other subagents are writing concurrently, these results may be noisy. For clean results, run the section 8/11/12/13 agent after the others complete, or accept minor noise.
+**Note:** Sections 12 (check_document_versions) and 13 (get_recent_changes) read across documents. If other subagents are writing concurrently, these results may be noisy, but this is acceptable. Run all 6 subagents in parallel to keep total execution time down.
 
 ### Step 3: Review results
 

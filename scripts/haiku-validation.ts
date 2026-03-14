@@ -29,6 +29,7 @@
  */
 
 import { spawn } from "child_process";
+import { createInterface } from "readline";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
@@ -458,7 +459,30 @@ async function runPipeline(
   return results;
 }
 
+async function confirmTestAccount(): Promise<void> {
+  console.log("\n" + "=".repeat(60));
+  console.log("  WARNING: This script mutates a live Dynalist account.");
+  console.log("  Only run against a TEST account, not your real one.");
+  console.log("=".repeat(60));
+  console.log('\nType "test-account" to confirm and proceed:\n');
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise<string>((resolve) => {
+    rl.question("> ", (ans) => {
+      rl.close();
+      resolve(ans.trim());
+    });
+  });
+
+  if (answer !== "test-account") {
+    console.error("Aborted. You must type exactly: test-account");
+    process.exit(1);
+  }
+  console.log();
+}
+
 async function main() {
+  await confirmTestAccount();
   await mkdir(OUTPUT_DIR, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
