@@ -107,7 +107,7 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 Read a document as a JSON node tree. Omit node_id for root. Provide node_id to zoom into a subtree.
 
 Two independent size controls:
-- max_depth: limits tree traversal depth (default 5, null = unlimited).
+- max_depth: limits tree traversal depth (default 3, null = unlimited).
 - include_collapsed_children: includes children of collapsed nodes (default false).
 These are orthogonal: max_depth does NOT expand collapsed nodes; include_collapsed_children does NOT bypass the depth limit.
 
@@ -121,7 +121,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
 | `node_id` | string | no |  | Starting node. Omit for document root. |
-| `max_depth` | number \| null | no |  | Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. Default: 5. |
+| `max_depth` | number \| null | no |  | Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. Default: 3. |
 | `include_collapsed_children` | boolean | no |  | Include collapsed nodes' children. Default false: collapsed nodes show children_count but empty children. |
 | `include_notes` | boolean | no |  | Include node notes. Default: true. |
 | `include_checked` | boolean | no |  | Include checked/completed nodes. Default: true. |

@@ -36,7 +36,7 @@ export async function createTestContext(
   // Inject a default config to isolate tests from the developer's
   // real config file. Tests can pass overrides via the config parameter.
   setTestConfig({
-    readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+    readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
     sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
     readOnly: false,
     cache: { ttlSeconds: 300 },

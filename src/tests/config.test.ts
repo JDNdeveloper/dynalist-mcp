@@ -59,7 +59,7 @@ describe("config loading", () => {
   test("missing file returns defaults", () => {
     // Config file does not exist.
     const config = getConfig();
-    expect(config.readDefaults.maxDepth).toBe(5);
+    expect(config.readDefaults.maxDepth).toBe(3);
     expect(config.readDefaults.includeCollapsedChildren).toBe(false);
     expect(config.readDefaults.includeNotes).toBe(true);
     expect(config.readDefaults.includeChecked).toBe(true);
@@ -75,7 +75,7 @@ describe("config loading", () => {
     const config = getConfig();
     expect(config.readOnly).toBe(true);
     // Other fields should be defaults.
-    expect(config.readDefaults.maxDepth).toBe(5);
+    expect(config.readDefaults.maxDepth).toBe(3);
     expect(config.logLevel).toBe("warn");
   });
 
@@ -135,10 +135,10 @@ describe("config read defaults", () => {
     delete process.env.DYNALIST_MCP_CONFIG;
   });
 
-  test("default maxDepth is 5 when readDefaults not specified", () => {
+  test("default maxDepth is 3 when readDefaults not specified", () => {
     writeTestConfig({});
     const config = getConfig();
-    expect(config.readDefaults.maxDepth).toBe(5);
+    expect(config.readDefaults.maxDepth).toBe(3);
   });
 
   test("custom readDefaults.maxDepth overrides the default", () => {
@@ -469,7 +469,7 @@ describe("config reload behavior", () => {
     unlinkSync(TEST_CONFIG_PATH);
     const config2 = getConfig();
     expect(config2.readOnly).toBe(false);
-    expect(config2.readDefaults.maxDepth).toBe(5);
+    expect(config2.readDefaults.maxDepth).toBe(3);
   });
 
   test("file modified causes new config to be loaded", () => {
@@ -548,7 +548,7 @@ describe("config reloading between tool invocations", () => {
 
     // Switch to readOnly: true via setTestConfig.
     setTestConfig({
-      readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+      readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
       sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
 
       readOnly: true,
@@ -615,7 +615,7 @@ describe("config reloading between tool invocations", () => {
 
     // Lower thresholds so the same read triggers a warning.
     setTestConfig({
-      readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+      readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
       sizeWarning: { warningTokenThreshold: 1, maxTokenThreshold: 24500 },
 
       readOnly: false,

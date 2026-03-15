@@ -33,7 +33,7 @@ Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_
     ]
   },
   "readDefaults": {
-    "maxDepth": 5,
+    "maxDepth": 3,
     "includeCollapsedChildren": false,
     "includeNotes": true,
     "includeChecked": true
@@ -57,7 +57,7 @@ Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_
 | --- | --- | --- | --- |
 | `access.default` | `"allow"`, `"read"`, `"deny"` | `"allow"` | Default policy for files not matched by any rule |
 | `access.rules` | object[] | `[]` | Access control rules (see [Access control](access-control.md)) |
-| `readDefaults.maxDepth` | number \| null | `5` | Default max depth for `read_document`. `null` = unlimited |
+| `readDefaults.maxDepth` | number \| null | `3` | Default max depth for `read_document`. `null` = unlimited |
 | `readDefaults.includeCollapsedChildren` | boolean | `false` | Default for including collapsed nodes' children |
 | `readDefaults.includeNotes` | boolean | `true` | Default for including node notes in responses |
 | `readDefaults.includeChecked` | boolean | `true` | Default for including checked/completed nodes |

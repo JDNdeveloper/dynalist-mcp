@@ -358,7 +358,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "Read a document as a JSON node tree. Omit node_id for root. Provide node_id to zoom " +
         "into a subtree.\n\n" +
         "Two independent size controls:\n" +
-        "- max_depth: limits tree traversal depth (default 5, null = unlimited).\n" +
+        "- max_depth: limits tree traversal depth (default 3, null = unlimited).\n" +
         "- include_collapsed_children: includes children of collapsed nodes (default false).\n" +
         "These are orthogonal: max_depth does NOT expand collapsed nodes; " +
         "include_collapsed_children does NOT bypass the depth limit.\n\n" +
@@ -371,7 +371,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           "Starting node. Omit for document root."
         ),
         max_depth: z.number().nullable().optional().describe(
-          "Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. Default: 5."
+          "Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. Default: 3."
         ),
         include_collapsed_children: z.boolean().optional().describe(
           "Include collapsed nodes' children. Default false: collapsed nodes show " +

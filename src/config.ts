@@ -34,7 +34,7 @@ const AccessSchema = z.object({
 });
 
 const ReadDefaultsSchema = z.object({
-  maxDepth: z.number().nullable().default(5)
+  maxDepth: z.number().nullable().default(3)
     .describe("Default max depth for `read_document`. `null` = unlimited"),
   includeCollapsedChildren: z.boolean().default(false)
     .describe("Default for including collapsed nodes' children"),

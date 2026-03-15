@@ -55,7 +55,7 @@ Non-text metadata properties:
 - **Expanding collapsed sections**: If a node has collapsed: true and children_count > 0 but empty children:
   - Pass the node's node_id to read_document (the starting node always expands), or
   - Re-request with include_collapsed_children: true.
-- **Drilling into depth-limited nodes**: If a node has depth_limited: true, call read_document with that node's node_id to zoom into the subtree.
+- **Drilling into depth-limited nodes**: The default max_depth is intentionally low. Drilling into depth-limited nodes is the primary pattern for exploring documents. If a node has depth_limited: true, call read_document with that node's node_id to zoom into the subtree.
 - **File vs node management**:
   - File tools (create_document, move_document, etc.) operate on the file tree.
   - Node tools (insert_nodes, edit_nodes, etc.) operate within a document.

@@ -727,7 +727,7 @@ describe("read_document", () => {
   });
 
   test("max_depth: null bypasses config default on deep trees", async () => {
-    // Build a tree deeper than the config default (5) to verify that
+    // Build a tree deeper than the config default (3) to verify that
     // null actually means unlimited rather than falling through to the default.
     const doc = ctx.server.documents.get("doc1")!;
     let parentId = "n1a";
@@ -1993,7 +1993,7 @@ describe("read_document config defaults: max_depth", () => {
     await cfgCtx.cleanup();
   });
 
-  test("default max_depth (omitted) uses config default of 5", async () => {
+  test("default max_depth (omitted) uses config default of 3", async () => {
     // Build a document with nodes at depth 0 through 6.
     function deepSetup(server: DummyDynalistServer): void {
       const nodes = [server.makeNode("root", "Deep Doc", ["d1"])];
@@ -2009,22 +2009,22 @@ describe("read_document config defaults: max_depth", () => {
       server.addDocument("deep_doc", "Deep Doc", "root_folder", nodes);
     }
 
-    // No custom config means default readDefaults.maxDepth = 5.
+    // No custom config means default readDefaults.maxDepth = 3.
     cfgCtx = await createTestContext(deepSetup);
 
     const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
       file_id: "deep_doc",
     });
 
-    // Walk down the tree to depth 5. Node at depth 5 with children
+    // Walk down the tree to depth 3. Node at depth 3 with children
     // should be depth_limited.
     let node = result.node as Record<string, unknown>;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       const children = node.children as Record<string, unknown>[];
       expect(children.length).toBeGreaterThan(0);
       node = children[0];
     }
-    // At depth 5, the node should have its children omitted.
+    // At depth 3, the node should have its children omitted.
     expect(node.children).toEqual([]);
     expect(node.depth_limited).toBe(true);
   });
