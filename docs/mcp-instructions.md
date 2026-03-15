@@ -132,4 +132,4 @@ Example:
 ## Confirmation and verification
 
 - **IMPORTANT:** Before ANY mutation, ALWAYS preview the intended changes and stop. Wait for the user to explicitly confirm before calling the mutating tool. NEVER preview and mutate in the same response.
-- After a mutation, read back the affected area to verify. Report any discrepancies to the user.
+- After a mutation, **ALWAYS** read back the affected area to verify. Report any discrepancies to the user.
