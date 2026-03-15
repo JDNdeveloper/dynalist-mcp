@@ -54,9 +54,6 @@ function checkGlobalWriteBlock(
 }
 
 export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: send_to_inbox
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "send_to_inbox",
     {
@@ -119,9 +116,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: edit_nodes
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "edit_nodes",
     {
@@ -238,10 +232,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       return makeResponse(data);
     })
   );
-
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: insert_nodes
-  // ═════════════════════════════════════════════════════════════════════
 
   // Recursive Zod schema for JSON input nodes.
   const jsonInputNodeSchema: z.ZodType<{

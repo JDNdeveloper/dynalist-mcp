@@ -138,14 +138,13 @@ Changing a tool's input/output schema, description, or parameter descriptions ca
 
 When adding a **new** tool, also:
 
-7. **`// TOOL: <name>` marker**: add a `// TOOL: <tool_name>` comment immediately before the `server.registerTool()` call. The doc generator (`scripts/generate-docs.ts`) parses these markers to map tools to Dynalist API endpoints for `docs/api-coverage.md`.
-8. **Tool count in `README.md`**: update the "**N tools**" count in the Features section.
+7. **Tool count in `README.md`**: update the "**N tools**" count in the Features section.
 
 If the new tool goes in a **new category file** (i.e., a new `src/tools/*.ts` register function rather than adding to an existing one), also:
 
-9. **Tool aggregator** (`src/tools/index.ts`): import and call the new register function.
-10. **Test helpers** (`src/tests/tools/test-helpers.ts`): import and call the new register function so tests discover the tool.
-11. **Doc generator** (`scripts/generate-docs.ts`): import the new register function and add a `captureGroup()` call.
+8. **Tool aggregator** (`src/tools/index.ts`): import and call the new register function.
+9. **Test helpers** (`src/tests/tools/test-helpers.ts`): import and call the new register function so tests discover the tool.
+10. **Doc generator** (`scripts/generate-docs.ts`): import the new register function and add a `captureGroup()` call.
 
 ## When adding a new source file
 

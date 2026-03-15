@@ -6,6 +6,7 @@
 import type { ZodTypeAny } from "zod";
 import { readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import ts from "typescript";
 import { INSTRUCTIONS } from "../src/instructions";
 
 // ─── Zod internal type helpers ──────────────────────────────────────
@@ -682,31 +683,35 @@ function generateConfigurationMarkdown(): string {
 
 import { API_ENDPOINTS, UNSUPPORTED_ENDPOINTS } from "../src/dynalist-client";
 
-// Patterns that map source code identifiers to DynalistClient method names.
-// Used to determine which API endpoint each tool calls.
-const CLIENT_CALL_PATTERNS: Record<string, string> = {
-  "client.listFiles": "listFiles",
-  "client.editFiles": "editFiles",
-  "client.editDocument": "editDocument",
-  "client.sendToInbox": "sendToInbox",
-  "client.checkForUpdates": "checkForUpdates",
+// Maps qualified call identifiers to API_ENDPOINTS keys for calls that don't
+// directly match. Most client methods match directly (e.g. "client.listFiles"
+// yields endpoint key "listFiles"). These are the exceptions.
+const CALL_TO_ENDPOINT: Record<string, string> = {
   // store.read() wraps client.readDocument().
   "store.read": "readDocument",
   // insertTreeUnderParent() wraps client.editDocument().
   "insertTreeUnderParent": "editDocument",
 };
 
+// Free function names to detect (keys from CALL_TO_ENDPOINT that aren't
+// qualified with a dot).
+const TRACKED_FREE_FUNCTIONS = new Set(
+  Object.keys(CALL_TO_ENDPOINT).filter(k => !k.includes(".")),
+);
+
 /**
- * Parse tool source files to determine which API endpoint each tool primarily
- * uses. Splits files by the `// TOOL: <name>` comment markers and greps each
- * section for client method call patterns.
+ * Parse tool source files with the TypeScript compiler API to determine which
+ * API endpoint each tool primarily uses. Finds server.registerTool() calls to
+ * identify tool boundaries, then walks each tool's AST section for client/store
+ * method calls.
  */
 function parseToolEndpoints(): Map<string, string> {
-  // Validate that all CLIENT_CALL_PATTERNS method names exist in API_ENDPOINTS.
   const knownMethods = new Set(Object.keys(API_ENDPOINTS));
-  for (const [pattern, method] of Object.entries(CLIENT_CALL_PATTERNS)) {
-    if (!knownMethods.has(method)) {
-      throw new Error(`CLIENT_CALL_PATTERNS maps '${pattern}' to '${method}' which is not in API_ENDPOINTS.`);
+
+  // Validate overrides point to real API endpoints.
+  for (const [from, to] of Object.entries(CALL_TO_ENDPOINT)) {
+    if (!knownMethods.has(to)) {
+      throw new Error(`CALL_TO_ENDPOINT maps '${from}' to '${to}' which is not in API_ENDPOINTS.`);
     }
   }
 
@@ -718,31 +723,99 @@ function parseToolEndpoints(): Map<string, string> {
   const toolEndpoints = new Map<string, string>();
 
   for (const relPath of toolFiles) {
-    const source = readFileSync(join(srcDir, relPath), "utf-8");
-    // Split on TOOL marker comments.
-    const sections = source.split(/\/\/\s*TOOL:\s*/);
+    const filePath = join(srcDir, relPath);
+    const source = readFileSync(filePath, "utf-8");
+    const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
 
-    for (let i = 1; i < sections.length; i++) {
-      const section = sections[i];
-      const toolName = section.match(/^(\w+)/)?.[1];
-      if (!toolName) continue;
+    // Find all server.registerTool("name", ...) calls and their positions.
+    const toolRegistrations: Array<{ name: string; pos: number }> = [];
+    findRegisterToolCalls(sourceFile, toolRegistrations);
 
-      // Find the primary client method called in this section.
-      for (const [pattern, method] of Object.entries(CLIENT_CALL_PATTERNS)) {
-        if (section.includes(pattern)) {
-          // Use the first match as the primary endpoint. Write/mutate methods
-          // take priority over read methods (e.g. move_document calls both
-          // listFiles for validation and editFiles for the actual move).
-          const existing = toolEndpoints.get(toolName);
-          if (!existing || isWriteMethod(method)) {
-            toolEndpoints.set(toolName, method);
-          }
+    // For each tool section (from one registerTool to the next, or end of file),
+    // find client/store method calls.
+    for (let i = 0; i < toolRegistrations.length; i++) {
+      const { name: toolName, pos: startPos } = toolRegistrations[i];
+      const endPos = i + 1 < toolRegistrations.length ? toolRegistrations[i + 1].pos : source.length;
+
+      const callIds = findCallIdentifiers(sourceFile, startPos, endPos);
+
+      for (const callId of callIds) {
+        // Resolve to an API endpoint key. For "client.listFiles", strip the
+        // "client." prefix to get "listFiles". For overrides like "store.read",
+        // use the CALL_TO_ENDPOINT mapping.
+        const endpointKey = CALL_TO_ENDPOINT[callId] ?? callId.replace(/^client\./, "");
+        if (!knownMethods.has(endpointKey)) continue;
+
+        // Write methods take priority over read methods (e.g. move_document
+        // calls both listFiles for validation and editFiles for the move).
+        const existing = toolEndpoints.get(toolName);
+        if (!existing || isWriteMethod(endpointKey)) {
+          toolEndpoints.set(toolName, endpointKey);
         }
       }
     }
   }
 
   return toolEndpoints;
+}
+
+/**
+ * Walk the AST to find all server.registerTool("name", ...) call expressions.
+ * Extracts the tool name from the first string literal argument.
+ */
+function findRegisterToolCalls(
+  node: ts.Node,
+  results: Array<{ name: string; pos: number }>,
+): void {
+  if (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    node.expression.name.text === "registerTool" &&
+    node.arguments.length >= 1 &&
+    ts.isStringLiteral(node.arguments[0])
+  ) {
+    results.push({
+      name: node.arguments[0].text,
+      pos: node.getStart(),
+    });
+  }
+  ts.forEachChild(node, child => findRegisterToolCalls(child, results));
+}
+
+/**
+ * Walk the AST within a positional range to find client.X(), store.X(), and
+ * tracked free function calls. Returns qualified identifiers: "client.listFiles",
+ * "store.read", "insertTreeUnderParent", etc.
+ */
+function findCallIdentifiers(
+  node: ts.Node,
+  startPos: number,
+  endPos: number,
+): Set<string> {
+  const calls = new Set<string>();
+
+  function visit(n: ts.Node): void {
+    // Skip nodes entirely outside the range.
+    if (n.getEnd() < startPos || n.getStart() >= endPos) return;
+
+    if (ts.isCallExpression(n)) {
+      const callee = n.expression;
+
+      if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression)) {
+        const obj = callee.expression.text;
+        if (obj === "client" || obj === "store") {
+          calls.add(`${obj}.${callee.name.text}`);
+        }
+      } else if (ts.isIdentifier(callee) && TRACKED_FREE_FUNCTIONS.has(callee.text)) {
+        calls.add(callee.text);
+      }
+    }
+
+    ts.forEachChild(n, visit);
+  }
+
+  visit(node);
+  return calls;
 }
 
 function isWriteMethod(method: string): boolean {
@@ -757,7 +830,7 @@ function generateApiCoverageMarkdown(): string {
     if (!toolEndpoints.has(tool.name)) {
       throw new Error(
         `Tool '${tool.name}' has no detected API endpoint. ` +
-        `Update CLIENT_CALL_PATTERNS in generate-docs.ts or add a TOOL marker comment.`
+        `Ensure the tool's handler calls a client or store method, or add an entry to CALL_TO_ENDPOINT.`
       );
     }
   }

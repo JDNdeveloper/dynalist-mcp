@@ -21,9 +21,6 @@ import {
 } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: delete_nodes
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "delete_nodes",
     {
@@ -223,9 +220,6 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: move_nodes
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "move_nodes",
     {

@@ -146,9 +146,6 @@ const fileTreeFolderSchema: z.ZodType<{
 const fileTreeEntrySchema = z.union([fileTreeDocumentSchema, fileTreeFolderSchema]);
 
 export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: list_documents
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "list_documents",
     {
@@ -291,9 +288,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: search_documents
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "search_documents",
     {
@@ -357,9 +351,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: read_document
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "read_document",
     {
@@ -483,9 +474,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: search_in_document
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "search_in_document",
     {
@@ -601,9 +589,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: get_recent_changes
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "get_recent_changes",
     {
@@ -761,9 +746,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: check_document_versions
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "check_document_versions",
     {

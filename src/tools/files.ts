@@ -21,9 +21,6 @@ import {
 } from "./descriptions";
 
 export function registerFileTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: create_document
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "create_document",
     {
@@ -84,9 +81,6 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: create_folder
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "create_folder",
     {
@@ -146,9 +140,6 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: rename_document
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "rename_document",
     {
@@ -193,9 +184,6 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: rename_folder
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "rename_folder",
     {
@@ -240,9 +228,6 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: move_document
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "move_document",
     {
@@ -312,9 +297,6 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     })
   );
 
-  // ═════════════════════════════════════════════════════════════════════
-  // TOOL: move_folder
-  // ═════════════════════════════════════════════════════════════════════
   server.registerTool(
     "move_folder",
     {
