@@ -75,12 +75,6 @@ Two non-text metadata properties:
 - **Heading level**: 'none', 'h1', 'h2', 'h3'. Omitted from output when 'none'.
 - **Color label**: 'none', 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted from output when 'none'.
 
-## Size warnings
-
-Read and search tools may return a size warning instead of content. This is not an error. \
-Retry with bypass_warning: true to get actual content. Never set bypass_warning on the \
-first request.
-
 ## Compositional patterns
 
 - Parent chain / hierarchy: no ancestors tool. Use search_in_document with the node's text \
@@ -93,24 +87,14 @@ empty children, pass the node's node_id to read_document (the starting node alwa
 or re-request with include_collapsed_children: true.
 - Drilling into depth-limited nodes: if a node has depth_limited: true, call read_document \
 with that node's node_id to zoom into the subtree.
-- File organization: list_documents returns a recursive file tree. Use folder_id to scope \
-to a subfolder, max_depth to limit nesting. Use create_*, move_*, rename_* tools to organize.
 - File vs node management: file tools (create_document, move_document, etc.) operate on \
 the file tree. Node tools (insert_nodes, edit_nodes, etc.) operate within a document. \
 Do not confuse file IDs with node IDs.
 
-## Partial inserts
-
-Large tree inserts are batched by depth level. If a batch fails mid-way, some nodes \
-may have been created but not all. The error response includes inserted_count, total_count, \
-and first_node_id so you can inspect or clean up partial results.
-
 ## API limitations
 
-- Cross-document moves: use the Dynalist web or mobile client to preserve smart links. \
-Do not attempt a read-insert-delete workaround.
-- Collapsed state: the API cannot change a node's collapsed state. The edit action silently \
-ignores the collapsed field.
+- Cross-document moves: tell the user to use the Dynalist web or mobile client to preserve \
+smart links. Do not attempt a read-insert-delete workaround.
 - Document and folder deletion: the API does not support deleting documents or folders. \
 Use the Dynalist web or mobile UI.
 
@@ -148,7 +132,7 @@ Siblings must share the same indent. Example:
 \u2022 Scratch Pad
 \`\`\`
 
-For mutation previews/confirmations, use diff-style in a fenced code block. Prefix each line \
+For mutation previews/confirmations, use diff-style. Prefix each line \
 with \`+\` for additions, \`-\` for deletions, or a space for unchanged context. The prefix \
 is a fixed 2-char column preceding the node's tree indentation. Do not let the prefix alter \
 node indentation. Show edits as a \`-\`/\`+\` pair. Include only enough context to show where \
@@ -175,7 +159,7 @@ verify before further edits.
 
 ## Confirmation and verification
 
-Before any mutation, describe intended changes and wait for user confirmation.
+Before any mutation, preview the intended changes and wait for user confirmation.
 
 After a mutation, read back the affected area to verify. Report any discrepancies to the user.
 `;
