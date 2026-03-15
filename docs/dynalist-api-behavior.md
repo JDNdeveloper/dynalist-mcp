@@ -163,7 +163,7 @@ Supported fields: `content`, `note`, `checked`, `checkbox`, `heading` (1-3), `co
 - Moving the root node: API returns a non-JSON response or `LockFail`, and the
   entire account becomes permanently locked (all subsequent API calls across all
   documents return `LockFail`). Verified (2026-03-13) against the live API. Our
-  tool validates and rejects this.
+  tool validates and rejects this. See [forum discussion](https://talk.dynalist.io/t/api-move-action-on-root-node-breaks-account/10074).
 - **Cross-document moves are not supported.** Node IDs are scoped to their document,
   not global. Verified (2026-03-13) against the live API with two approaches:
   - Source-anchored (`file_id` = source doc, `parent_id` = root of dest doc): API

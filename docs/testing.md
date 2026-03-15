@@ -26,7 +26,7 @@ The behavioral rules the dummy server implements were discovered through exhaust
 
 1. **Orphaned children on delete.** The API's `action: "delete"` only removes the specified node. Children become orphaned: present in the `nodes` array but unreachable from the tree. The web UI does not have this problem because it uses a separate diff-based sync protocol that recursively removes all descendants. See the [Dynalist forum report](https://talk.dynalist.io/t/api-node-deletion-orphans-the-child-nodes/10071).
 
-2. **Account corruption on root move.** Moving the root node via the API corrupts the entire account. The API does not reject the request; instead, all subsequent API calls across all documents return `LockFail`. The `move_nodes` tool now validates and rejects root-node moves on the client side.
+2. **Account corruption on root move.** Moving the root node via the API corrupts the entire account. The API does not reject the request; instead, all subsequent API calls across all documents return `LockFail`. The `move_nodes` tool now validates and rejects root-node moves on the client side. See the [Dynalist forum report](https://talk.dynalist.io/t/api-move-action-on-root-node-breaks-account/10074).
 
 ## Test architecture
 
