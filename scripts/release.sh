@@ -23,6 +23,14 @@ fi
 # Build the bundle (includes typecheck + tests + clean dist/).
 bun run bundle
 
+# Ensure bundle/check did not introduce uncommitted changes.
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "error: working tree became dirty during bundle/check" >&2
+  echo "error: commit generated changes before running release" >&2
+  git status --short >&2
+  exit 1
+fi
+
 # Find the .mcpb file produced by mcpb pack.
 # dist/ is cleaned at the start of bundle, so there is exactly one .mcpb file.
 mcpb_files=(dist/*.mcpb)
