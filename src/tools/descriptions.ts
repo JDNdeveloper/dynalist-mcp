@@ -10,8 +10,8 @@
 
 // Guidance strings (shared policy wording, reused across descriptions and MCP instructions).
 export const CONFIRM_GUIDANCE =
-  "Preview intended changes and wait for explicit user confirmation before calling this tool. " +
-  "Do NOT call this tool in the same response as the preview.";
+  "ALWAYS preview intended changes and wait for explicit user confirmation before calling this tool. " +
+  "NEVER call this tool in the same response as the preview.";
 export const SHOW_CHECKBOX_GUIDANCE =
   "Controls whether a checkbox is rendered in the UI. Does not affect " +
   "checked state. Only set if siblings use checkboxes or the user asked.";
