@@ -125,7 +125,7 @@ Do not duplicate guidance across levels. If something is tool-specific, put it i
 - **Config reloading**: config file is checked for mtime changes on every tool invocation (stat only, no read unless changed). Invalid config fails closed.
 - **Cache invalidation**: file tree cache is invalidated after create/rename/move operations and on denial retries.
 
-## When a tool schema changes
+## When tools change
 
 Changing a tool's input/output schema, description, or parameter descriptions can affect multiple files. After any such change:
 
@@ -135,6 +135,21 @@ Changing a tool's input/output schema, description, or parameter descriptions ca
 4. **Shared descriptions** (`src/tools/descriptions.ts`): update if the change affects a `*_GUIDANCE` or `*_DESCRIPTION` constant shared across tools.
 5. **Hand-maintained docs** (see list below): update any doc whose scope covers the changed behavior (e.g. `docs/agent-ux.md` for rendering changes, `docs/concurrency.md` for version guard changes).
 6. **Tests** (`src/tests/tools/`): add or update tests covering the new behavior.
+
+When adding a **new** tool, also:
+
+7. **`// TOOL: <name>` marker**: add a `// TOOL: <tool_name>` comment immediately before the `server.registerTool()` call. The doc generator (`scripts/generate-docs.ts`) parses these markers to map tools to Dynalist API endpoints for `docs/api-coverage.md`.
+8. **Tool count in `README.md`**: update the "**N tools**" count in the Features section.
+
+If the new tool goes in a **new category file** (i.e., a new `src/tools/*.ts` register function rather than adding to an existing one), also:
+
+9. **Tool aggregator** (`src/tools/index.ts`): import and call the new register function.
+10. **Test helpers** (`src/tests/tools/test-helpers.ts`): import and call the new register function so tests discover the tool.
+11. **Doc generator** (`scripts/generate-docs.ts`): import the new register function and add a `captureGroup()` call.
+
+## When adding a new source file
+
+Update the project structure trees in both `AGENTS.md` and `README.md`. Both trees list only files of note, not every file. Add the new file if it represents a distinct responsibility worth calling out (not every helper or one-off script needs an entry). The `README.md` tree is a subset of the `AGENTS.md` tree and omits `scripts/`.
 
 ## Documentation
 
