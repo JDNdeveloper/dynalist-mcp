@@ -16,29 +16,42 @@ These rendering rules apply uniformly: read results, summaries, and mutation con
 
 The instructions specify `•` (U+2022, unicode bullet) as the bullet character and explicitly forbid `-`, `*`, and `+`. This is a deliberate choice driven by weak-model compatibility testing with Haiku.
 
-When the instructions used `-` (markdown dash) as the bullet character, Haiku consistently broke the specified formatting and fell back to its pre-trained markdown habits. The `-` character triggers strong associations with standard markdown list syntax, causing the model to ignore the custom indentation and rendering rules defined in the instructions. Typical failures included:
+When the instructions used `-` (markdown dash) as the bullet character, Haiku consistently broke the specified formatting and fell back to its pre-trained markdown habits. The `-` character triggers strong associations with standard markdown list syntax, causing the model to ignore the custom indentation rules defined in the instructions. Typical failures included:
 
 ```
 - Work/
-  - Projects/
-
-    - Q1 Roadmap
-
-    - Meeting Notes
-
+    - Projects/
+        - Q1 Roadmap
+      - Meeting Notes
+      - Design Docs
   - Archive/
+      - 2024/
+          - January
+        - February
+        - March
+      - 2023/
+          - December
+        - November
 ```
 
-Haiku would insert extra blank lines between items, use inconsistent indentation depths, and sometimes switch between `-` and `*` within the same output. The model treated the content as a standard markdown list rather than following the precise 2-space indentation rule.
+Haiku would double-indent the first child of a parent (4 spaces instead of 2), while rendering subsequent siblings at the correct depth. This produced a jagged, inconsistent tree where every first child appeared one level too deep. The pattern was consistent and reproducible across runs.
 
-Switching to `•` broke this pre-training association. Because `•` has no built-in connection to markdown list formatting, Haiku treated the rendering instructions as novel rules to follow rather than a cue to activate existing markdown behavior. With `•`, Haiku reliably produced the correct output:
+Switching to `•` broke this pre-training association. Because `•` has no built-in connection to markdown list formatting, Haiku treated the rendering instructions as novel rules to follow rather than a cue to activate existing markdown behavior. The same content rendered correctly:
 
 ```
 • Work/
   • Projects/
     • Q1 Roadmap
     • Meeting Notes
+    • Design Docs
   • Archive/
+    • 2024/
+      • January
+      • February
+      • March
+    • 2023/
+      • December
+      • November
 ```
 
 The lesson generalizes: when instructing models to produce structured text output, avoid tokens that overlap with common markup syntax. Using a character outside the model's pre-trained formatting vocabulary gives the instructions authority over ingrained habits.
