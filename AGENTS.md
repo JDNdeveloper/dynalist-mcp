@@ -26,7 +26,7 @@ bun run check        # Typecheck + lint + tests + generate docs
 1. `bun run typecheck` (tsc --noEmit).
 2. `bun run lint` (ESLint).
 3. `bun test` (full test suite against dummy server).
-4. `bun run generate-docs` (regenerate docs/tools.md, docs/configuration.md, docs/api-coverage.md from source schemas).
+4. `bun run generate-docs` (regenerate docs/tools.md, docs/configuration.md, docs/api-coverage.md, docs/mcp-instructions.md from source).
 
 If any step fails, do not commit. Fix the issue first.
 
@@ -57,7 +57,8 @@ Only files of note are listed. Use the filesystem for a complete listing.
 
 ```
 src/
-├── index.ts                      # Entry point, server identity, MCP instructions
+├── index.ts                      # Entry point, server identity
+├── instructions.ts               # MCP instructions prompt (shared with doc generator)
 ├── config.ts                     # Zod-validated config with mtime-based reloading
 ├── access-control.ts             # Path-based ACL (deny/read/allow policies)
 ├── document-store.ts             # LRU-cached document reader with version checks
@@ -78,7 +79,7 @@ src/
     └── tools/                    # Tool integration tests against dummy server
 scripts/
 ├── bundle.sh                     # Build the .mcpb distribution artifact
-├── generate-docs.ts              # Generate docs/tools.md, configuration.md, api-coverage.md from source
+├── generate-docs.ts              # Generate docs/tools.md, configuration.md, api-coverage.md, mcp-instructions.md
 ├── generate-manifest.ts          # Generate dist/manifest.json from package.json
 ├── haiku-validation.ts           # Weak-model instruction validation harness
 └── release.sh                    # Tag, release, and upload .mcpb to GitHub
@@ -89,7 +90,7 @@ scripts/
 
 There are three places text reaches the agent, each with a different role:
 
-- **MCP instructions** (`src/index.ts`): cross-tool workflow patterns, system-level concepts, and general rules of engagement. Example: "Read a document before writing to obtain the version." Do not repeat per-tool details here.
+- **MCP instructions** (`src/instructions.ts`): cross-tool workflow patterns, system-level concepts, and general rules of engagement. Example: "Read a document before writing to obtain the version." Do not repeat per-tool details here.
 - **Tool description** (the `description` field on each tool): what the tool does and when to use it. Example: "Edit one or more nodes in a document."
 - **Parameter descriptions** (Zod `.describe()` strings): what a single parameter means, where to get the value, and what happens on invalid input. Example: "Document version from your most recent read_document response."
 
@@ -129,8 +130,8 @@ Do not duplicate guidance across levels. If something is tool-specific, put it i
 Changing a tool's input/output schema, description, or parameter descriptions can affect multiple files. After any such change:
 
 1. **Source file** (`src/tools/*.ts`): the primary edit.
-2. **Generated docs**: run `bun run generate-docs` (or `bun run check`). This regenerates `docs/tools.md`, `docs/configuration.md`, and `docs/api-coverage.md` from the source schemas.
-3. **MCP instructions** (`src/index.ts`): update if the change affects cross-tool workflow patterns, compositional patterns, or system-level concepts referenced in the `INSTRUCTIONS` constant.
+2. **Generated docs**: run `bun run generate-docs` (or `bun run check`). This regenerates `docs/tools.md`, `docs/configuration.md`, `docs/api-coverage.md`, and `docs/mcp-instructions.md` from source.
+3. **MCP instructions** (`src/instructions.ts`): update if the change affects cross-tool workflow patterns, compositional patterns, or system-level concepts referenced in the `INSTRUCTIONS` constant.
 4. **Shared descriptions** (`src/tools/descriptions.ts`): update if the change affects a `*_GUIDANCE` or `*_DESCRIPTION` constant shared across tools.
 5. **Hand-maintained docs** (see list below): update any doc whose scope covers the changed behavior (e.g. `docs/agent-ux.md` for rendering changes, `docs/concurrency.md` for version guard changes).
 6. **Tests** (`src/tests/tools/`): add or update tests covering the new behavior.
@@ -145,6 +146,7 @@ The following docs must be kept up to date when the corresponding features chang
 - `docs/access-control.md`: ACL rules, glob syntax, specificity, ID anchoring, examples. Update when access control behavior changes.
 - `docs/client-setup.md`: Claude Desktop, Claude Code, and general MCP client setup. Update when supported clients or connection instructions change.
 - `docs/api-coverage.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
+- `docs/mcp-instructions.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
 - `docs/agent-ux.md`: How MCP instructions shape agent rendering, confirmations, size management, and composability. Update when instruction text or description constants change.
 - `docs/concurrency.md`: Version guards, position resolution, deletion ordering, cache invalidation, race testing. Update when write-path concurrency logic changes.
 - `docs/performance.md`: Document cache, file tree cache, config reloading, batching, node maps. Update when caching or performance-related logic changes.

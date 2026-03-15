@@ -12,6 +12,37 @@ Dynalist content is a tree of nested bullet points. Left to their own defaults, 
 
 These rendering rules apply uniformly: read results, summaries, and mutation confirmations all use the same format, so the user sees a consistent visual language throughout the conversation.
 
+### Bullet character choice
+
+The instructions specify `•` (U+2022, unicode bullet) as the bullet character and explicitly forbid `-`, `*`, and `+`. This is a deliberate choice driven by weak-model compatibility testing with Haiku.
+
+When the instructions used `-` (markdown dash) as the bullet character, Haiku consistently broke the specified formatting and fell back to its pre-trained markdown habits. The `-` character triggers strong associations with standard markdown list syntax, causing the model to ignore the custom indentation and rendering rules defined in the instructions. Typical failures included:
+
+```
+- Work/
+  - Projects/
+
+    - Q1 Roadmap
+
+    - Meeting Notes
+
+  - Archive/
+```
+
+Haiku would insert extra blank lines between items, use inconsistent indentation depths, and sometimes switch between `-` and `*` within the same output. The model treated the content as a standard markdown list rather than following the precise 2-space indentation rule.
+
+Switching to `•` broke this pre-training association. Because `•` has no built-in connection to markdown list formatting, Haiku treated the rendering instructions as novel rules to follow rather than a cue to activate existing markdown behavior. With `•`, Haiku reliably produced the correct output:
+
+```
+• Work/
+  • Projects/
+    • Q1 Roadmap
+    • Meeting Notes
+  • Archive/
+```
+
+The lesson generalizes: when instructing models to produce structured text output, avoid tokens that overlap with common markup syntax. Using a character outside the model's pre-trained formatting vocabulary gives the instructions authority over ingrained habits.
+
 ## Confirmation and verification
 
 Every mutation tool shares a confirmation directive telling the agent to present a diff preview and wait for user approval before executing a write. The instructions further require the agent to read back the affected area after a mutation and report any discrepancies. Together, these create a confirm-then-verify loop for all writes.
@@ -57,7 +88,7 @@ The text that reaches agents is factored into three levels to avoid duplication 
 
 | Level | Location | Role | Example |
 |---|---|---|---|
-| MCP instructions | `index.ts` | Cross-tool workflow patterns, system concepts | "Read a document before writing to obtain the version." |
+| MCP instructions | `instructions.ts` | Cross-tool workflow patterns, system concepts | "Read a document before writing to obtain the version." |
 | Tool description | Each tool's `description` field | What the tool does and when to use it | "Edit one or more nodes in a document." |
 | Parameter description | Zod `.describe()` strings | What a parameter means, valid values, edge cases | "Only set true after receiving a size warning." |
 
