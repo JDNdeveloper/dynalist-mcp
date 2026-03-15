@@ -141,6 +141,7 @@ verify before further edits.
 
 ## Confirmation and verification
 
-- Before any mutation, preview the intended changes and wait for user confirmation.
+- Before any mutation, preview the intended changes and stop. Wait for the user to explicitly \
+confirm before calling the write tool. Never preview and write in the same response.
 - After a mutation, read back the affected area to verify. Report any discrepancies to the user.
 `;

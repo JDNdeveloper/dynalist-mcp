@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import ts from "typescript";
 import { INSTRUCTIONS } from "../src/instructions";
+import { CONFIRM_GUIDANCE } from "../src/tools/descriptions";
 
 // ─── Zod internal type helpers ──────────────────────────────────────
 
@@ -456,7 +457,7 @@ function generateToolsMarkdown(): string {
 
       // Tool description as intro text.
       // Strip the confirmation guidance prefix since it's an agent instruction, not doc content.
-      const desc = tool.description.replace(/^Confirm intended changes with the user before calling this tool\.\s*/, "");
+      const desc = tool.description.replace(CONFIRM_GUIDANCE, "").trimStart();
       lines.push(desc);
 
       // Input parameters.
