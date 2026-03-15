@@ -176,5 +176,5 @@ Releasing requires maintainer push access. After pushing changes to `main`, rege
 1. Confirm the target version with the user before editing `package.json`. Suggest a reasonable SemVer bump based on scope, such as patch (`x.y.z` -> `x.y.(z+1)`), minor (`x.y.z` -> `x.(y+1).0`), or major (`x.y.z` -> `(x+1).0.0`).
 2. Bump `version` in `package.json` (single source of truth for both the package and generated `manifest.json`).
 3. Run `bun run check` as a final sanity check before release.
-4. Commit the version bump and release-ready changes before running the release pipeline.
+4. Commit and push the version bump and release-ready changes before running the release pipeline.
 5. Run `bun run release` to bundle, tag, create a GitHub release, and upload the `.mcpb` as a release asset. Requires a clean working tree on the `main` branch and the tag must not already exist.
