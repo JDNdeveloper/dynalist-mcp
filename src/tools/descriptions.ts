@@ -19,7 +19,7 @@ export const CHECKED_GUIDANCE =
   "Marks item as completed (greyed out). Works independently of " +
   "show_checkbox.";
 export const CHECKED_CHILDREN_GUIDANCE =
-  "Do not check children when checking a parent unless asked. " +
+  "NEVER check children when checking a parent unless the user explicitly asked. " +
   "Dynalist greys out descendants visually.";
 
 export const MULTILINE_GUIDANCE =
@@ -52,7 +52,7 @@ export const EXPECTED_VERSION_DESCRIPTION =
   "Document version from your most recent read_document. " +
   "If stale, the tool aborts and requests a re-read.";
 export const BYPASS_WARNING_DESCRIPTION =
-  "ONLY set true AFTER receiving a size warning. Do NOT set true on first request.";
+  "ONLY set true AFTER receiving a size warning. NEVER set true on first request.";
 export const PARENT_LEVELS_DESCRIPTION =
   "Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root.";
 export const FOLDER_INDEX_DESCRIPTION =

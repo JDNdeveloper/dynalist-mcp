@@ -68,8 +68,8 @@ Non-text metadata properties:
 
 ## Presenting information to users
 
-- Do not present file IDs or node IDs to users, unless in the form of a URL (construct from the format above).
-- Do not expose the root folder to users. Show all files and folders under root as top-level items.
+- NEVER present file IDs or node IDs to users, unless in the form of a URL (construct from the format above).
+- NEVER expose the root folder to users. Show all files and folders under root as top-level items.
 - Folders and documents are intermixed in the UI, not grouped separately.
 - Present them in the order they appear in the parent folder's children array.
 

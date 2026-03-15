@@ -125,7 +125,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 | `include_collapsed_children` | boolean | no |  | Include collapsed nodes' children. Default false: collapsed nodes show children_count but empty children. |
 | `include_notes` | boolean | no |  | Include node notes. Default: true. |
 | `include_checked` | boolean | no |  | Include checked/completed nodes. Default: true. |
-| `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. Do NOT set true on first request. |
+| `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 
 **Example input:**
 ```json
@@ -176,7 +176,7 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 | `query` | string | yes |  | Text to search for (case-insensitive) |
 | `search_notes` | boolean | no | true | Also search in notes |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
-| `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. Do NOT set true on first request. |
+| `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 
 **Example input:**
 ```json
@@ -242,7 +242,7 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
 | `type` | `"created"`, `"modified"`, `"both"` | no | "both" | 'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all (default). |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
 | `sort` | `"newest_first"`, `"oldest_first"` | no | "newest_first" | Sort order by timestamp |
-| `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. Do NOT set true on first request. |
+| `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 
 **Example input:**
 ```json
@@ -397,7 +397,7 @@ Edit one or more nodes in a document. Only specified fields are updated; omitted
 | `node_id` | string | yes | Node ID to edit |
 | `content` | string | no | New content text. Supports multiline, but prefer notes for longer multiline text. |
 | `note` | string | no | New note text. Supports multiline. Set to '' to clear. |
-| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. Do not check children when checking a parent unless asked. Dynalist greys out descendants visually. |
+| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. NEVER check children when checking a parent unless the user explicitly asked. Dynalist greys out descendants visually. |
 | `show_checkbox` | boolean | no | Whether to show a checkbox on this node. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
@@ -458,7 +458,7 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 | `content` | string | yes | Content text. Supports multiline, but prefer notes for longer multiline text. |
 | `note` | string | no | Note text. Supports multiline. |
 | `show_checkbox` | boolean | no | Whether to add a checkbox. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
-| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. Do not check children when checking a parent unless asked. Dynalist greys out descendants visually. |
+| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. NEVER check children when checking a parent unless the user explicitly asked. Dynalist greys out descendants visually. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
 | `children` | object[] | no | Child nodes |
