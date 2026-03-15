@@ -107,8 +107,8 @@ For mutation previews/confirmations, use diff-style:
 - The prefix is a fixed 2-char column preceding the node's tree indentation.
 - Do not let the prefix alter node indentation.
 - Show edits as a `-`/`+` pair.
-- Include only enough context to show where changes sit (parent and siblings).
-- Use `...` at the same indent to indicate omitted siblings.
+- **IMPORTANT: The preview MUST show ALL affected locations.** For moves, show both where nodes are removed (`-`) AND where they are added (`+`). For multi-move operations, every source and every destination must appear in the preview. Omitting any affected location makes the preview incomplete.
+- Within each affected location, include only enough context to show where the change sits (parent and nearby siblings). Use `...` at the same indent to indicate omitted siblings.
 - Indentation is relative to the topmost shown node.
 
 Example:
