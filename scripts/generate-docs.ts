@@ -1,6 +1,6 @@
 /**
  * Generate docs/tools.md, docs/configuration.md, docs/api-coverage.md, and
- * docs/mcp-instructions.md from source. Run with: bun scripts/generate-docs.ts
+ * docs/instructions.md from source. Run with: bun scripts/generate-docs.ts
  */
 
 import type { ZodTypeAny } from "zod";
@@ -868,7 +868,7 @@ function generateApiCoverageMarkdown(): string {
   return lines.join("\n");
 }
 
-// ─── Markdown generation: mcp-instructions.md ───────────────────────
+// ─── Markdown generation: instructions.md ────────────────────────────
 
 function generateInstructionsMarkdown(): string {
   const lines: string[] = [];
@@ -896,10 +896,10 @@ const instructionsMd = generateInstructionsMarkdown();
 writeFileSync(join(docsDir, "tools.md"), toolsMd);
 writeFileSync(join(docsDir, "configuration.md"), configMd);
 writeFileSync(join(docsDir, "api-coverage.md"), apiCoverageMd);
-writeFileSync(join(docsDir, "mcp-instructions.md"), instructionsMd);
+writeFileSync(join(docsDir, "instructions.md"), instructionsMd);
 
 console.log(`Generated:`);
 console.log(`  docs/tools.md (${toolsMd.length} bytes, ${capturedTools.length} tools)`);
 console.log(`  docs/configuration.md (${configMd.length} bytes)`);
 console.log(`  docs/api-coverage.md (${apiCoverageMd.length} bytes)`);
-console.log(`  docs/mcp-instructions.md (${instructionsMd.length} bytes)`);
+console.log(`  docs/instructions.md (${instructionsMd.length} bytes)`);
