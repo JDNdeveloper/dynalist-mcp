@@ -58,6 +58,22 @@ Add to `.mcp.json` in your project root (or `~/.claude.json` globally):
 
 #### OpenCode
 
+Add to `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "mcp": {
+    "dynalist": {
+      "type": "local",
+      "command": ["/absolute/path/to/bun", "/absolute/path/to/dynalist-mcp/src/index.ts"],
+      "env": {
+        "DYNALIST_API_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
 OpenCode does not currently pass MCP instructions to agents (see: [issue #7373](https://github.com/anomalyco/opencode/issues/7373)). Until that is fixed, add the following to your `AGENTS.md` so the agent reads the instructions explicitly at the start of each session:
 
 ```markdown
