@@ -56,6 +56,16 @@ Add to `.mcp.json` in your project root (or `~/.claude.json` globally):
 }
 ```
 
+#### OpenCode
+
+OpenCode does not currently pass MCP instructions to agents (see: [issue #7373](https://github.com/anomalyco/opencode/issues/7373)). Until that is fixed, add the following to your `AGENTS.md` so the agent reads the instructions explicitly at the start of each session:
+
+```markdown
+**CRITICAL**: Before your first Dynalist tool call in a session, read `<absolute-path-to>/dynalist-mcp/docs/instructions.md`.
+```
+
+Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
+
 #### Claude Desktop
 
 **Option A: `.mcpb` bundle**
