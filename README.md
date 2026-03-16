@@ -86,7 +86,7 @@ Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
 
 **Option A: `.mcpb` bundle**
 
-Download the latest `.mcpb` file from the [releases page](https://github.com/JDNdeveloper/dynalist-mcp/releases). Go to **Settings -> Extensions -> Advanced settings -> Install Extension** and select the downloaded file. You will be prompted for your API token during setup.
+Download the latest `.mcpb` file from the [releases page](https://github.com/JDNdeveloper/dynalist-mcp/releases). Go to **Settings > Extensions > Advanced settings > Install Extension** and select the downloaded file. You will be prompted for your API token during setup.
 
 **Option B: Manual config**
 
