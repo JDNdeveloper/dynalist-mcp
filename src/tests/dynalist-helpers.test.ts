@@ -10,6 +10,7 @@ import {
 } from "../utils/dynalist-helpers";
 import { DynalistApiError, type DynalistNode } from "../dynalist-client";
 import { ConfigError } from "../config";
+import { parseErrorContent } from "./tools/test-helpers";
 
 // ─── groupByLevel ─────────────────────────────────────────────────────
 
@@ -195,8 +196,9 @@ describe("wrapToolHandler error paths", () => {
     });
     const result = await handler();
     expect(result.isError).toBe(true);
-    expect(result.structuredContent.error).toBe("NodeNotFound");
-    expect(result.structuredContent.message).toContain("Node 'xyz' not found");
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("NodeNotFound");
+    expect(parsedError.message).toContain("Node 'xyz' not found");
   });
 
   test("DynalistApiError is caught and returned with its code", async () => {
@@ -205,8 +207,9 @@ describe("wrapToolHandler error paths", () => {
     });
     const result = await handler();
     expect(result.isError).toBe(true);
-    expect(result.structuredContent.error).toBe("TooManyRequests");
-    expect(result.structuredContent.message).toContain("Rate limited");
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("TooManyRequests");
+    expect(parsedError.message).toContain("Rate limited");
   });
 
   test("ConfigError is caught and returned with ConfigError code", async () => {
@@ -215,8 +218,9 @@ describe("wrapToolHandler error paths", () => {
     });
     const result = await handler();
     expect(result.isError).toBe(true);
-    expect(result.structuredContent.error).toBe("ConfigError");
-    expect(result.structuredContent.message).toContain("Config file is invalid");
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("ConfigError");
+    expect(parsedError.message).toContain("Config file is invalid");
   });
 
   test("generic Error is caught and returned with Unknown code", async () => {
@@ -225,8 +229,9 @@ describe("wrapToolHandler error paths", () => {
     });
     const result = await handler();
     expect(result.isError).toBe(true);
-    expect(result.structuredContent.error).toBe("Unknown");
-    expect(result.structuredContent.message).toBe("Something unexpected happened.");
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("Unknown");
+    expect(parsedError.message).toBe("Something unexpected happened.");
   });
 
   test("non-Error throwable is caught and stringified", async () => {
@@ -235,8 +240,9 @@ describe("wrapToolHandler error paths", () => {
     });
     const result = await handler();
     expect(result.isError).toBe(true);
-    expect(result.structuredContent.error).toBe("Unknown");
-    expect(result.structuredContent.message).toBe("string error");
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("Unknown");
+    expect(parsedError.message).toBe("string error");
   });
 
   test("successful handler returns result without error flag", async () => {

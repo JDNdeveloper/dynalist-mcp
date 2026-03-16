@@ -11,6 +11,7 @@ import {
   callToolOk,
   callToolError,
   getVersion,
+  parseErrorContent,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -278,8 +279,8 @@ describe("version guard edge cases", () => {
     });
 
     expect(result.isError).toBe(true);
-    const structured = result.structuredContent as Record<string, unknown>;
-    expect(structured.error).toBe("PartialInsert");
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("PartialInsert");
 
     // A subsequent read should reflect the partial write (the level-0
     // node was created even though the level-1 insert failed).

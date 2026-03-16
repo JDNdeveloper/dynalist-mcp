@@ -187,7 +187,6 @@ export function makeResponse(data: Record<string, unknown>) {
  */
 export function makeErrorResponse(code: string, message: string) {
   return {
-    structuredContent: { error: code, message },
     content: [{ type: "text" as const, text: JSON.stringify({ error: code, message }) }],
     isError: true,
   };
@@ -392,28 +391,17 @@ export class PartialInsertError extends Error {
   }
 
   toStructuredResponse() {
+    const data = {
+      error: "PartialInsert",
+      message: this.message,
+      file_id: this.fileId,
+      inserted_count: this.insertedCount,
+      total_count: this.totalCount,
+      first_node_id: this.firstNodeId ?? null,
+      failed_at_depth: this.failedAtDepth,
+    };
     return {
-      structuredContent: {
-        error: "PartialInsert",
-        message: this.message,
-        file_id: this.fileId,
-        inserted_count: this.insertedCount,
-        total_count: this.totalCount,
-        first_node_id: this.firstNodeId ?? null,
-        failed_at_depth: this.failedAtDepth,
-      },
-      content: [{
-        type: "text" as const,
-        text: JSON.stringify({
-          error: "PartialInsert",
-          message: this.message,
-          file_id: this.fileId,
-          inserted_count: this.insertedCount,
-          total_count: this.totalCount,
-          first_node_id: this.firstNodeId ?? null,
-          failed_at_depth: this.failedAtDepth,
-        }),
-      }],
+      content: [{ type: "text" as const, text: JSON.stringify(data) }],
       isError: true,
     };
   }

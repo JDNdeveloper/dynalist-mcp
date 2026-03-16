@@ -3,6 +3,7 @@ import {
   createTestContext,
   callTool,
   getVersion,
+  parseErrorContent,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -60,40 +61,21 @@ function assertSuccessEnvelope(
 
 /**
  * Validate the common envelope of an error tool response.
- * Every error response must have structuredContent with error + message,
- * a text content block, and isError: true.
+ * Every error response must have isError: true and a text content block
+ * with JSON containing error + message fields.
  */
 function assertErrorEnvelope(
   result: { structuredContent?: unknown; content?: unknown; isError?: boolean },
 ): { error: string; message: string } {
-  // isError must be true on error responses.
   expect(result.isError).toBe(true);
 
-  // structuredContent must be present with error and message fields.
-  expect(result.structuredContent).toBeDefined();
-  expect(typeof result.structuredContent).toBe("object");
-  expect(result.structuredContent).not.toBeNull();
+  const parsedError = parseErrorContent(result);
+  expect(typeof parsedError.error).toBe("string");
+  expect(typeof parsedError.message).toBe("string");
+  expect((parsedError.error as string).length).toBeGreaterThan(0);
+  expect((parsedError.message as string).length).toBeGreaterThan(0);
 
-  const structured = result.structuredContent as Record<string, unknown>;
-  expect(typeof structured.error).toBe("string");
-  expect(typeof structured.message).toBe("string");
-  expect((structured.error as string).length).toBeGreaterThan(0);
-  expect((structured.message as string).length).toBeGreaterThan(0);
-
-  // Text content block must be present for backwards compatibility.
-  expect(result.content).toBeDefined();
-  expect(Array.isArray(result.content)).toBe(true);
-  const contentArray = result.content as TextContentBlock[];
-  expect(contentArray.length).toBeGreaterThanOrEqual(1);
-  expect(contentArray[0].type).toBe("text");
-  expect(typeof contentArray[0].text).toBe("string");
-
-  // The text content block should be valid JSON containing error and message.
-  const parsed = JSON.parse(contentArray[0].text);
-  expect(parsed.error).toBe(structured.error);
-  expect(parsed.message).toBe(structured.message);
-
-  return structured as { error: string; message: string };
+  return parsedError as { error: string; message: string };
 }
 
 // ─── list_documents ─────────────────────────────────────────────────

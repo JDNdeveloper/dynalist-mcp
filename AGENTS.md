@@ -120,7 +120,7 @@ Do not duplicate guidance across levels. If something is tool-specific, put it i
 - **Tool parameter validation**: all tools use Zod schemas for strict input and output validation.
 - **Access control**: every tool handler checks access control (deny/read/allow) before making API calls.
 - **Error handling**: all tool handlers are wrapped in `wrapToolHandler` which catches exceptions and returns structured MCP error responses.
-- **Response format**: all tools return both `structuredContent` and a text content block for backwards compatibility, via `makeResponse()`.
+- **Response format**: success responses return both `structuredContent` and a text content block for backwards compatibility, via `makeResponse()`. Error responses return only a text content block (no `structuredContent`) to avoid MCP client SDK schema validation failures.
 - **IDs only**: tools accept `file_id` and `node_id` parameters, not URLs. URLs are included in responses for human convenience.
 - **Config reloading**: config file is checked for mtime changes on every tool invocation (stat only, no read unless changed). Invalid config fails closed.
 - **Cache invalidation**: file tree cache is invalidated after create/rename/move operations and on denial retries.

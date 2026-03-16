@@ -10,7 +10,7 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 - **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
 - **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more.
 - **Read-only mode** to prevent all write operations.
-- **Structured responses** with both JSON (`structuredContent`) and plain text for backwards compatibility.
+- **Structured responses** with JSON (`structuredContent`) on success and plain text on errors, for broad client compatibility.
 - **Native-feeling output** via MCP instructions that guide agents to render outlines, show diff previews before writes, and handle large documents gracefully.
 - **Concurrent edit detection** so writes against stale data are caught before or immediately after they happen.
 - **Built-in caching** to minimize API calls across repeated reads, access control checks, and config reloads.

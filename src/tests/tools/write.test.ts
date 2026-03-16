@@ -5,6 +5,7 @@ import {
   callToolOk,
   callToolError,
   getVersion,
+  parseErrorContent,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -1087,14 +1088,14 @@ describe("insert_nodes", () => {
     });
 
     expect(result.isError).toBe(true);
-    const structured = result.structuredContent as Record<string, unknown>;
-    expect(structured.error).toBe("PartialInsert");
-    expect(structured.inserted_count).toBe(2);
-    expect(structured.total_count).toBe(4);
-    expect(structured.first_node_id).toBeDefined();
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("PartialInsert");
+    expect(parsedError.inserted_count).toBe(2);
+    expect(parsedError.total_count).toBe(4);
+    expect(parsedError.first_node_id).toBeDefined();
 
-    // Verify failed_at_depth is included in the structured response.
-    expect(structured.failed_at_depth).toBeDefined();
+    // Verify failed_at_depth is included in the error response.
+    expect(parsedError.failed_at_depth).toBeDefined();
   });
 
   test("partial failure persists nodes inserted before the fault", async () => {

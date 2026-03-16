@@ -103,13 +103,23 @@ export async function callToolOk(
 ): Promise<Record<string, unknown>> {
   const result = await callTool(client, name, args);
   if (result.isError) {
-    throw new Error(`Tool ${name} returned error: ${JSON.stringify(result.structuredContent)}`);
+    throw new Error(`Tool ${name} returned error: ${JSON.stringify(parseErrorContent(result))}`);
   }
   return result.structuredContent as Record<string, unknown>;
 }
 
 /**
- * Call a tool and extract the structuredContent, asserting it IS an error.
+ * Parse error fields from a raw tool result's text content block.
+ * Works with any result shape (MCP client responses, direct wrapToolHandler
+ * returns, etc.) as long as it has a content array with a JSON text block.
+ */
+export function parseErrorContent(result: { content?: unknown }): Record<string, unknown> {
+  const contentArray = result.content as { type: string; text: string }[];
+  return JSON.parse(contentArray[0].text) as Record<string, unknown>;
+}
+
+/**
+ * Call a tool and extract the error fields, asserting it IS an error.
  */
 export async function callToolError(
   client: Client,
@@ -120,7 +130,7 @@ export async function callToolError(
   if (!result.isError) {
     throw new Error(`Expected tool ${name} to return error but got: ${JSON.stringify(result.structuredContent)}`);
   }
-  return result.structuredContent as { error: string; message: string };
+  return parseErrorContent(result) as { error: string; message: string };
 }
 
 /**
