@@ -339,8 +339,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             file_id: f.id,
             title: f.title,
             type: f.type,
-            permission: f.type === "document" ? getPermissionLabel(f.permission) : undefined,
           };
+          if (f.type === "document") {
+            match.permission = getPermissionLabel(f.permission);
+          }
           if (policy === "read") {
             match.access_policy = "read";
           }
