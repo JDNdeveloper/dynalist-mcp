@@ -48,7 +48,11 @@ const nodeMetadataFields = {
   ),
 };
 
-// Collapsed state is only relevant for tree traversal (read_document), not flat result sets.
+// Collapsed state applies to document nodes (read_document, search_in_document).
+// File-tree folders also have a collapsed field in the API response, but list_documents
+// does not currently expose it.
+//
+// TODO: Expose collapsed folder state.
 const collapsedField = {
   collapsed: z.boolean().optional().describe("Whether the node is collapsed in the UI. Omitted when not collapsed."),
 };
