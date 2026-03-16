@@ -18,8 +18,8 @@ import type { HeadingValue, ColorValue } from "../tools/node-metadata";
 export interface ParsedNode {
   content: string;
   note?: string;
-  show_checkbox?: boolean;
   checked?: boolean;
+  show_checkbox?: boolean;
   heading?: string;
   color?: string;
   children: ParsedNode[];
@@ -32,8 +32,8 @@ export interface ParsedNode {
 export interface LevelNode {
   content: string;
   note?: string;
-  show_checkbox?: boolean;
   checked?: boolean;
+  show_checkbox?: boolean;
   heading?: string;
   color?: string;
   localIndex: number;
@@ -52,8 +52,8 @@ export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
   const level0: LevelNode[] = roots.map((root, idx) => ({
     content: root.content,
     note: root.note,
-    show_checkbox: root.show_checkbox,
     checked: root.checked,
+    show_checkbox: root.show_checkbox,
     heading: root.heading,
     color: root.color,
     localIndex: idx,
@@ -73,8 +73,8 @@ export function groupByLevel(roots: ParsedNode[]): LevelNode[][] {
         nextLevel.push({
           content: child.content,
           note: child.note,
-          show_checkbox: child.show_checkbox,
           checked: child.checked,
+          show_checkbox: child.show_checkbox,
           heading: child.heading,
           color: child.color,
           localIndex: localIdx++,
@@ -335,28 +335,28 @@ export function buildNodeTree(
     }
   }
 
-  const output: OutputNode = {
+  // Build output with properties in canonical order. Metadata comes before
+  // the nested children array so it stays visually collocated with content.
+  const output = {
     node_id: node.id,
     content: node.content,
-    children_count: childrenCount,
-    children: outputChildren,
-  };
+  } as OutputNode;
 
-  // Include optional fields only when present.
-  if (options.includeNotes && node.note && node.note.trim()) {
-    output.note = node.note;
-  }
-  if (isCollapsed) output.collapsed = true;
+  // Include optional metadata only when present.
+  if (options.includeNotes && node.note && node.note.trim()) output.note = node.note;
   if (node.checked !== undefined) output.checked = node.checked;
   if (node.checkbox !== undefined) output.show_checkbox = node.checkbox;
   if (node.heading !== undefined && node.heading > 0) output.heading = NUMBER_TO_HEADING[node.heading];
   if (node.color !== undefined && node.color > 0) output.color = NUMBER_TO_COLOR[node.color];
+  if (isCollapsed) output.collapsed = true;
 
   // Signal depth_limited when the depth limit caused children to be omitted.
   // Only set on nodes that have children and are NOT being hidden by collapsed state alone.
-  if (atMaxDepth && childrenCount > 0 && !collapsedHidesChildren) {
-    output.depth_limited = true;
-  }
+  if (atMaxDepth && childrenCount > 0 && !collapsedHidesChildren) output.depth_limited = true;
+
+  // Nested structure always last.
+  output.children_count = childrenCount;
+  output.children = outputChildren;
 
   return output;
 }
@@ -467,8 +467,8 @@ export async function insertTreeUnderParent(
       };
 
       if (node.note !== undefined) change.note = node.note;
-      if (node.show_checkbox !== undefined) change.checkbox = node.show_checkbox;
       if (node.checked !== undefined) change.checked = node.checked;
+      if (node.show_checkbox !== undefined) change.checkbox = node.show_checkbox;
       if (node.heading !== undefined) change.heading = HEADING_TO_NUMBER[node.heading as HeadingValue];
       if (node.color !== undefined) change.color = COLOR_TO_NUMBER[node.color as ColorValue];
 

@@ -346,20 +346,20 @@ Send an item to the Dynalist inbox. Target is the user's configured inbox. For s
 | --- | --- | --- | --- |
 | `content` | string | yes | The text content for the inbox item. |
 | `note` | string | no | Optional note for the item. |
+| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. |
 | `show_checkbox` | boolean | no | Whether to add a checkbox. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
-| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. |
 
 **Example input:**
 ```json
 {
   "content": "Buy groceries",
   "note": "Milk, eggs, bread",
+  "checked": true,
   "show_checkbox": true,
   "heading": "h1",
-  "color": "red",
-  "checked": true
+  "color": "red"
 }
 ```
 
@@ -457,8 +457,8 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 | --- | --- | --- | --- |
 | `content` | string | yes | Content text. Supports multiline, but prefer notes for longer multiline text. |
 | `note` | string | no | Note text. Supports multiline. |
-| `show_checkbox` | boolean | no | Whether to add a checkbox. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. NEVER check children when checking a parent unless the user explicitly asked. Dynalist greys out descendants visually. |
+| `show_checkbox` | boolean | no | Whether to add a checkbox. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
 | `children` | object[] | no | Child nodes |

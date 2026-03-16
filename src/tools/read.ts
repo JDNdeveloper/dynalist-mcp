@@ -538,17 +538,14 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             content: node.content,
           };
 
-          // Include optional fields only when present, consistent with read_document.
+          // Include optional metadata only when present, in canonical order.
+          if (node.note && node.note.trim()) match.note = node.note;
           if (node.checked !== undefined) match.checked = node.checked;
           if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
           if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
           if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
 
-          // Include note only when non-empty.
-          if (node.note && node.note.trim()) {
-            match.note = node.note;
-          }
-
+          // Nested structure always last.
           if (parent_levels !== "none") {
             const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {
@@ -682,23 +679,20 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           const match: Record<string, unknown> = {
             node_id: node.id,
             content: node.content,
+            change_type: createdInRange ? "created" : "modified",
             created: new Date(node.created).toISOString(),
             modified: new Date(node.modified).toISOString(),
-            change_type: createdInRange ? "created" : "modified",
           };
 
-          // Include optional fields only when present, consistent with read_document.
-          if (node.collapsed) match.collapsed = true;
+          // Include optional metadata only when present, in canonical order.
+          if (node.note && node.note.trim()) match.note = node.note;
           if (node.checked !== undefined) match.checked = node.checked;
           if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
           if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
           if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
+          if (node.collapsed) match.collapsed = true;
 
-          // Include note only when non-empty.
-          if (node.note && node.note.trim()) {
-            match.note = node.note;
-          }
-
+          // Nested structure always last.
           if (parent_levels !== "none") {
             const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {

@@ -64,12 +64,12 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
+        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION_INBOX),
         show_checkbox: z.boolean().optional().describe(
           `Whether to add a checkbox. ${SHOW_CHECKBOX_DESCRIPTION}`
         ),
         heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
         color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
-        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION_INBOX),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -237,8 +237,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
   const jsonInputNodeSchema: z.ZodType<{
     content: string;
     note?: string;
-    show_checkbox?: boolean;
     checked?: boolean;
+    show_checkbox?: boolean;
     heading?: HeadingValue;
     color?: ColorValue;
     children?: unknown[];
@@ -246,10 +246,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     z.object({
       content: z.string().describe(`Content text. ${CONTENT_MULTILINE_GUIDANCE}`),
       note: z.string().optional().describe(`Note text. ${MULTILINE_GUIDANCE}`),
+      checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
       show_checkbox: z.boolean().optional().describe(
         `Whether to add a checkbox. ${SHOW_CHECKBOX_DESCRIPTION}`
       ),
-      checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
       heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
       color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
       children: z.array(jsonInputNodeSchema).optional().describe("Child nodes"),
@@ -415,8 +415,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 interface JsonInputNode {
   content: string;
   note?: string;
-  show_checkbox?: boolean;
   checked?: boolean;
+  show_checkbox?: boolean;
   heading?: HeadingValue;
   color?: ColorValue;
   children?: JsonInputNode[];
@@ -429,8 +429,8 @@ function jsonInputToTree(nodes: JsonInputNode[]): ParsedNode[] {
   return nodes.map((node) => ({
     content: node.content,
     note: node.note,
-    show_checkbox: node.show_checkbox,
     checked: node.checked,
+    show_checkbox: node.show_checkbox,
     heading: node.heading,
     color: node.color,
     children: node.children ? jsonInputToTree(node.children) : [],
