@@ -69,6 +69,70 @@ Large documents can overwhelm an agent's context window or produce responses too
 - **Configurable defaults.** Operators can tune default depth, note inclusion, and other payload-size knobs in the config file without requiring the agent to specify parameters on every call.
 - **Sparse output.** Optional fields (notes, heading, color) are omitted from output when empty or at their default value, reducing payload size for typical documents.
 
+## Property ordering
+
+Response objects place nested structures (`children`, `parents`) as the final property so that scalar metadata stays visually close to the node's primary content. This matters because agents consume serialized JSON, and property order determines what the agent "sees" near each node's identity.
+
+When a recursive structure like `children` appears before metadata, deeply nested trees push metadata arbitrarily far from the content it describes:
+
+```json
+{
+  "node_id": "abc",
+  "content": "Project plan",
+  "children_count": 1,
+  "children": [
+    {
+      "node_id": "def",
+      "content": "Phase 1",
+      "children_count": 1,
+      "children": [
+        {
+          "node_id": "ghi",
+          "content": "Research",
+          "children_count": 0,
+          "children": []
+        }
+      ],
+      "note": "Due next Friday",
+      "color": "red"
+    }
+  ],
+  "note": "Q2 initiative",
+  "heading": "h1"
+}
+```
+
+The root node's `note` and `heading` are 17 lines away from its `content`. An agent scanning the JSON may not associate them. With metadata before the nested structure:
+
+```json
+{
+  "node_id": "abc",
+  "content": "Project plan",
+  "note": "Q2 initiative",
+  "heading": "h1",
+  "children_count": 1,
+  "children": [
+    {
+      "node_id": "def",
+      "content": "Phase 1",
+      "note": "Due next Friday",
+      "color": "red",
+      "children_count": 1,
+      "children": [
+        {
+          "node_id": "ghi",
+          "content": "Research",
+          "children_count": 0,
+          "children": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+Every node's metadata is immediately adjacent to its content, regardless of tree depth. This applies to all recursive output schemas (`outputNodeSchema`, `fileTreeFolderSchema`) and flat schemas with nested arrays (`searchMatchSchema`, `changeMatchSchema`). Input schemas follow the same convention so agents see a consistent shape when constructing requests.
+
 ## Compositional patterns
 
 The Dynalist API does not have an "ancestors" endpoint, and several common tasks require combining multiple tool calls. Rather than building monolithic tools, the instructions teach agents how to compose the existing primitives:

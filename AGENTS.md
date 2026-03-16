@@ -124,6 +124,7 @@ Do not duplicate guidance across levels. If something is tool-specific, put it i
 - **IDs only**: tools accept `file_id` and `node_id` parameters, not URLs. URLs are included in responses for human convenience.
 - **Config reloading**: config file is checked for mtime changes on every tool invocation (stat only, no read unless changed). Invalid config fails closed.
 - **Cache invalidation**: file tree cache is invalidated after create/rename/move operations and on denial retries.
+- **Property ordering**: nested/recursive structures (`children`, `parents`) must be the last property on every object, in both schemas and response construction. This keeps scalar metadata visually adjacent to the node's primary content in serialized JSON; see `docs/agent-ux.md` "Property ordering" for the rationale and examples. The canonical field order for node objects is: identity (`node_id`/`file_id`, `content`/`title`, `type`), content-adjacent (`note`), change-specific (`change_type`, `created`, `modified`), checkbox (`checked`, `show_checkbox`), visual (`heading`, `color`), state (`collapsed`, `depth_limited`, `children_count`, `permission`, `access_policy`), then the nested structure last (`children`/`parents`). All schemas (input, output, type annotations) and response construction must use this same order.
 
 ## When tools change
 
