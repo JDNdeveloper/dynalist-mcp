@@ -114,6 +114,12 @@ Additional principles:
 
 Do not duplicate guidance across levels. If something is tool-specific, put it in the tool or parameter description. If it is a cross-cutting pattern, put it in the MCP instructions. Factor commonly repeated strings and substrings into `src/tools/descriptions.ts` so wording changes only need to happen once. That file already uses `*_GUIDANCE` constants for shared policy wording that is interpolated into both parameter descriptions and MCP instructions.
 
+Key rules:
+
+- **Input param descriptions do NOT belong in tool descriptions.** The tool description should cover what the tool does, when to use it, cross-parameter relationships, and non-obvious output behavior. It should not restate what individual parameter descriptions already say.
+- **Non-obvious output properties MUST be documented in tool descriptions.** Output schemas are not shown to agents, so any output behavior that cannot be inferred from property names alone must be mentioned in the tool description.
+- **Do NOT duplicate information across parameter descriptions.** If a behavior applies to multiple parameters (e.g. how date formats are interpreted for `since` and `until`), describe it once in the tool description rather than repeating it in each parameter.
+
 **Exception:** Inline value meanings (enum values, etc.) are repeated wherever they appear within a single description level. This avoids the agent having to cross-reference a central definition to interpret a parameter. Examples: the color label enum (`'none', 'red', 'orange', ...`) and heading level enum (`'none', 'h1', 'h2', 'h3'`) are spelled out in each parameter that accepts them. Value meanings should NOT be repeated across levels (e.g. tool description restating what a parameter description already covers).
 
 ## Key conventions
