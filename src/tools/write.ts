@@ -20,7 +20,7 @@ import type { DocumentStore } from "../document-store";
 import {
   FILE_ID_DESCRIPTION, NODE_ID_DESCRIPTION,
   VERSION_WARNING_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION,
-  CHECKED_DESCRIPTION, CHECKED_DESCRIPTION_INBOX,
+  CHECKED_DESCRIPTION,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
   CONTENT_MULTILINE_GUIDANCE, EXPECTED_VERSION_DESCRIPTION,
 } from "./descriptions";
@@ -65,7 +65,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
-        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION_INBOX),
+        checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
         show_checkbox: z.boolean().optional().describe(
           `Whether to add a checkbox. ${SHOW_CHECKBOX_DESCRIPTION}`
         ),

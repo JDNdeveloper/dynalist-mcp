@@ -47,19 +47,11 @@ Non-text metadata properties:
 
 ## Compositional patterns
 
-- **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with the node's text (or a unique substring) and parent_levels: "all" to get the full ancestor chain.
-  - Each match includes a parents array for breadcrumb context.
-  - Fallback: read_document with just file_id, then search the tree for the target node_id.
-  - Use max_depth to limit output.
+- **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with the node's text (or a unique substring) and parent_levels: "all" to get the full ancestor chain. Fallback: read_document with just file_id, then search the tree for the target node_id.
 - **Sibling context**: Call read_document with the parent's node_id and max_depth: 1.
-- **Expanding collapsed sections**: If a node has collapsed: true and children_count > 0 but empty children:
-  - Pass the node's node_id to read_document (the starting node always expands), or
-  - Re-request with include_collapsed_children: true.
-- **Drilling into depth-limited nodes**: The default max_depth is intentionally low. Drilling into depth-limited nodes is the primary pattern for exploring documents. If a node has depth_limited: true, call read_document with that node's node_id to zoom into the subtree.
-- **File vs node management**:
-  - File tools (create_document, move_document, etc.) operate on the file tree.
-  - Node tools (insert_nodes, edit_nodes, etc.) operate within a document.
-  - Do not confuse file IDs with node IDs.
+- **Expanding collapsed sections**: If a node has collapsed: true and children_count > 0 but empty children, pass the node's node_id to read_document (the starting node always expands), or re-request with include_collapsed_children: true.
+- **Drilling into depth-limited nodes**: Drilling into depth-limited nodes is the primary pattern for exploring documents. If a node has depth_limited: true, call read_document with that node's node_id to zoom into the subtree.
+- **File vs node management**: File tools (create_document, move_document, etc.) operate on the file tree. Node tools (insert_nodes, edit_nodes, etc.) operate within a document. Do not confuse file IDs with node IDs.
 
 ## API limitations
 
@@ -75,12 +67,12 @@ Non-text metadata properties:
 
 ## Presenting document content
 
+- Do NOT render headings or colors in output unless your harness has rich formatting capabilities.
 - Render content as indented `•` bullet lines mirroring Dynalist's structure.
 - Always use `•` (unicode bullet), never `-`, `*`, or `+`.
 - Append `/` to folder names.
 - Show checked items with strikethrough (~~Buy groceries~~).
 - Only show node text content; omit metadata like notes, colors, headings, and collapsed state.
-- Do NOT attempt to render headings or colors in output unless you have rich formatting capabilities (e.g. do not use `### Foo` to represent an h3 heading).
 - Applies to file trees, document content, summaries, mutation previews, and confirmations.
 
 ### Indentation rule
@@ -133,3 +125,4 @@ Example:
 
 - **IMPORTANT:** Before ANY mutation, ALWAYS preview the intended changes and stop. Wait for the user to explicitly confirm before calling the mutating tool. NEVER preview and mutate in the same response.
 - After a mutation, **ALWAYS** read back the affected area to verify. Report any discrepancies to the user.
+- When checking (completing) a parent node, do not check its children unless the user explicitly asked. Dynalist visually greys out descendants of checked nodes.

@@ -390,7 +390,7 @@ Edit one or more nodes in a document. Only specified fields are updated; omitted
 | `node_id` | string | yes | Node ID to edit |
 | `content` | string | no | New content text. Supports multiline, but prefer notes for longer multiline text. |
 | `note` | string | no | New note text. Supports multiline. Set to '' to clear. |
-| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. NEVER check children when checking a parent unless the user explicitly asked. Dynalist greys out descendants visually. |
+| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. |
 | `show_checkbox` | boolean | no | Whether to show a checkbox on this node. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
@@ -450,7 +450,7 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 | --- | --- | --- | --- |
 | `content` | string | yes | Content text. Supports multiline, but prefer notes for longer multiline text. |
 | `note` | string | no | Note text. Supports multiline. |
-| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. NEVER check children when checking a parent unless the user explicitly asked. Dynalist greys out descendants visually. |
+| `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. |
 | `show_checkbox` | boolean | no | Whether to add a checkbox. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |

@@ -10,18 +10,14 @@
 
 // Guidance strings (shared policy wording, reused across descriptions and MCP instructions).
 export const CONFIRM_GUIDANCE =
-  "ALWAYS preview intended changes and wait for explicit user confirmation before calling this tool. " +
-  "NEVER call this tool in the same response as the preview.";
+  "ALWAYS preview intended changes and confirm with the user before calling. " +
+  "NEVER preview and tool call in the same response.";
 export const SHOW_CHECKBOX_GUIDANCE =
   "Controls whether a checkbox is rendered in the UI. Does not affect " +
   "checked state. Only set if siblings use checkboxes or the user asked.";
 export const CHECKED_GUIDANCE =
   "Marks item as completed (greyed out). Works independently of " +
   "show_checkbox.";
-export const CHECKED_CHILDREN_GUIDANCE =
-  "NEVER check children when checking a parent unless the user explicitly asked. " +
-  "Dynalist greys out descendants visually.";
-
 export const MULTILINE_GUIDANCE =
   "Supports multiline.";
 export const CONTENT_MULTILINE_GUIDANCE =
@@ -60,8 +56,6 @@ export const FOLDER_INDEX_DESCRIPTION =
 
 // Node metadata fields (input).
 export const CHECKED_DESCRIPTION =
-  `Checked (completed) state. ${CHECKED_GUIDANCE} ${CHECKED_CHILDREN_GUIDANCE}`;
-export const CHECKED_DESCRIPTION_INBOX =
   `Checked (completed) state. ${CHECKED_GUIDANCE}`;
 export const SHOW_CHECKBOX_DESCRIPTION = SHOW_CHECKBOX_GUIDANCE;
 export const HEADING_DESCRIPTION =
