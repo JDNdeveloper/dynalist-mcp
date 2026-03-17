@@ -262,16 +262,16 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Insert nodes into a document as a JSON tree. Supports nested children and " +
-        "per-node metadata. " +
-        "position is required. Use last_child to append under a parent (most common). " +
-        "Use first_child to prepend. Use after/before for sibling-relative placement. " +
-        "reference_node_id meaning depends on position: for first_child/last_child it is " +
-        "the parent (omit for root); for after/before it is the sibling.",
+        "per-node metadata.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         nodes: z.array(jsonInputNodeSchema).describe("Array of nodes to insert"),
         position: z.enum(["first_child", "last_child", "after", "before"])
-          .describe("Insertion target. 'first_child'/'last_child': child of reference_node_id (or root if omitted). 'after'/'before': sibling of reference_node_id (required)."),
+          .describe(
+            "Insertion target. 'last_child' (most common): append under parent. " +
+            "'first_child': prepend under parent. " +
+            "'after'/'before': sibling-relative placement (reference_node_id required)."
+          ),
         reference_node_id: z.string().optional().describe(
           "For first_child/last_child: the parent node. Omit for document root. " +
           "For after/before: the sibling node (required). Cannot be the root node for after/before."

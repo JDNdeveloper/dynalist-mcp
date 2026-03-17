@@ -6,11 +6,7 @@
 
 ### `list_documents`
 
-List documents and folders as a recursive tree. Returns a files array of intermixed documents and folders. Use returned file_id values in other tools.
-
-Scope controls:
-- folder_id: starting folder. Omit for root.
-- max_depth: folder nesting depth. 1 = direct children only (sub-folders show depth_limited: true), null = unlimited (default).
+List documents and folders as a recursive tree.
 
 **Parameters:**
 
@@ -104,16 +100,13 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 
 ### `read_document`
 
-Read a document as a JSON node tree. Omit node_id for root. Provide node_id to zoom into a subtree.
+Read a document as a JSON node tree. Provide node_id to zoom into a subtree.
 
-Two independent size controls:
-- max_depth: limits tree traversal depth (default 3, null = unlimited).
-- include_collapsed_children: includes children of collapsed nodes (default false).
-These are orthogonal: max_depth does NOT expand collapsed nodes; include_collapsed_children does NOT bypass the depth limit.
+max_depth and include_collapsed_children are orthogonal: max_depth does NOT expand collapsed nodes; include_collapsed_children does NOT bypass the depth limit.
 
 The starting node always shows its children regardless of collapsed state.
 
-Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Fix: read_document with that node_id.
+Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that node_id to expand.
 
 **Parameters:**
 
@@ -438,7 +431,7 @@ Edit one or more nodes in a document. Only specified fields are updated; omitted
 
 ### `insert_nodes`
 
-Insert nodes into a document as a JSON tree. Supports nested children and per-node metadata. position is required. Use last_child to append under a parent (most common). Use first_child to prepend. Use after/before for sibling-relative placement. reference_node_id meaning depends on position: for first_child/last_child it is the parent (omit for root); for after/before it is the sibling.
+Insert nodes into a document as a JSON tree. Supports nested children and per-node metadata.
 
 **Parameters:**
 
@@ -446,7 +439,7 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `nodes` | object[] | yes | Array of nodes to insert |
-| `position` | `"first_child"`, `"last_child"`, `"after"`, `"before"` | yes | Insertion target. 'first_child'/'last_child': child of reference_node_id (or root if omitted). 'after'/'before': sibling of reference_node_id (required). |
+| `position` | `"first_child"`, `"last_child"`, `"after"`, `"before"` | yes | Insertion target. 'last_child' (most common): append under parent. 'first_child': prepend under parent. 'after'/'before': sibling-relative placement (reference_node_id required). |
 | `reference_node_id` | string | no | For first_child/last_child: the parent node. Omit for document root. For after/before: the sibling node (required). Cannot be the root node for after/before. |
 | `index` | number | no | Exact child index within the parent. 0 = first, -1 = last. Only valid with first_child/last_child. Cannot combine with reference_node_id for sibling positions. |
 | `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
@@ -505,15 +498,13 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 
 Delete nodes and their subtrees from a document.
 
-children: 'promote' re-parents children to the deleted node's parent instead of deleting them. Only for single-node deletions. Use only when the user wants to remove a grouping node while keeping its items.
-
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `node_ids` | string[] | yes | Node IDs to delete. |
-| `children` | `"delete"`, `"promote"` | no | What to do with children of deleted nodes. 'delete': remove entire subtree (default). 'promote': re-parent children to the deleted node's parent. Only valid with a single node_id. |
+| `children` | `"delete"`, `"promote"` | no | What to do with children of deleted nodes. 'delete': remove entire subtree (default). 'promote': re-parent children to the deleted node's parent (single-node only; use to remove a grouping node while keeping its items). |
 | `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **Example input:**
@@ -553,10 +544,6 @@ children: 'promote' re-parents children to the deleted node's parent instead of 
 ### `move_nodes`
 
 Move nodes (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects.
-
-Position values:
-- 'after'/'before': sibling of reference (same parent).
-- 'first_child'/'last_child': child of reference.
 
 **Parameters:**
 

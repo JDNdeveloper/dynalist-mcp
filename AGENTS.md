@@ -108,12 +108,13 @@ Additional principles:
 
 - **Drop context-redundant qualifiers.** Every tool runs inside the Dynalist MCP server, so "a Dynalist document" is just "a document". Do not restate context the agent already has.
 - **Do not explain basic JSON schema usage.** Agents understand that an array parameter accepts one element. Hints like "for a single node, pass a one-element array" are noise.
+- **Break long `.describe()` strings across lines.** Use string concatenation (`+`) and parentheses for readability. Short descriptions can stay inline.
 
 ### Deduplication
 
 Do not duplicate guidance across levels. If something is tool-specific, put it in the tool or parameter description. If it is a cross-cutting pattern, put it in the MCP instructions. Factor commonly repeated strings and substrings into `src/tools/descriptions.ts` so wording changes only need to happen once. That file already uses `*_GUIDANCE` constants for shared policy wording that is interpolated into both parameter descriptions and MCP instructions.
 
-**Exception:** Inline value meanings (enum values, position options, etc.) are repeated wherever they appear, even across description levels. This avoids the agent having to cross-reference a central definition to interpret a parameter or understand a tool. Examples: the color label enum (`'none', 'red', 'orange', ...`) and heading level enum (`'none', 'h1', 'h2', 'h3'`) are spelled out in each parameter that accepts them, and move_nodes position values appear in both the tool description and the parameter description.
+**Exception:** Inline value meanings (enum values, etc.) are repeated wherever they appear within a single description level. This avoids the agent having to cross-reference a central definition to interpret a parameter. Examples: the color label enum (`'none', 'red', 'orange', ...`) and heading level enum (`'none', 'h1', 'h2', 'h3'`) are spelled out in each parameter that accepts them. Value meanings should NOT be repeated across levels (e.g. tool description restating what a parameter description already covers).
 
 ## Key conventions
 

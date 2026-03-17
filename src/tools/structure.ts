@@ -26,16 +26,14 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Delete nodes and their subtrees from a document.\n\n" +
-        "children: 'promote' re-parents children to the deleted node's parent instead of deleting them. " +
-        "Only for single-node deletions. Use only when the user wants to remove a grouping " +
-        "node while keeping its items.",
+        "Delete nodes and their subtrees from a document.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_ids: z.array(z.string()).describe("Node IDs to delete."),
         children: z.enum(["delete", "promote"]).optional().describe(
           "What to do with children of deleted nodes. 'delete': remove entire subtree (default). " +
-          "'promote': re-parent children to the deleted node's parent. Only valid with a single node_id."
+          "'promote': re-parent children to the deleted node's parent " +
+          "(single-node only; use to remove a grouping node while keeping its items)."
         ),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
@@ -226,10 +224,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Move nodes (with subtrees) to new positions in a document. Moves within a single " +
-        "call are applied sequentially; later moves see earlier moves' effects.\n\n" +
-        "Position values:\n" +
-        "- 'after'/'before': sibling of reference (same parent).\n" +
-        "- 'first_child'/'last_child': child of reference.",
+        "call are applied sequentially; later moves see earlier moves' effects.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moves: z.array(z.object({

@@ -154,12 +154,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "list_documents",
     {
       description:
-        "List documents and folders as a recursive tree. Returns a files array of " +
-        "intermixed documents and folders. Use returned file_id values in other tools.\n\n" +
-        "Scope controls:\n" +
-        "- folder_id: starting folder. Omit for root.\n" +
-        "- max_depth: folder nesting depth. 1 = direct children only (sub-folders " +
-        "show depth_limited: true), null = unlimited (default).",
+        "List documents and folders as a recursive tree.",
       inputSchema: {
         folder_id: z.string().optional().describe(
           "Starting folder. Omit to list from the top level."
@@ -361,16 +356,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "read_document",
     {
       description:
-        "Read a document as a JSON node tree. Omit node_id for root. Provide node_id to zoom " +
-        "into a subtree.\n\n" +
-        "Two independent size controls:\n" +
-        "- max_depth: limits tree traversal depth (default 3, null = unlimited).\n" +
-        "- include_collapsed_children: includes children of collapsed nodes (default false).\n" +
-        "These are orthogonal: max_depth does NOT expand collapsed nodes; " +
-        "include_collapsed_children does NOT bypass the depth limit.\n\n" +
+        "Read a document as a JSON node tree. Provide node_id to zoom into a subtree.\n\n" +
+        "max_depth and include_collapsed_children are orthogonal: max_depth does NOT expand " +
+        "collapsed nodes; include_collapsed_children does NOT bypass the depth limit.\n\n" +
         "The starting node always shows its children regardless of collapsed state.\n\n" +
         "Hidden children are signaled by depth_limited: true (max_depth cut off traversal). " +
-        "Fix: read_document with that node_id.",
+        "Call read_document with that node_id to expand.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_id: z.string().optional().describe(
