@@ -743,7 +743,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       description:
         "Check document version numbers without fetching content. " +
         "Detect changes before an expensive read_document call. " +
-        "Version increments on each edit.",
+        "Version increments on each edit. " +
+        "-1 means not found or access denied.",
       inputSchema: {
         file_ids: z.array(z.string()).describe("Array of document file IDs to check"),
       },

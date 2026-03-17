@@ -60,6 +60,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Send an item to the Dynalist inbox. Target is the user's configured inbox. " +
+        "Returns the inbox document's file_id and created node_id. " +
         "For specific documents or hierarchical content, use insert_nodes.",
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),

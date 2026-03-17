@@ -295,7 +295,7 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
 
 ### `check_document_versions`
 
-Check document version numbers without fetching content. Detect changes before an expensive read_document call. Version increments on each edit.
+Check document version numbers without fetching content. Detect changes before an expensive read_document call. Version increments on each edit. -1 means not found or access denied.
 
 **Parameters:**
 
@@ -331,7 +331,7 @@ Check document version numbers without fetching content. Detect changes before a
 
 ### `send_to_inbox`
 
-Send an item to the Dynalist inbox. Target is the user's configured inbox. For specific documents or hierarchical content, use insert_nodes.
+Send an item to the Dynalist inbox. Target is the user's configured inbox. Returns the inbox document's file_id and created node_id. For specific documents or hierarchical content, use insert_nodes.
 
 **Parameters:**
 
