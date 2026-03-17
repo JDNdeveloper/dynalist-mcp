@@ -77,6 +77,10 @@ If a rule references a path that does not exist in the file tree (e.g. a typo, o
 
 Similarly, if the file tree cannot be fetched (network error, invalid token), all tools are denied until the fetch succeeds.
 
+## Denied folders in file listings
+
+When `list_documents` encounters a denied folder, it appears in the tree if it has visible descendants or if any non-deny rule references a path through it. This ensures the full folder chain is always visible for any allowed path in the config. Denied folders with no visible descendants and no rule reference are omitted entirely. Denied documents are always omitted.
+
 ## Cache staleness
 
 When a tool evaluates access and gets a denial, the file tree cache is automatically refreshed and the evaluation retried. This handles cases where a document was recently renamed or moved and the cached path is stale. This retry applies to both single-file and batch operations.

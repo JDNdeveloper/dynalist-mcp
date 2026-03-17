@@ -325,6 +325,24 @@ function validateRules(rules: AccessRule[], pathMap: Map<string, string>): strin
   return errors;
 }
 
+// ─── Path prefix extraction ──────────────────────────────────────────
+
+/**
+ * Extract all prefix paths from a title-based path. For "/A/B/C",
+ * returns ["/A", "/A/B", "/A/B/C"]. Escaped slashes (from titles
+ * containing literal "/") are not treated as separators.
+ */
+function extractPathPrefixes(path: string): string[] {
+  const prefixes: string[] = [];
+  for (let i = 1; i < path.length; i++) {
+    if (path[i] === "/" && !isEscapedChar(path, i)) {
+      prefixes.push(path.slice(0, i));
+    }
+  }
+  prefixes.push(path);
+  return prefixes;
+}
+
 // ─── AccessController ─────────────────────────────────────────────────
 
 export class AccessController {
@@ -478,6 +496,39 @@ export class AccessController {
         } else {
           result.set(id, evaluateRules(filePath, access.rules, access.default));
         }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Return file IDs that appear as path segments in any non-deny rule.
+   * These folders should be visible in file listings even when denied,
+   * because a rule references their path.
+   */
+  async getRuleVisibleFolderIds(config: Config): Promise<Set<string>> {
+    const result = new Set<string>();
+    if (!config.access?.rules) return result;
+
+    const pathMap = await this.getPathMap(config);
+    if (!pathMap) return result;
+
+    // Build reverse map: path -> file ID.
+    const pathToId = new Map<string, string>();
+    for (const [id, path] of pathMap) {
+      pathToId.set(path, id);
+    }
+
+    for (const rule of config.access.rules) {
+      if (rule.policy === "deny") continue;
+
+      const basePath = rule.path.normalize("NFC").replace(/\/\*\*?$/, "");
+      if (basePath === "") continue;
+
+      for (const prefix of extractPathPrefixes(basePath)) {
+        const id = pathToId.get(prefix);
+        if (id !== undefined) result.add(id);
       }
     }
 

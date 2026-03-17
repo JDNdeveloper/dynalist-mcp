@@ -199,6 +199,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const allIds = response.files.map((f) => f.id);
       const policies = await ac.getPolicies(allIds, config);
 
+      // Folders referenced by non-deny rule paths are visible even when
+      // denied, so the agent can see the full folder chain.
+      const ruleVisibleFolders = await ac.getRuleVisibleFolderIds(config);
+
       // Resolve effective max_depth: undefined means use default (null = unlimited).
       const effectiveMaxDepth = max_depth === undefined ? null : max_depth;
 
@@ -223,10 +227,19 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
           const childPolicy = policies.get(childId);
           if (childPolicy === "deny") {
-            // Denied folders are omitted, but their allowed children are
-            // promoted to this level so they remain reachable in the tree.
+            // Denied documents are omitted entirely. Denied folders are
+            // shown when they have visible descendants or are referenced
+            // by a non-deny rule path.
             if (child.type === "folder" || child.type === "root") {
-              result.push(...buildFileTree(childId, currentDepth));
+              const children = buildFileTree(childId, currentDepth + 1);
+              if (children.length > 0 || ruleVisibleFolders.has(childId)) {
+                result.push({
+                  file_id: child.id,
+                  title: child.title,
+                  type: "folder",
+                  children,
+                });
+              }
             }
             continue;
           }

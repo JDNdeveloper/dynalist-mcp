@@ -18,7 +18,9 @@ import { DummyDynalistServer } from "../dummy-server";
  * Tree structure:
  *   Root > Denied Folder   > Denied Doc
  *                          > Allowed In Denied Doc
- *                          > Denied Subfolder > Deep Allowed Doc
+ *                          > Denied Subfolder    > Deep Allowed Doc
+ *                          > Allowed Empty Folder  (empty, allowed via /**)
+ *                          > Glob Target Folder    (empty, denied; has /* rule targeting children)
  *        > ReadOnly Folder > ReadOnly Doc
  *        > Allowed Folder  > Allowed Doc
  *        > Unruled Folder  > Unruled Doc   (no explicit rule, uses default)
@@ -43,13 +45,22 @@ function aclSetup(server: DummyDynalistServer): void {
   ]);
 
   // Nested denied subfolder inside the denied folder, containing an
-  // allowed document. Tests that promotion works through multiple
-  // levels of denied ancestors.
+  // allowed document. Tests that the full folder path is exposed
+  // through multiple levels of denied ancestors.
   server.addFolder("denied_subfolder", "Denied Subfolder", "denied_folder");
   server.addDocument("deep_allowed_doc", "Deep Allowed Doc", "denied_subfolder", [
     server.makeNode("root", "Deep Allowed Doc", ["dadn1"]),
     server.makeNode("dadn1", "Deep override content", []),
   ]);
+
+  // Empty folder with an explicit allow override (via /**). The folder
+  // itself has allow policy, so it appears through the normal non-deny path.
+  server.addFolder("allowed_empty_folder", "Allowed Empty Folder", "denied_folder");
+
+  // Empty folder targeted by a /* rule. The folder itself stays denied
+  // (/* only matches children, not the folder), but it should still be
+  // visible because a non-deny rule references it as a path segment.
+  server.addFolder("glob_target_folder", "Glob Target Folder", "denied_folder");
 
   server.addDocument("readonly_doc", "ReadOnly Doc", "readonly_folder", [
     server.makeNode("root", "ReadOnly Doc", ["rn1"]),
@@ -94,6 +105,8 @@ const ACL_CONFIG = {
       { path: "/Denied Folder/**", policy: "deny" as const },
       { path: "/Denied Folder/Allowed In Denied Doc", policy: "allow" as const },
       { path: "/Denied Folder/Denied Subfolder/Deep Allowed Doc", policy: "allow" as const },
+      { path: "/Denied Folder/Allowed Empty Folder/**", policy: "allow" as const },
+      { path: "/Denied Folder/Glob Target Folder/*", policy: "allow" as const },
       { path: "/ReadOnly Folder/**", policy: "read" as const },
       { path: "/Allowed Folder/**", policy: "allow" as const },
       { path: "/Inbox", policy: "allow" as const },
@@ -478,19 +491,29 @@ describe("list_documents with ACL", () => {
     expect(findFileInTree(files, "denied_doc")).toBeUndefined();
   });
 
-  test("denied folders are omitted from results", async () => {
+  test("denied folders without allowed descendants are omitted", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const files = result.files as Record<string, unknown>[];
-    expect(findFileInTree(files, "denied_folder")).toBeUndefined();
+    // unruled_folder has no allowed descendants, so it should not appear.
+    expect(findFileInTree(files, "unruled_folder")).toBeUndefined();
   });
 
-  test("denied items do not appear in any folder's children", async () => {
+  test("denied folders with allowed descendants appear in the tree", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+    // denied_folder contains allowed_in_denied_doc and deep_allowed_doc
+    // (via denied_subfolder), so it should appear.
+    const deniedFolder = findFileInTree(files, "denied_folder");
+    expect(deniedFolder).toBeDefined();
+  });
+
+  test("denied documents and folders without allowed descendants do not appear", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const all = flattenTree(result.files as Record<string, unknown>[]);
-    const deniedIds = ["denied_folder", "denied_subfolder", "denied_doc", "unruled_folder", "unruled_doc"];
+    const hiddenIds = ["denied_doc", "unruled_folder", "unruled_doc"];
     for (const entry of all) {
-      for (const deniedId of deniedIds) {
-        expect(entry.file_id).not.toBe(deniedId);
+      for (const hiddenId of hiddenIds) {
+        expect(entry.file_id).not.toBe(hiddenId);
       }
     }
   });
@@ -520,34 +543,148 @@ describe("list_documents with ACL", () => {
     expect(findFileInTree(result.files as Record<string, unknown>[], "unruled_doc")).toBeUndefined();
   });
 
-  test("allow-override inside deny-parent: document appears despite parent being denied", async () => {
+  test("allow-override inside deny-parent: document nested under denied folder", async () => {
     // The "Allowed In Denied Doc" has an explicit allow rule even though
     // its parent "Denied Folder" matches /Denied Folder/** with deny policy.
-    // The more specific exact-match rule should win.
+    // The denied folder should appear as a path container.
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    const overrideDoc = findFileInTree(result.files as Record<string, unknown>[], "allowed_in_denied_doc");
+    const files = result.files as Record<string, unknown>[];
+
+    // The document should be nested under Denied Folder, not at top level.
+    const topLevel = files.find((f) => f.file_id === "allowed_in_denied_doc");
+    expect(topLevel).toBeUndefined();
+
+    const deniedFolder = findFileInTree(files, "denied_folder");
+    expect(deniedFolder).toBeDefined();
+    const children = deniedFolder!.children as Record<string, unknown>[];
+    const overrideDoc = children.find((f) => f.file_id === "allowed_in_denied_doc");
     expect(overrideDoc).toBeDefined();
     expect(overrideDoc!.title).toBe("Allowed In Denied Doc");
     expect(overrideDoc!.access_policy).toBeUndefined();
   });
 
-  test("allow-override through multiple denied ancestors: document promoted to top level", async () => {
+  test("allow-override through multiple denied ancestors: full folder path shown", async () => {
     // "Deep Allowed Doc" sits inside "Denied Subfolder" which is inside
-    // "Denied Folder". Both ancestor folders are denied, so the document
-    // must be promoted through two levels of denied folders to the root.
+    // "Denied Folder". Both ancestor folders are denied, but they should
+    // appear as path containers so the full hierarchy is visible.
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const files = result.files as Record<string, unknown>[];
 
-    // The document should appear at the top level of the tree, not
-    // nested inside any folder. Using a shallow search (no recursion)
-    // to verify it was promoted all the way to root.
+    // The document should NOT appear at the top level.
     const topLevelDoc = files.find((f) => f.file_id === "deep_allowed_doc");
-    expect(topLevelDoc).toBeDefined();
-    expect(topLevelDoc!.title).toBe("Deep Allowed Doc");
+    expect(topLevelDoc).toBeUndefined();
 
-    // Neither denied folder should appear anywhere in the tree.
-    expect(findFileInTree(files, "denied_folder")).toBeUndefined();
-    expect(findFileInTree(files, "denied_subfolder")).toBeUndefined();
+    // Both denied folders should appear as path containers.
+    const deniedFolder = files.find((f) => f.file_id === "denied_folder");
+    expect(deniedFolder).toBeDefined();
+
+    const deniedChildren = deniedFolder!.children as Record<string, unknown>[];
+    const deniedSubfolder = deniedChildren.find((f) => f.file_id === "denied_subfolder");
+    expect(deniedSubfolder).toBeDefined();
+
+    const subChildren = deniedSubfolder!.children as Record<string, unknown>[];
+    const deepDoc = subChildren.find((f) => f.file_id === "deep_allowed_doc");
+    expect(deepDoc).toBeDefined();
+    expect(deepDoc!.title).toBe("Deep Allowed Doc");
+  });
+
+  test("denied folder shown as path container does not include denied children", async () => {
+    // Denied Folder contains denied_doc (denied) and allowed_in_denied_doc (allowed).
+    // Only the allowed doc should appear as a child of the denied folder.
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+    const deniedFolder = findFileInTree(files, "denied_folder");
+    expect(deniedFolder).toBeDefined();
+    const children = deniedFolder!.children as Record<string, unknown>[];
+    expect(children.find((f) => f.file_id === "denied_doc")).toBeUndefined();
+  });
+
+  test("allowed folders do not have access_policy field", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+    const allowedFolder = findFileInTree(files, "allowed_folder");
+    expect(allowedFolder).toBeDefined();
+    expect(allowedFolder!.access_policy).toBeUndefined();
+  });
+
+  test("empty allowed folder inside denied parent: both visible", async () => {
+    // Allowed Empty Folder has allow policy (from /** rule) and is
+    // empty. It should appear inside Denied Folder.
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+    const deniedFolder = findFileInTree(files, "denied_folder");
+    expect(deniedFolder).toBeDefined();
+    const children = deniedFolder!.children as Record<string, unknown>[];
+    const emptyFolder = children.find((f) => f.file_id === "allowed_empty_folder");
+    expect(emptyFolder).toBeDefined();
+    expect(emptyFolder!.title).toBe("Allowed Empty Folder");
+    expect(emptyFolder!.children).toEqual([]);
+  });
+
+  test("empty denied folder with /* rule: visible because rule references its path", async () => {
+    // Glob Target Folder is denied (/* does not match the folder itself),
+    // but it has a non-deny /* rule, making it rule-visible.
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const files = result.files as Record<string, unknown>[];
+    const deniedFolder = findFileInTree(files, "denied_folder");
+    expect(deniedFolder).toBeDefined();
+    const children = deniedFolder!.children as Record<string, unknown>[];
+    const globFolder = children.find((f) => f.file_id === "glob_target_folder");
+    expect(globFolder).toBeDefined();
+    expect(globFolder!.title).toBe("Glob Target Folder");
+    expect(globFolder!.children).toEqual([]);
+  });
+
+  test("rule-visible denied folder appears even at max_depth: 1", async () => {
+    // denied_folder is rule-visible (non-deny rules reference paths
+    // through it). At max_depth: 1, it should appear with empty children.
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 1,
+    });
+    const files = result.files as Record<string, unknown>[];
+    const deniedFolder = files.find((f) => f.file_id === "denied_folder");
+    expect(deniedFolder).toBeDefined();
+    expect(deniedFolder!.children).toEqual([]);
+  });
+
+  test("rule-visible denied folders at max_depth: 2 show their visible children", async () => {
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 2,
+    });
+    const files = result.files as Record<string, unknown>[];
+    const deniedFolder = files.find((f) => f.file_id === "denied_folder");
+    expect(deniedFolder).toBeDefined();
+    const children = deniedFolder!.children as Record<string, unknown>[];
+
+    // Allowed documents and folders should be visible at depth 2.
+    expect(children.find((f) => f.file_id === "allowed_in_denied_doc")).toBeDefined();
+    expect(children.find((f) => f.file_id === "allowed_empty_folder")).toBeDefined();
+    expect(children.find((f) => f.file_id === "glob_target_folder")).toBeDefined();
+
+    // Denied subfolder should appear (it has allowed descendants) but
+    // its children are beyond the depth limit.
+    const subfolder = children.find((f) => f.file_id === "denied_subfolder");
+    expect(subfolder).toBeDefined();
+    expect(subfolder!.children).toEqual([]);
+
+    // Denied documents should NOT appear.
+    expect(children.find((f) => f.file_id === "denied_doc")).toBeUndefined();
+  });
+
+  test("denied folder without any rule reference is still omitted", async () => {
+    // unruled_folder uses default deny and has no non-deny rule
+    // referencing its path. It should not appear.
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const all = flattenTree(result.files as Record<string, unknown>[]);
+    expect(all.find((f) => f.file_id === "unruled_folder")).toBeUndefined();
+  });
+
+  test("denied doc inside rule-visible folder is not exposed", async () => {
+    // denied_doc is inside denied_folder (which is rule-visible), but
+    // denied_doc itself has deny policy and should NOT appear.
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const all = flattenTree(result.files as Record<string, unknown>[]);
+    expect(all.find((f) => f.file_id === "denied_doc")).toBeUndefined();
   });
 });
 
