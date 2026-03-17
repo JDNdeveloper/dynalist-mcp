@@ -291,8 +291,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "search_documents",
     {
       description:
-        "Search for documents and folders by title. Filters the file tree only; does not search " +
-        "node content. Use search_in_document to search inside a document.\n\n" +
+        "Search for documents and folders by title. Does not search document content; " +
+        "use search_in_document for that. Case-insensitive; issue queries in lowercase.\n\n" +
         "Each match has a type field ('document' or 'folder'). Document matches include " +
         "permission.",
       inputSchema: {
@@ -476,6 +476,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         "Search for text in a document. Returns matching nodes with metadata. " +
+        "Case-insensitive; issue queries in lowercase. " +
         "Use parent_levels for ancestor breadcrumbs without a separate read_document call.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),

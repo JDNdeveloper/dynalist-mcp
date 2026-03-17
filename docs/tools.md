@@ -47,7 +47,7 @@ List documents and folders as a recursive tree.
 
 ### `search_documents`
 
-Search for documents and folders by title. Filters the file tree only; does not search node content. Use search_in_document to search inside a document.
+Search for documents and folders by title. Does not search document content; use search_in_document for that. Case-insensitive; issue queries in lowercase.
 
 Each match has a type field ('document' or 'folder'). Document matches include permission.
 
@@ -159,7 +159,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 
 ### `search_in_document`
 
-Search for text in a document. Returns matching nodes with metadata. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
+Search for text in a document. Returns matching nodes with metadata. Case-insensitive; issue queries in lowercase. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
 
 **Parameters:**
 
