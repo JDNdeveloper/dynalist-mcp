@@ -149,7 +149,7 @@ The instructions establish a mandatory workflow: read a document before any writ
 
 ### Why opaque tokens
 
-Early versions exposed the numeric document version directly. Opus exploited this after a write: it called `insert_items`, incremented the version by 1, received a sync warning saying the version had actually advanced by 2 (the insert made two API calls under the hood), then used that leaked version number directly in the next mutation without re-reading the document. The arithmetic happened to be correct, but the behavior is unsafe because it bypasses the re-read that the version guard is designed to enforce. By hashing the version into a short opaque hex token, agents cannot predict the next value and are forced to re-read.
+Early versions exposed the numeric document version directly. Claude Opus 4.6 exploited this after a write: it called `insert_items`, incremented the version by 1, received a sync warning saying the version had actually advanced by 2 (the insert made two API calls under the hood), then used that leaked version number directly in the next mutation without re-reading the document. The arithmetic happened to be correct, but the behavior is unsafe because it bypasses the re-read that the version guard is designed to enforce. By hashing the version into a short opaque hex token, agents cannot predict the next value and are forced to re-read.
 
 ## Checkbox and checked state guidance
 
