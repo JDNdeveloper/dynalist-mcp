@@ -52,7 +52,7 @@ export const BYPASS_WARNING_DESCRIPTION =
 export const PARENT_LEVELS_DESCRIPTION =
   "Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root.";
 export const FOLDER_INDEX_DESCRIPTION =
-  "Position in folder. 0 = first, -1 = last (default).";
+  "Position in folder. 0 = first, -1 = last.";
 
 // Node metadata fields (input).
 export const CHECKED_DESCRIPTION =

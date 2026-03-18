@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { writeFileSync, unlinkSync, existsSync, utimesSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { getConfig, getConfigVersion, ConfigError, setTestConfig } from "../config";
+import { getConfig, getStartupConfig, getConfigVersion, ConfigError, setTestConfig } from "../config";
 import {
   createTestContext,
   callToolOk,
@@ -36,14 +36,8 @@ function cleanupConfig() {
   if (existsSync(TEST_CONFIG_PATH)) {
     unlinkSync(TEST_CONFIG_PATH);
   }
-  // Call getConfig() so the module detects the file was deleted and
-  // resets its internal fileExisted flag. This ensures a clean slate
-  // for the next test.
-  try {
-    getConfig();
-  } catch {
-    // Ignore errors from stale state.
-  }
+  // Reset all internal config state for test isolation.
+  setTestConfig(null);
 }
 
 describe("config loading", () => {
@@ -515,6 +509,173 @@ describe("config reload behavior", () => {
   });
 });
 
+// ─── Hot-reload split ────────────────────────────────────────────────
+
+describe("config hot-reload split", () => {
+  beforeEach(() => {
+    setConfigEnv();
+  });
+
+  afterEach(() => {
+    cleanupConfig();
+    delete process.env.DYNALIST_MCP_CONFIG;
+  });
+
+  test("startup-only fields are not updated on file change", () => {
+    writeTestConfig({
+      readDefaults: { maxDepth: 5 },
+      sizeWarning: { warningTokenThreshold: 2000, maxTokenThreshold: 10000 },
+      cache: { ttlSeconds: 120 },
+      logLevel: "info",
+    });
+    const config1 = getConfig();
+    expect(config1.readDefaults.maxDepth).toBe(5);
+    expect(config1.sizeWarning.warningTokenThreshold).toBe(2000);
+    expect(config1.cache.ttlSeconds).toBe(120);
+    expect(config1.logLevel).toBe("info");
+
+    // Change all fields including startup-only ones.
+    writeTestConfig({
+      readDefaults: { maxDepth: 20 },
+      sizeWarning: { warningTokenThreshold: 9000, maxTokenThreshold: 50000 },
+      cache: { ttlSeconds: 600 },
+      logLevel: "debug",
+    });
+    const config2 = getConfig();
+
+    // Hot-reloadable field updated.
+    expect(config2.logLevel).toBe("debug");
+
+    // Startup-only fields frozen from initial load.
+    expect(config2.readDefaults.maxDepth).toBe(5);
+    expect(config2.sizeWarning.warningTokenThreshold).toBe(2000);
+    expect(config2.cache.ttlSeconds).toBe(120);
+  });
+
+  test("access rules are hot-reloaded", () => {
+    writeTestConfig({
+      access: { default: "allow", rules: [] },
+    });
+    const config1 = getConfig();
+    expect(config1.access?.default).toBe("allow");
+
+    writeTestConfig({
+      access: { default: "deny", rules: [{ path: "/Docs/**", policy: "allow" }] },
+    });
+    const config2 = getConfig();
+    expect(config2.access?.default).toBe("deny");
+    expect(config2.access?.rules).toHaveLength(1);
+  });
+
+  test("logFile is hot-reloaded", () => {
+    writeTestConfig({});
+    const config1 = getConfig();
+    expect(config1.logFile).toBeUndefined();
+
+    writeTestConfig({ logFile: "/tmp/test.log" });
+    const config2 = getConfig();
+    expect(config2.logFile).toBe("/tmp/test.log");
+  });
+
+  test("file deletion reverts hot-reloadable fields but preserves startup-only fields", () => {
+    writeTestConfig({
+      readDefaults: { maxDepth: 7 },
+      logLevel: "debug",
+    });
+    const config1 = getConfig();
+    expect(config1.readDefaults.maxDepth).toBe(7);
+    expect(config1.logLevel).toBe("debug");
+
+    // Delete the file.
+    unlinkSync(TEST_CONFIG_PATH);
+    const config2 = getConfig();
+
+    // Hot-reloadable field reverts to default.
+    expect(config2.logLevel).toBe("warn");
+
+    // Startup-only field preserved from initial load.
+    expect(config2.readDefaults.maxDepth).toBe(7);
+  });
+
+  test("hot-reload mutates cached object so prior references see updates", () => {
+    writeTestConfig({ logLevel: "info" });
+    const config1 = getConfig();
+    expect(config1.logLevel).toBe("info");
+
+    // Hot-reload updates cachedConfig in place. The prior reference
+    // should see the mutation since it points to the same object.
+    writeTestConfig({ logLevel: "debug" });
+    const config2 = getConfig();
+
+    expect(config1).toBe(config2);
+    expect(config1.logLevel).toBe("debug");
+  });
+
+  test("late-appearing config file gets full initial load for startup-only fields", () => {
+    // No config file at startup. getConfig returns defaults.
+    const config1 = getConfig();
+    expect(config1.readDefaults.maxDepth).toBe(3);
+    expect(config1.logLevel).toBe("warn");
+
+    // Config file appears after startup. Since initialLoadDone is still
+    // false (no file was ever loaded), the first file load sets all
+    // fields including startup-only ones.
+    writeTestConfig({
+      readDefaults: { maxDepth: 15 },
+      sizeWarning: { warningTokenThreshold: 8000, maxTokenThreshold: 40000 },
+      logLevel: "info",
+    });
+    const config2 = getConfig();
+    expect(config2.readDefaults.maxDepth).toBe(15);
+    expect(config2.sizeWarning.warningTokenThreshold).toBe(8000);
+    expect(config2.logLevel).toBe("info");
+
+    // Subsequent reloads only propagate hot-reloadable fields.
+    writeTestConfig({
+      readDefaults: { maxDepth: 99 },
+      sizeWarning: { warningTokenThreshold: 1, maxTokenThreshold: 1 },
+      logLevel: "error",
+    });
+    const config3 = getConfig();
+    expect(config3.logLevel).toBe("error");
+    expect(config3.readDefaults.maxDepth).toBe(15);
+    expect(config3.sizeWarning.warningTokenThreshold).toBe(8000);
+  });
+
+  test("removing access section on reload reverts to undefined", () => {
+    writeTestConfig({
+      access: { default: "deny", rules: [{ path: "/Docs/**", policy: "allow" }] },
+    });
+    const config1 = getConfig();
+    expect(config1.access?.default).toBe("deny");
+    expect(config1.access?.rules).toHaveLength(1);
+
+    // Reload without access section. The hot-reload loop sets
+    // cachedConfig.access to the new parsed value (undefined),
+    // effectively lifting restrictions.
+    writeTestConfig({ logLevel: "debug" });
+    const config2 = getConfig();
+    expect(config2.access).toBeUndefined();
+  });
+
+  test("getStartupConfig returns only startup-only fields", () => {
+    writeTestConfig({
+      access: { default: "deny", rules: [] },
+      readDefaults: { maxDepth: 7 },
+      logLevel: "debug",
+    });
+    const startup = getStartupConfig();
+    expect(startup.readDefaults.maxDepth).toBe(7);
+    expect(startup.sizeWarning.warningTokenThreshold).toBe(5000);
+    expect(startup.cache.ttlSeconds).toBe(300);
+
+    // Hot-reloadable fields are excluded from the return type and value.
+    expect("logLevel" in startup).toBe(false);
+    expect("access" in startup).toBe(false);
+    expect("logFile" in startup).toBe(false);
+  });
+});
+
 // ─── Config reloading between tool invocations ──────────────────────
 
 describe("config reloading between tool invocations", () => {
@@ -556,13 +717,13 @@ describe("config reloading between tool invocations", () => {
     expect(err.message).toBe("Document is read-only per access policy.");
   });
 
-  test("readDefaults change affects read_document behavior", async () => {
-    // Start with includeChecked: true.
+  test("readDefaults are startup-only: changes after registration do not affect schema defaults", async () => {
+    // Start with includeChecked: true baked into schema defaults.
     ctx = await createTestContext(standardSetup, {
       readDefaults: { maxDepth: 10, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
     });
 
-    // n3 has checked: true. It should appear.
+    // n3 has checked: true. With default includeChecked: true, it should appear.
     const result1 = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
@@ -570,7 +731,9 @@ describe("config reloading between tool invocations", () => {
     const children1 = node1.children as Record<string, unknown>[];
     expect(children1.some((c) => c.node_id === "n3")).toBe(true);
 
-    // Switch includeChecked to false.
+    // Change readDefaults after registration. Since readDefaults are startup-only
+    // and baked into schema defaults at registration time, this should NOT affect
+    // the schema's default for include_checked.
     setTestConfig({
       readDefaults: { maxDepth: 10, includeCollapsedChildren: false, includeNotes: true, includeChecked: false },
       sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
@@ -578,13 +741,23 @@ describe("config reloading between tool invocations", () => {
       logLevel: "warn",
     });
 
-    // n3 should no longer appear because the config now excludes checked items.
+    // n3 should STILL appear because the schema default (includeChecked: true)
+    // was baked at registration time.
     const result2 = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
     const node2 = result2.node as Record<string, unknown>;
     const children2 = node2.children as Record<string, unknown>[];
-    expect(children2.some((c) => c.node_id === "n3")).toBe(false);
+    expect(children2.some((c) => c.node_id === "n3")).toBe(true);
+
+    // Explicit parameter override still works.
+    const result3 = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      include_checked: false,
+    });
+    const node3 = result3.node as Record<string, unknown>;
+    const children3 = node3.children as Record<string, unknown>[];
+    expect(children3.some((c) => c.node_id === "n3")).toBe(false);
   });
 
   test("sizeWarning threshold change takes effect on next read", async () => {

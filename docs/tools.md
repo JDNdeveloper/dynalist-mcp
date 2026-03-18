@@ -10,16 +10,15 @@ List documents and folders as a recursive tree.
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `folder_id` | string | no | Starting folder. Omit to list from the top level. |
-| `max_depth` | number \| null | no | Depth of folder nesting to include. 1 = direct children only, 2 = children + grandchildren, null = unlimited (default). |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `folder_id` | string | no |  | Starting folder. Omit to list from the top level. |
+| `max_depth` | number \| null | no | null | Depth of folder nesting to include. 1 = direct children only, 2 = children + grandchildren, null = unlimited. |
 
 **Example input:**
 ```json
 {
-  "folder_id": "f_folder456",
-  "max_depth": 3
+  "folder_id": "f_folder456"
 }
 ```
 
@@ -115,21 +114,17 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
 | `node_id` | string | no |  | Starting node. Omit for document root. |
-| `max_depth` | number \| null | no |  | Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. Default: 3. |
-| `include_collapsed_children` | boolean | no |  | Include collapsed nodes' children. Default false: collapsed nodes show children_count but empty children. |
-| `include_notes` | boolean | no |  | Include node notes. Default: true. |
-| `include_checked` | boolean | no |  | Include checked/completed nodes. Default: true. |
+| `max_depth` | number \| null | no | 3 | Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. |
+| `include_collapsed_children` | boolean | no | false | Include collapsed nodes' children. When false, collapsed nodes show children_count but empty children. |
+| `include_notes` | boolean | no | true | Include node notes. |
+| `include_checked` | boolean | no | true | Include checked/completed nodes. |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 
 **Example input:**
 ```json
 {
   "file_id": "f_abc123",
-  "node_id": "n_item789",
-  "max_depth": 3,
-  "include_collapsed_children": false,
-  "include_notes": true,
-  "include_checked": true
+  "node_id": "n_item789"
 }
 ```
 
@@ -234,7 +229,7 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
 | `file_id` | string | yes |  | Document file ID |
 | `since` | string | yes |  | Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z') |
 | `until` | string | no |  | End: ISO 8601 date or datetime (default: now) |
-| `type` | `"created"`, `"modified"`, `"both"` | no | "both" | 'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all (default). |
+| `type` | `"created"`, `"modified"`, `"both"` | no | "both" | 'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all. |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
 | `sort` | `"newest_first"`, `"oldest_first"` | no | "newest_first" | Sort order by timestamp |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
@@ -502,12 +497,12 @@ Delete nodes and their subtrees from a document.
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `file_id` | string | yes | Document file ID |
-| `node_ids` | string[] | yes | Node IDs to delete. |
-| `children` | `"delete"`, `"promote"` | no | What to do with children of deleted nodes. 'delete': remove entire subtree (default). 'promote': re-parent children to the deleted node's parent (single-node only; use to remove a grouping node while keeping its items). |
-| `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `file_id` | string | yes |  | Document file ID |
+| `node_ids` | string[] | yes |  | Node IDs to delete. |
+| `children` | `"delete"`, `"promote"` | no | "delete" | What to do with children of deleted nodes. 'delete': remove entire subtree. 'promote': re-parent children to the deleted node's parent (single-node only; use to remove a grouping node while keeping its items). |
+| `expected_version` | number | yes |  | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **Example input:**
 ```json
@@ -516,7 +511,6 @@ Delete nodes and their subtrees from a document.
   "node_ids": [
     "n_item789"
   ],
-  "children": "delete",
   "expected_version": 42
 }
 ```
@@ -610,7 +604,7 @@ Create an empty document in a folder. Use the returned file_id with insert_nodes
 | --- | --- | --- | --- | --- |
 | `parent_folder_id` | string | yes |  | Parent folder file ID |
 | `title` | string | no | "" | Document title |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last (default). |
+| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
 **Example input:**
 ```json
@@ -644,7 +638,7 @@ Create an empty folder inside another folder.
 | --- | --- | --- | --- | --- |
 | `parent_folder_id` | string | yes |  | Parent folder file ID |
 | `title` | string | no | "" | Folder title |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last (default). |
+| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
 **Example input:**
 ```json
@@ -746,7 +740,7 @@ Move a document to a different folder, or reorder within its current folder. Ope
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
 | `parent_folder_id` | string | yes |  | Parent folder file ID |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last (default). |
+| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
 **Example input:**
 ```json
@@ -781,7 +775,7 @@ Move a folder to a different parent, or reorder within its current parent. Conte
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Folder file ID |
 | `parent_folder_id` | string | yes |  | Parent folder file ID |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last (default). |
+| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
 **Example input:**
 ```json

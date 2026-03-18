@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
-import { getConfig } from "../config";
+import { getConfig, getStartupConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
 import {
   checkContentSize,
@@ -150,6 +150,8 @@ const fileTreeFolderSchema: z.ZodType<{
 const fileTreeEntrySchema = z.union([fileTreeDocumentSchema, fileTreeFolderSchema]);
 
 export function registerReadTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
+  const { readDefaults } = getStartupConfig();
+
   server.registerTool(
     "list_documents",
     {
@@ -159,9 +161,9 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         folder_id: z.string().optional().describe(
           "Starting folder. Omit to list from the top level."
         ),
-        max_depth: z.number().nullable().optional().describe(
+        max_depth: z.number().nullable().optional().default(null).describe(
           "Depth of folder nesting to include. 1 = direct children only, " +
-          "2 = children + grandchildren, null = unlimited (default)."
+          "2 = children + grandchildren, null = unlimited."
         ),
       },
       outputSchema: {
@@ -176,7 +178,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       max_depth,
     }: {
       folder_id?: string;
-      max_depth?: number | null;
+      max_depth: number | null;
     }) => {
       const config = getConfig();
       const response = await client.listFiles();
@@ -203,9 +205,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       // denied, so the agent can see the full folder chain.
       const ruleVisibleFolders = await ac.getRuleVisibleFolderIds(config);
 
-      // Resolve effective max_depth: undefined means use default (null = unlimited).
-      const effectiveMaxDepth = max_depth === undefined ? null : max_depth;
-
       // Recursively build the file tree from a folder's children.
       let documentCount = 0;
 
@@ -215,7 +214,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
         // If past the depth limit, return nothing. The caller is
         // responsible for signaling depth_limited on the folder entry.
-        if (effectiveMaxDepth !== null && currentDepth > effectiveMaxDepth) {
+        if (max_depth !== null && currentDepth > max_depth) {
           return [];
         }
 
@@ -263,7 +262,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             ).length;
 
             // Check if we have reached the depth limit.
-            if (effectiveMaxDepth !== null && currentDepth >= effectiveMaxDepth) {
+            if (max_depth !== null && currentDepth >= max_depth) {
               const entry: Record<string, unknown> = {
                 file_id: child.id,
                 title: child.title,
@@ -387,18 +386,18 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         node_id: z.string().optional().describe(
           "Starting node. Omit for document root."
         ),
-        max_depth: z.number().nullable().optional().describe(
-          "Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. Default: 3."
+        max_depth: z.number().nullable().optional().default(readDefaults.maxDepth).describe(
+          "Max traversal depth. 0 = target only, 1 = target + children, null = unlimited."
         ),
-        include_collapsed_children: z.boolean().optional().describe(
-          "Include collapsed nodes' children. Default false: collapsed nodes show " +
+        include_collapsed_children: z.boolean().optional().default(readDefaults.includeCollapsedChildren).describe(
+          "Include collapsed nodes' children. When false, collapsed nodes show " +
           "children_count but empty children."
         ),
-        include_notes: z.boolean().optional().describe(
-          "Include node notes. Default: true."
+        include_notes: z.boolean().optional().default(readDefaults.includeNotes).describe(
+          "Include node notes."
         ),
-        include_checked: z.boolean().optional().describe(
-          "Include checked/completed nodes. Default: true."
+        include_checked: z.boolean().optional().default(readDefaults.includeChecked).describe(
+          "Include checked/completed nodes."
         ),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
@@ -421,10 +420,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     }: {
       file_id: string;
       node_id?: string;
-      max_depth?: number | null;
-      include_collapsed_children?: boolean;
-      include_notes?: boolean;
-      include_checked?: boolean;
+      max_depth: number | null;
+      include_collapsed_children: boolean;
+      include_notes: boolean;
+      include_checked: boolean;
       bypass_warning: boolean;
     }) => {
       const config = getConfig();
@@ -433,11 +432,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const policy = await ac.getPolicy(file_id, config);
       const accessError = requireAccess(policy, "read");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
-
-      const effectiveMaxDepth = max_depth === undefined ? config.readDefaults.maxDepth : max_depth;
-      const effectiveIncludeCollapsedChildren = include_collapsed_children ?? config.readDefaults.includeCollapsedChildren;
-      const effectiveIncludeNotes = include_notes ?? config.readDefaults.includeNotes;
-      const effectiveIncludeChecked = include_checked ?? config.readDefaults.includeChecked;
 
       const doc = await store.read(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
@@ -450,10 +444,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       }
 
       const tree = buildNodeTree(nodeMap, startNodeId, {
-        maxDepth: effectiveMaxDepth,
-        includeCollapsedChildren: effectiveIncludeCollapsedChildren,
-        includeNotes: effectiveIncludeNotes,
-        includeChecked: effectiveIncludeChecked,
+        maxDepth: max_depth,
+        includeCollapsedChildren: include_collapsed_children,
+        includeNotes: include_notes,
+        includeChecked: include_checked,
       });
 
       if (!tree) {
@@ -624,7 +618,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         since: z.string().describe("Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z')"),
         until: z.string().optional().describe("End: ISO 8601 date or datetime (default: now)"),
         type: z.enum(["created", "modified", "both"]).optional().default("both").describe(
-          "'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all (default)."
+          "'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all."
         ),
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
         sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),

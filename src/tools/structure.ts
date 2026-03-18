@@ -30,8 +30,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         node_ids: z.array(z.string()).describe("Node IDs to delete."),
-        children: z.enum(["delete", "promote"]).optional().describe(
-          "What to do with children of deleted nodes. 'delete': remove entire subtree (default). " +
+        children: z.enum(["delete", "promote"]).optional().default("delete").describe(
+          "What to do with children of deleted nodes. 'delete': remove entire subtree. " +
           "'promote': re-parent children to the deleted node's parent " +
           "(single-node only; use to remove a grouping node while keeping its items)."
         ),
@@ -53,17 +53,14 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     }: {
       file_id: string;
       node_ids: string[];
-      children?: "delete" | "promote";
+      children: "delete" | "promote";
       expected_version: number;
     }) => {
       if (node_ids.length === 0) {
         return makeErrorResponse("InvalidInput", "No nodes to delete (empty array).");
       }
 
-      // Default to "delete" when omitted.
-      const effectiveMode = childrenMode ?? "delete";
-
-      if (effectiveMode === "promote" && node_ids.length > 1) {
+      if (childrenMode === "promote" && node_ids.length > 1) {
         return makeErrorResponse(
           "InvalidInput",
           "children: 'promote' is only supported for single-node deletions (node_ids must have exactly one element).",
@@ -110,7 +107,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           }
 
           // Child promotion path (single node only).
-          if (effectiveMode === "promote") {
+          if (childrenMode === "promote") {
             const node_id = node_ids[0];
             const targetNode = nodeMap.get(node_id)!;
 

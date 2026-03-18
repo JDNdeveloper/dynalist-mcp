@@ -119,6 +119,7 @@ Key rules:
 - **Input param descriptions do NOT belong in tool descriptions.** The tool description should cover what the tool does, when to use it, cross-parameter relationships, and non-obvious output behavior. It should not restate what individual parameter descriptions already say.
 - **Non-obvious output properties MUST be documented in tool descriptions.** Output schemas are not shown to agents, so any output behavior that cannot be inferred from property names alone must be mentioned in the tool description.
 - **Do NOT duplicate information across parameter descriptions.** If a behavior applies to multiple parameters (e.g. how date formats are interpreted for `since` and `until`), describe it once in the tool description rather than repeating it in each parameter.
+- **Do NOT restate a Zod `.default(value)` in the description.** The JSON Schema `default` field is transmitted to agents; repeating it in prose is redundant and risks going stale.
 
 **Exception:** Inline value meanings (enum values, etc.) are repeated wherever they appear within a single description level. This avoids the agent having to cross-reference a central definition to interpret a parameter. Examples: the color label enum (`'none', 'red', 'orange', ...`) and heading level enum (`'none', 'h1', 'h2', 'h3'`) are spelled out in each parameter that accepts them. Value meanings should NOT be repeated across levels (e.g. tool description restating what a parameter description already covers).
 
@@ -129,7 +130,8 @@ Key rules:
 - **Error handling**: all tool handlers are wrapped in `wrapToolHandler` which catches exceptions and returns structured MCP error responses.
 - **Response format**: success responses return both `structuredContent` and a text content block for backwards compatibility, via `makeResponse()`. Error responses return only a text content block (no `structuredContent`) to avoid MCP client SDK schema validation failures.
 - **IDs only**: tools accept `file_id` and `node_id` parameters, not URLs. URLs are included in responses for human convenience.
-- **Config reloading**: config file is checked for mtime changes on every tool invocation (stat only, no read unless changed). Invalid config fails closed.
+- **Config reloading**: config file is checked for mtime changes on every tool invocation (stat only, no read unless changed). Only `access`, `logLevel`, and `logFile` are hot-reloaded; all other settings (`readDefaults`, `sizeWarning`, `cache`) are frozen at startup and baked into tool schemas. Invalid config fails closed.
+- **Schema defaults from config**: use `getStartupConfig()` before tool registration to capture startup-only values and set Zod `.default()` calls. Use `getConfig()` inside tool handlers for all runtime config access. Never call `getStartupConfig()` inside a handler.
 - **Cache invalidation**: file tree cache is invalidated after create/rename/move operations and on denial retries.
 - **Property ordering**: any property whose value is a nested structure (array of objects, recursive tree, etc.) must be the last property on its containing object, in both schemas and response construction. This keeps scalar metadata visually adjacent to the primary content in serialized JSON. See `docs/agent-ux.md` "Property ordering" for the full canonical field order, rationale, and examples.
 

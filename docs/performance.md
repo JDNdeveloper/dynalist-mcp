@@ -24,6 +24,11 @@ The cache is invalidated in three situations:
 
 The config file (`~/.dynalist-mcp.json`) is checked on every tool invocation, but the check is a `stat()` call that reads only the file's modification time. If the mtime has not changed since the last load, the cached config is returned without reading or parsing the file. Only when the mtime changes does the server read and re-validate the JSON.
 
+Config fields are split into two categories:
+
+- **Hot-reloaded** (`access`, `logLevel`, `logFile`): updated on every file change. Access rules must always be current for security; log settings are useful to change for live debugging.
+- **Startup-only** (`readDefaults`, `sizeWarning`, `cache`): read once at server initialization and frozen. Their values are baked into Zod schema `.default()` calls at tool registration time, so they become part of the JSON Schema transmitted to agents. Changing these fields in the config file after startup has no effect until the server is restarted.
+
 A `configVersion` counter increments on every reload. Other modules (like `AccessController`) compare against this counter to detect config changes with a simple integer comparison instead of redundant file reads.
 
 ## Rate limit handling

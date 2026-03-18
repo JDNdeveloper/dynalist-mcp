@@ -11,7 +11,7 @@
 
 ## Config file
 
-Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_MCP_CONFIG`). All fields are optional with sensible defaults. Validated with Zod on load. Automatically reloaded when the file is modified (mtime-based check on every tool call). Invalid config fails closed (all tools error until fixed or removed).
+Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_MCP_CONFIG`). All fields are optional with sensible defaults. Validated with Zod on load. Only `access`, `logLevel`, and `logFile` are hot-reloaded on file changes; all other settings are read once at startup. Invalid config fails closed (all tools error until fixed or removed).
 
 ```json
 {

@@ -71,6 +71,18 @@ export const ConfigSchema = z.object({
 export type AccessRule = z.infer<typeof AccessRuleSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 
+// ─── Hot-reload split ────────────────────────────────────────────────
+// Only these fields are updated when the config file changes after
+// startup. All other fields are frozen at init and baked into schemas.
+
+const HOT_RELOAD_KEYS = ["access", "logLevel", "logFile"] as const;
+type HotReloadKey = (typeof HOT_RELOAD_KEYS)[number];
+
+// Startup-only config fields (everything not hot-reloadable). The type
+// excludes hot-reloadable fields so callers cannot accidentally use a
+// hot-reloadable value as a schema default.
+export type StartupConfig = Omit<Config, HotReloadKey>;
+
 // ─── ConfigError ───────────────────────────────────────────────────────
 
 /**
@@ -94,6 +106,9 @@ let cachedConfig: Config = DEFAULT_CONFIG;
 let cachedMtimeMs: number | null = null;
 // Tracks whether the config file existed on last check.
 let fileExisted = false;
+// True after the first successful config load. Once set, subsequent
+// reloads only propagate hot-reloadable fields.
+let initialLoadDone = false;
 // Incremented on every successful config reload. Consumers (e.g.
 // AccessController) compare against this to detect config changes.
 let configVersion = 0;
@@ -108,10 +123,18 @@ let injectedConfig: Config | null = null;
 
 /**
  * Inject a config for testing. When set, getConfig() returns it
- * directly without reading any file. Pass null to clear.
+ * directly without reading any file. Pass null to clear and fully
+ * reset internal state for test isolation.
  */
 export function setTestConfig(config: Config | null): void {
   injectedConfig = config;
+  if (config === null) {
+    // Reset all file-based state for test isolation.
+    cachedConfig = DEFAULT_CONFIG;
+    cachedMtimeMs = null;
+    fileExisted = false;
+    initialLoadDone = false;
+  }
   configVersion++;
 }
 
@@ -139,12 +162,15 @@ export function getConfig(): Config {
 
   if (!exists) {
     if (fileExisted) {
-      // File was deleted since last load. Revert to defaults.
-      cachedConfig = DEFAULT_CONFIG;
+      // File was deleted. Only revert hot-reloadable fields to defaults;
+      // startup-only fields stay frozen from initial load.
+      for (const key of HOT_RELOAD_KEYS) {
+        (cachedConfig as Record<string, unknown>)[key] = (DEFAULT_CONFIG as Record<string, unknown>)[key];
+      }
       cachedMtimeMs = null;
       fileExisted = false;
       configVersion++;
-      log("info", "Config file removed, reverting to defaults.");
+      log("info", "Config file removed, reverting hot-reloadable settings to defaults.");
     }
     return cachedConfig;
   }
@@ -183,12 +209,36 @@ export function getConfig(): Config {
     );
   }
 
-  cachedConfig = result.data;
+  if (initialLoadDone) {
+    // Subsequent reload: only propagate hot-reloadable fields.
+    for (const key of HOT_RELOAD_KEYS) {
+      (cachedConfig as Record<string, unknown>)[key] = (result.data as Record<string, unknown>)[key];
+    }
+  } else {
+    // Initial load: set all fields.
+    cachedConfig = result.data;
+    initialLoadDone = true;
+  }
   cachedMtimeMs = mtimeMs;
   fileExisted = true;
   configVersion++;
   log("info", "Config file loaded.");
   return cachedConfig;
+}
+
+/**
+ * Return startup-only config fields (readDefaults, sizeWarning, cache).
+ * Call before tool registration to bake values into Zod schema
+ * `.default()` calls. The return type excludes hot-reloadable fields
+ * to prevent accidental use as schema defaults.
+ */
+export function getStartupConfig(): StartupConfig {
+  const config = getConfig();
+  return {
+    readDefaults: config.readDefaults,
+    sizeWarning: config.sizeWarning,
+    cache: config.cache,
+  };
 }
 
 // ─── Logger ────────────────────────────────────────────────────────────
@@ -231,9 +281,10 @@ export const LOG_LEVEL_DESCRIPTIONS: Record<string, string> = {
 
 export const CONFIG_FILE_DESCRIPTION =
   "Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_MCP_CONFIG`). " +
-  "All fields are optional with sensible defaults. Validated with Zod on load. Automatically " +
-  "reloaded when the file is modified (mtime-based check on every tool call). Invalid config " +
-  "fails closed (all tools error until fixed or removed).";
+  "All fields are optional with sensible defaults. Validated with Zod on load. " +
+  "Only `access`, `logLevel`, and `logFile` are hot-reloaded on file changes; " +
+  "all other settings are read once at startup. Invalid config fails closed " +
+  "(all tools error until fixed or removed).";
 
 export const LOGGING_DESCRIPTION =
   "All log output goes to stderr (stdout is reserved for MCP protocol).";
