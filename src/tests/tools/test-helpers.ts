@@ -133,15 +133,15 @@ export async function callToolError(
 }
 
 /**
- * Read a document and return its current version number.
- * Convenience for tests that need to supply expected_version.
+ * Read a document and return its current sync token.
+ * Convenience for tests that need to supply expected_sync_token.
  */
-export async function getVersion(
+export async function getSyncToken(
   client: Client,
   fileId: string,
-): Promise<number> {
+): Promise<string> {
   const result = await callToolOk(client, "read_document", { file_id: fileId });
-  return result.version as number;
+  return result.sync_token as string;
 }
 
 /**

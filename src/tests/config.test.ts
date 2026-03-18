@@ -7,7 +7,7 @@ import {
   createTestContext,
   callToolOk,
   callToolError,
-  getVersion,
+  getSyncToken,
   standardSetup,
   type TestContext,
 } from "./tools/test-helpers";
@@ -689,10 +689,10 @@ describe("config reloading between tool invocations", () => {
     // Start with no access restrictions, so writes succeed.
     ctx = await createTestContext(standardSetup);
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "Updated" }],
     });
     expect(result.file_id).toBe("doc1");
@@ -707,10 +707,10 @@ describe("config reloading between tool invocations", () => {
     });
 
     // The next write tool invocation should see the read-only policy and refuse.
-    const version2 = await getVersion(ctx.mcpClient, "doc1");
+    const version2 = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version2,
+      expected_sync_token: version2,
       items: [{ item_id: "n1", content: "Should fail" }],
     });
     expect(err.error).toBe("Forbidden");

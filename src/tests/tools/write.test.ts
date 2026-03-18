@@ -4,11 +4,12 @@ import {
   callTool,
   callToolOk,
   callToolError,
-  getVersion,
+  getSyncToken,
   parseErrorContent,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
+import { makeSyncToken } from "../../sync-token";
 
 let ctx: TestContext;
 
@@ -24,10 +25,10 @@ afterEach(async () => {
 
 describe("edit_items", () => {
   test("updates content of a single node", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "Updated content" }],
     });
     expect(result.file_id).toBe("doc1");
@@ -41,10 +42,10 @@ describe("edit_items", () => {
   });
 
   test("edits multiple nodes in one call", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [
         { item_id: "n1", content: "First updated" },
         { item_id: "n2", content: "Second updated" },
@@ -65,10 +66,10 @@ describe("edit_items", () => {
     const n1OriginalContent = n1.content;
     const n2OriginalContent = n2.content;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [
         { item_id: "n1", heading: "h2", color: "yellow" },
         { item_id: "n2", note: "new note", show_checkbox: true },
@@ -92,10 +93,10 @@ describe("edit_items", () => {
     node.note = "original note";
 
     // Edit only content, not note.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "New content" }],
     });
 
@@ -104,10 +105,10 @@ describe("edit_items", () => {
   });
 
   test("empty content is allowed", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -120,20 +121,20 @@ describe("edit_items", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.note = "some note";
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", note: "" }],
     });
     expect(node.note).toBe("");
   });
 
   test("sets heading and color", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", heading: "h2", color: "yellow" }],
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -145,7 +146,7 @@ describe("edit_items", () => {
   test("empty nodes array returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [],
     });
     expect(err.error).toBe("InvalidInput");
@@ -154,7 +155,7 @@ describe("edit_items", () => {
   test("nonexistent document returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "nonexistent",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ item_id: "n1", content: "test" }],
     });
     expect(err.error).toBe("NotFound");
@@ -163,17 +164,17 @@ describe("edit_items", () => {
   test("nonexistent node returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
       items: [{ item_id: "nonexistent", content: "test" }],
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
   test("nonexistent node returns NodeNotFound with specific node ID", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "xyz_bad", content: "test" }],
     });
     expect(err.error).toBe("NodeNotFound");
@@ -181,10 +182,10 @@ describe("edit_items", () => {
   });
 
   test("node with only item_id and no other fields returns InvalidInput", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1" }],
     });
     expect(err.error).toBe("InvalidInput");
@@ -193,10 +194,10 @@ describe("edit_items", () => {
 
   test("note content fidelity: multi-line with code blocks round-trips", async () => {
     const complexNote = "Line 1\n\n```python\ndef foo():\n    return 42\n```\n\nLine after code";
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", note: complexNote }],
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -215,10 +216,10 @@ describe("edit_items", () => {
     node.checkbox = true;
     node.checked = true;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "Changed content only" }],
     });
 
@@ -235,10 +236,10 @@ describe("edit_items", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     const originalContent = node.content;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", note: "brand new note" }],
     });
 
@@ -253,10 +254,10 @@ describe("edit_items", () => {
     node.color = 5;
     const originalContent = node.content;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", heading: "h3" }],
     });
 
@@ -272,10 +273,10 @@ describe("edit_items", () => {
     node.heading = 1;
     const originalContent = node.content;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", color: "purple" }],
     });
 
@@ -290,10 +291,10 @@ describe("edit_items", () => {
     node.note = "note here";
     const originalContent = node.content;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", show_checkbox: true }],
     });
 
@@ -309,10 +310,10 @@ describe("edit_items", () => {
     node.note = "keep me";
     const originalContent = node.content;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", checked: true }],
     });
 
@@ -329,10 +330,10 @@ describe("edit_items", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.heading = 2;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", heading: "none" }],
     });
 
@@ -342,10 +343,10 @@ describe("edit_items", () => {
   test("heading: h1, h2, h3 all set correctly", async () => {
     const headings: Array<[string, number]> = [["h1", 1], ["h2", 2], ["h3", 3]];
     for (const [str, num] of headings) {
-      const version = await getVersion(ctx.mcpClient, "doc1");
+      const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
       await callToolOk(ctx.mcpClient, "edit_items", {
         file_id: "doc1",
-        expected_version: version,
+        expected_sync_token: syncToken,
         items: [{ item_id: "n1", heading: str }],
       });
       const doc = ctx.server.documents.get("doc1")!;
@@ -359,10 +360,10 @@ describe("edit_items", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.color = 3;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", color: "none" }],
     });
 
@@ -375,10 +376,10 @@ describe("edit_items", () => {
       ["green", 4], ["blue", 5], ["purple", 6],
     ];
     for (const [str, num] of colors) {
-      const version = await getVersion(ctx.mcpClient, "doc1");
+      const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
       await callToolOk(ctx.mcpClient, "edit_items", {
         file_id: "doc1",
-        expected_version: version,
+        expected_sync_token: syncToken,
         items: [{ item_id: "n1", color: str }],
       });
       const doc = ctx.server.documents.get("doc1")!;
@@ -392,10 +393,10 @@ describe("edit_items", () => {
     const node = doc.nodes.find((n) => n.id === "n1")!;
     node.checkbox = true;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", show_checkbox: false }],
     });
 
@@ -403,10 +404,10 @@ describe("edit_items", () => {
   });
 
   test("checked: true with show_checkbox: true marks node as checked", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", show_checkbox: true, checked: true }],
     });
 
@@ -422,10 +423,10 @@ describe("edit_items", () => {
     node.checked = true;
     node.checkbox = true;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", checked: false }],
     });
 
@@ -435,10 +436,10 @@ describe("edit_items", () => {
   // ─── 10d: response shape ────────────────────────────────────────────
 
   test("response includes file_id, edited_count, and item_ids", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "shape test" }],
     });
 
@@ -452,7 +453,7 @@ describe("edit_items", () => {
   test("nonexistent document returns NotFound error code", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "no_such_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ item_id: "n1", content: "test" }],
     });
     expect(err.error).toBe("NotFound");
@@ -461,7 +462,7 @@ describe("edit_items", () => {
   test("nonexistent node returns NodeNotFound error code", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
       items: [{ item_id: "no_such_node", content: "test" }],
     });
     expect(err.error).toBe("NodeNotFound");
@@ -470,10 +471,10 @@ describe("edit_items", () => {
   // ─── 10f: bulk-specific behavior ─────────────────────────────────
 
   test("state round-trip: edit then read_document to verify", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [
         { item_id: "n1", content: "Round-trip A", note: "note A" },
         { item_id: "n2", content: "Round-trip B", heading: "h2" },
@@ -493,10 +494,10 @@ describe("edit_items", () => {
   });
 
   test("duplicate item_id in array applies last-write-wins", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [
         { item_id: "n1", content: "First write" },
         { item_id: "n1", content: "Second write" },
@@ -517,10 +518,10 @@ describe("edit_items", () => {
 
 describe("insert_items", () => {
   test("inserts flat list", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "item1" }, { content: "item2" }, { content: "item3" }],
       position: "last_child",
@@ -532,10 +533,10 @@ describe("insert_items", () => {
   });
 
   test("inserts nested hierarchy", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1",
       position: "last_child",
       items: [{
@@ -558,10 +559,10 @@ describe("insert_items", () => {
   });
 
   test("first_child position", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "top item" }],
       position: "first_child",
@@ -573,10 +574,10 @@ describe("insert_items", () => {
   });
 
   test("omitting reference_item_id inserts at document root", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "root-level item" }],
       position: "last_child",
     });
@@ -586,7 +587,7 @@ describe("insert_items", () => {
   test("empty nodes array returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [],
       position: "last_child",
     });
@@ -596,10 +597,10 @@ describe("insert_items", () => {
   // ─── hierarchy fidelity ────────────────────────────────────────────
 
   test("3-level hierarchy: parent > child > grandchild", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       position: "last_child",
       items: [{
@@ -623,10 +624,10 @@ describe("insert_items", () => {
   });
 
   test("4-level hierarchy with multiple branches preserves ordering", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       position: "last_child",
       items: [
@@ -671,10 +672,10 @@ describe("insert_items", () => {
   });
 
   test("multiple top-level items each with children", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       position: "last_child",
       items: [
@@ -693,10 +694,10 @@ describe("insert_items", () => {
   });
 
   test("mixed depths: some branches deeper than others", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       position: "last_child",
       items: [
@@ -729,10 +730,10 @@ describe("insert_items", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
     const originalLastChildId = root.children![root.children!.length - 1];
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "appended item" }],
       position: "last_child",
@@ -751,10 +752,10 @@ describe("insert_items", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
     const originalFirstChildId = root.children![0];
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "prepended item" }],
       position: "first_child",
@@ -774,10 +775,10 @@ describe("insert_items", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
     const originalChildCount = root.children!.length;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Order A" }, { content: "Order B" }, { content: "Order C" }],
       position: "last_child",
@@ -796,10 +797,10 @@ describe("insert_items", () => {
     // Regression: the real Dynalist API omits `children` for leaf nodes.
     // Inserting multiple items last_child under a leaf resolves the
     // parent's child count, which must handle a missing `children` field.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1a",
       items: [{ content: "Leaf A" }, { content: "Leaf B" }],
       position: "last_child",
@@ -815,10 +816,10 @@ describe("insert_items", () => {
   test("first_child with multiple items preserves input order", async () => {
     const doc = ctx.server.documents.get("doc1")!;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "First A" }, { content: "First B" }, { content: "First C" }],
       position: "first_child",
@@ -837,10 +838,10 @@ describe("insert_items", () => {
     const root = doc.nodes.find((n) => n.id === "root")!;
     const originalChildren = [...root.children!];
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "new item" }],
       position: "last_child",
@@ -853,10 +854,10 @@ describe("insert_items", () => {
   });
 
   test("index parameter overrides position", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "At index 0" }],
       position: "last_child",
@@ -870,10 +871,10 @@ describe("insert_items", () => {
   });
 
   test("index: -1 appends at end", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Appended via index" }],
       position: "last_child",
@@ -889,10 +890,10 @@ describe("insert_items", () => {
   // ─── per-node fields ──────────────────────────────────────────────
 
   test("node with note", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Noted item", note: "This is a note" }],
       position: "last_child",
@@ -903,10 +904,10 @@ describe("insert_items", () => {
   });
 
   test("node with show_checkbox and checked", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Todo", show_checkbox: true, checked: false }],
       position: "last_child",
@@ -918,10 +919,10 @@ describe("insert_items", () => {
   });
 
   test("checked: true without checkbox does not add a checkbox", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Checked no checkbox", checked: true }],
       position: "last_child",
@@ -934,10 +935,10 @@ describe("insert_items", () => {
 
   test("show_checkbox: false is preserved on insert", async () => {
     // Regression: a truthy check previously dropped checkbox: false.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "No checkbox explicit", show_checkbox: false }],
       position: "last_child",
@@ -948,10 +949,10 @@ describe("insert_items", () => {
   });
 
   test("heading is included on the inserted node", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Heading node", heading: "h2" }],
       position: "last_child",
@@ -962,10 +963,10 @@ describe("insert_items", () => {
   });
 
   test("heading 'none' is passed through to the inserted node", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "No heading node", heading: "none" }],
       position: "last_child",
@@ -976,10 +977,10 @@ describe("insert_items", () => {
   });
 
   test("color is included on the inserted node", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Colored node", color: "yellow" }],
       position: "last_child",
@@ -990,10 +991,10 @@ describe("insert_items", () => {
   });
 
   test("color 'none' is passed through to the inserted node", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "No color node", color: "none" }],
       position: "last_child",
@@ -1004,10 +1005,10 @@ describe("insert_items", () => {
   });
 
   test("multiline content round-trips", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Line 1\nLine 2\nLine 3" }],
       position: "last_child",
@@ -1019,10 +1020,10 @@ describe("insert_items", () => {
 
   test("multiline note round-trips", async () => {
     const noteContent = "First line\n\n```python\ndef foo():\n    return 42\n```";
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Code item", note: noteContent }],
       position: "last_child",
@@ -1033,10 +1034,10 @@ describe("insert_items", () => {
   });
 
   test("per-node fields on children in hierarchy", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       position: "last_child",
       items: [{
@@ -1069,10 +1070,10 @@ describe("insert_items", () => {
     // calls, so levels 0 and 1 succeed but level 2 fails.
     ctx.server.failEditAfterNCalls(2);
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       position: "last_child",
       items: [{
@@ -1102,10 +1103,10 @@ describe("insert_items", () => {
     // Same 4-level hierarchy, fail after 2 levels.
     ctx.server.failEditAfterNCalls(2);
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       position: "last_child",
       items: [{
@@ -1140,10 +1141,10 @@ describe("insert_items", () => {
   // ─── response shape ───────────────────────────────────────────────
 
   test("response includes file_id, total_created, root_item_ids", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "shape test a" }, { content: "shape test b" }],
       position: "last_child",
@@ -1159,10 +1160,10 @@ describe("insert_items", () => {
 
   test("insert after a sibling", async () => {
     // root has children: n1, n2, n3. Insert after n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "After n1" }],
       position: "after",
       reference_item_id: "n1",
@@ -1177,10 +1178,10 @@ describe("insert_items", () => {
   });
 
   test("insert before a sibling", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "Before n2" }],
       position: "before",
       reference_item_id: "n2",
@@ -1199,10 +1200,10 @@ describe("insert_items", () => {
     const rootBefore = doc.nodes.find((n) => n.id === "root")!;
     const childCountBefore = rootBefore.children!.length;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "After last" }],
       position: "after",
       reference_item_id: "n3",
@@ -1216,10 +1217,10 @@ describe("insert_items", () => {
   });
 
   test("insert before the first sibling places at index 0", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "Before first" }],
       position: "before",
       reference_item_id: "n1",
@@ -1233,10 +1234,10 @@ describe("insert_items", () => {
   });
 
   test("insert multiple top-level nodes after a sibling preserves order", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "Multi A" }, { content: "Multi B" }, { content: "Multi C" }],
       position: "after",
       reference_item_id: "n1",
@@ -1254,10 +1255,10 @@ describe("insert_items", () => {
   });
 
   test("insert hierarchy after a sibling preserves tree structure", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{
         content: "Hier parent",
         children: [{ content: "Hier child" }],
@@ -1277,10 +1278,10 @@ describe("insert_items", () => {
 
   test("after position infers parent from reference node", async () => {
     // n1 has children n1a, n1b. Insert after n1a; parent is inferred as n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "After n1a" }],
       position: "after",
       reference_item_id: "n1a",
@@ -1299,7 +1300,7 @@ describe("insert_items", () => {
   test("reference_item_id + index both provided returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ content: "test" }],
       position: "after",
       reference_item_id: "n1",
@@ -1311,7 +1312,7 @@ describe("insert_items", () => {
   test("after without reference_item_id returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ content: "test" }],
       position: "after",
     });
@@ -1321,7 +1322,7 @@ describe("insert_items", () => {
   test("before without reference_item_id returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ content: "test" }],
       position: "before",
     });
@@ -1329,10 +1330,10 @@ describe("insert_items", () => {
   });
 
   test("reference_item_id with first_child inserts as child", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "first child of n1" }],
       position: "first_child",
       reference_item_id: "n1",
@@ -1347,10 +1348,10 @@ describe("insert_items", () => {
   });
 
   test("reference_item_id with last_child inserts as child", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "last child of n1" }],
       position: "last_child",
       reference_item_id: "n1",
@@ -1365,10 +1366,10 @@ describe("insert_items", () => {
   });
 
   test("after/before with root node as reference returns error", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "test" }],
       position: "after",
       reference_item_id: "root",
@@ -1378,10 +1379,10 @@ describe("insert_items", () => {
   });
 
   test("before with root node as reference returns error", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "test" }],
       position: "before",
       reference_item_id: "root",
@@ -1393,7 +1394,7 @@ describe("insert_items", () => {
   test("nonexistent reference_item_id returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
       items: [{ content: "test" }],
       position: "after",
       reference_item_id: "nonexistent",

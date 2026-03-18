@@ -64,6 +64,7 @@ src/
 ├── document-store.ts             # LRU-cached document reader with version checks
 ├── types.ts                      # Shared types (OutputNode, NodeSummary, etc.)
 ├── dynalist-client.ts            # Wrapper for the Dynalist API
+├── sync-token.ts                 # Opaque sync token generation (sha256-based)
 ├── version-guard.ts              # Pre/post-write version checks for race detection
 ├── tools/
 │   ├── index.ts                  # Aggregator - registers all tools
@@ -102,7 +103,7 @@ Bad (verbose, hedging):
 > You might want to consider reading the document first to get the version number, which you can then pass to the write tool.
 
 Good (dense, imperative):
-> Read the document before writing. Pass the returned version as expected_version.
+> Read the document before writing. Pass the returned sync_token as expected_sync_token.
 
 Additional principles:
 

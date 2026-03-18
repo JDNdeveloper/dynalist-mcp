@@ -35,17 +35,17 @@ export const PARENT_FOLDER_ID_DESCRIPTION = "Parent folder file ID";
 // Common output fields.
 export const DOCUMENT_TITLE_DESCRIPTION = "Document title";
 export const FOLDER_TITLE_DESCRIPTION = "Folder title";
-export const VERSION_DESCRIPTION =
-  "Document version. Pass as expected_version to write tools.";
-export const VERSION_WARNING_DESCRIPTION =
+export const SYNC_TOKEN_DESCRIPTION =
+  "Opaque sync token. Pass as expected_sync_token to write tools.";
+export const SYNC_WARNING_DESCRIPTION =
   "Warning if a concurrent edit was detected during the write.";
 export const SIZE_WARNING_DESCRIPTION =
   "Size warning message when result exceeds token threshold";
 export const MATCH_COUNT_DESCRIPTION = "Number of matches found";
 
 // Common input fields.
-export const EXPECTED_VERSION_DESCRIPTION =
-  "Document version from your most recent read_document. " +
+export const EXPECTED_SYNC_TOKEN_DESCRIPTION =
+  "Sync token from your most recent read_document. " +
   "If stale, the tool aborts and requests a re-read.";
 export const BYPASS_WARNING_DESCRIPTION =
   "ONLY set true AFTER receiving a size warning. NEVER set true on first request.";

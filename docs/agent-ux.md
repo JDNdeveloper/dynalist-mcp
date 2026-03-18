@@ -143,9 +143,13 @@ The Dynalist API does not have an "ancestors" endpoint, and several common tasks
 - **Drilling into depth-limited items.** Read starting from the depth-limited item to zoom into the subtree.
 - **File vs. item management.** The instructions distinguish file-tree tools from item-tree tools to prevent agents from confusing file IDs with item IDs.
 
-## Version tracking workflow
+## Sync token workflow
 
-The instructions establish a mandatory workflow: read a document before any write to obtain the version, pass it to the write tool, and re-read if the tool returns a version warning. This is reinforced at the parameter level, where the version field description tells the agent to re-read on staleness. The version tracking design is covered in depth in [concurrency.md](concurrency.md).
+The instructions establish a mandatory workflow: read a document before any write to obtain the sync token, pass it to the write tool, and re-read if the tool returns a sync warning. This is reinforced at the parameter level, where the sync token field description tells the agent to re-read on staleness. The sync token design is covered in depth in [concurrency.md](concurrency.md).
+
+### Why opaque tokens
+
+Early versions exposed the numeric document version directly. Opus exploited this after a write: it called `insert_items`, incremented the version by 1, received a sync warning saying the version had actually advanced by 2 (the insert made two API calls under the hood), then used that leaked version number directly in the next mutation without re-reading the document. The arithmetic happened to be correct, but the behavior is unsafe because it bypasses the re-read that the version guard is designed to enforce. By hashing the version into a short opaque hex token, agents cannot predict the next value and are forced to re-read.
 
 ## Checkbox and checked state guidance
 

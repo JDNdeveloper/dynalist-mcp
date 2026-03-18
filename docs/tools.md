@@ -134,7 +134,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 | --- | --- | --- | --- |
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
-| `version` | number | no | Document version. Pass as expected_version to write tools. |
+| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to write tools. |
 | `item` | object | no | Root of the item tree |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
@@ -143,7 +143,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 {
   "file_id": "f_abc123",
   "title": "Project Notes",
-  "version": 42,
+  "sync_token": "a1b2c",
   "item": {
     "item_id": "n_item789",
     "content": "Buy groceries",
@@ -182,7 +182,7 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 | --- | --- | --- | --- |
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
-| `version` | number | no | Document version. Pass as expected_version to write tools. |
+| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to write tools. |
 | `count` | number | no | Number of matches found |
 | `query` | string | no | The search query that was used |
 | `matches` | object[] | no | Matching items |
@@ -206,7 +206,7 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 {
   "file_id": "f_abc123",
   "title": "Project Notes",
-  "version": 42,
+  "sync_token": "a1b2c",
   "count": 1,
   "query": "groceries",
   "matches": [
@@ -249,7 +249,7 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 | --- | --- | --- | --- |
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
-| `version` | number | no | Document version. Pass as expected_version to write tools. |
+| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to write tools. |
 | `count` | number | no | Number of matches found |
 | `matches` | object[] | no | Changed items |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
@@ -276,7 +276,7 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 {
   "file_id": "f_abc123",
   "title": "Project Notes",
-  "version": 42,
+  "sync_token": "a1b2c",
   "count": 1,
   "matches": [
     {
@@ -292,7 +292,7 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 
 ### `check_document_versions`
 
-Check document version numbers without fetching content. Detect changes before an expensive read_document call. Version increments on each edit. -1 means not found or access denied.
+Check document sync tokens without fetching content. Detect changes before an expensive read_document call. Empty string means not found or access denied.
 
 **Parameters:**
 
@@ -313,13 +313,13 @@ Check document version numbers without fetching content. Detect changes before a
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `versions` | Record<string, number> | yes | Map of file ID to version number. -1 means the document was not found. |
+| `sync_tokens` | Record<string, string> | yes | Map of file ID to sync token. Empty string means the document was not found. |
 
 **Example response:**
 ```json
 {
-  "versions": {
-    "f_abc123": 42
+  "sync_tokens": {
+    "f_abc123": "a1b2c"
   }
 }
 ```
@@ -378,7 +378,7 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `items` | object[] | yes | Array of item edits to apply. |
-| `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **`items` element fields:**
 
@@ -402,7 +402,7 @@ Edit one or more items in a document. Only specified fields are updated; omitted
       "content": "Buy groceries"
     }
   ],
-  "expected_version": 42
+  "expected_sync_token": "a1b2c"
 }
 ```
 
@@ -413,7 +413,7 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 | `file_id` | string | yes | Document file ID |
 | `edited_count` | number | yes | Number of items edited |
 | `item_ids` | string[] | yes | IDs of all edited items |
-| `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
 ```json
@@ -439,7 +439,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | `position` | `"first_child"`, `"last_child"`, `"after"`, `"before"` | yes | Insertion target. 'last_child' (most common): append under parent. 'first_child': prepend under parent. 'after'/'before': sibling-relative placement (reference_item_id required). |
 | `reference_item_id` | string | no | For first_child/last_child: the parent item. Omit for document root. For after/before: the sibling item (required). Cannot be the root item for after/before. |
 | `index` | number | no | Exact child index within the parent. 0 = first, -1 = last. Only valid with first_child/last_child. Cannot combine with reference_item_id for sibling positions. |
-| `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **`items` element fields:**
 
@@ -465,7 +465,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
   "position": "first_child",
   "reference_item_id": "n_sibling012",
   "index": 0,
-  "expected_version": 42
+  "expected_sync_token": "a1b2c"
 }
 ```
 
@@ -476,7 +476,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | `file_id` | string | yes | Document file ID |
 | `total_created` | number | yes | Total number of items created |
 | `root_item_ids` | string[] | yes | IDs of all top-level inserted items |
-| `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
 ```json
@@ -502,7 +502,7 @@ Delete items and their subtrees from a document.
 | `file_id` | string | yes |  | Document file ID |
 | `item_ids` | string[] | yes |  | Item IDs to delete. |
 | `children` | `"delete"`, `"promote"` | no | "delete" | What to do with children of deleted items. 'delete': remove entire subtree. 'promote': re-parent children to the deleted item's parent (single-item only; use to remove a grouping item while keeping its children). |
-| `expected_version` | number | yes |  | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes |  | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **Example input:**
 ```json
@@ -511,7 +511,7 @@ Delete items and their subtrees from a document.
   "item_ids": [
     "n_item789"
   ],
-  "expected_version": 42
+  "expected_sync_token": "a1b2c"
 }
 ```
 
@@ -523,7 +523,7 @@ Delete items and their subtrees from a document.
 | `deleted_count` | number | yes | Number of items deleted |
 | `deleted_ids` | string[] | yes | IDs of all deleted items (targets and descendants). |
 | `promoted_children` | number | no | Number of direct children promoted to parent (only when children is 'promote') |
-| `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
 ```json
@@ -547,7 +547,7 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `moves` | object[] | yes | Array of moves to apply sequentially. |
-| `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **`moves` element fields:**
 
@@ -568,7 +568,7 @@ Move items (with subtrees) to new positions in a document. Moves within a single
       "position": "after"
     }
   ],
-  "expected_version": 42
+  "expected_sync_token": "a1b2c"
 }
 ```
 
@@ -579,7 +579,7 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 | `file_id` | string | yes | Document file ID |
 | `moved_count` | number | yes | Number of items moved |
 | `item_ids` | string[] | yes | IDs of all moved items |
-| `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
 ```json

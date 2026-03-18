@@ -4,7 +4,7 @@
 
 import type { DynalistNode } from "../dynalist-client";
 import { DynalistClient, DynalistApiError } from "../dynalist-client";
-import { VersionMismatchError } from "../version-guard";
+import { SyncTokenMismatchError } from "../version-guard";
 import { ConfigError } from "../config";
 import type { EditDocumentChange } from "../dynalist-client";
 import type { NodeSummary, OutputNode, InsertTreeOptions } from "../types";
@@ -219,8 +219,8 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
       if (error instanceof PartialInsertError) {
         return error.toStructuredResponse();
       }
-      if (error instanceof VersionMismatchError) {
-        return makeErrorResponse("VersionMismatch", error.message);
+      if (error instanceof SyncTokenMismatchError) {
+        return makeErrorResponse("SyncTokenMismatch", error.message);
       }
       if (error instanceof ToolInputError) {
         return makeErrorResponse(error.code, error.message);

@@ -5,11 +5,12 @@
 
 import { DynalistApiError, type DynalistClient } from "./dynalist-client";
 import type { DocumentStore } from "./document-store";
+import { makeSyncToken } from "./sync-token";
 
 export interface VersionGuardOptions {
   client: Pick<DynalistClient, "checkForUpdates">;
   fileId: string;
-  expectedVersion: number;
+  expectedSyncToken: string;
   store?: DocumentStore;
 }
 
@@ -20,14 +21,14 @@ export interface VersionGuardResult<T> {
   // Undefined when the post-write version check failed (e.g. network
   // error). The write itself succeeded; the version is just unknown.
   postWriteVersion: number | undefined;
-  versionWarning?: string;
+  syncWarning?: string;
 }
 
 /**
  * Execute a write operation with pre-write and post-write version checks.
  *
  * Pre-write: if the current document version differs from
- * expectedVersion, abort immediately with an error. This is the CAS
+ * expectedSyncToken, abort immediately with an error. This is the CAS
  * (compare-and-swap) mechanism for inter-turn race detection.
  *
  * Post-write: compare version delta against the number of API calls
@@ -38,7 +39,7 @@ export async function withVersionGuard<T>(
   options: VersionGuardOptions,
   guardedFn: () => Promise<{ result: T; apiCallCount: number }>,
 ): Promise<VersionGuardResult<T>> {
-  const { client, fileId, expectedVersion, store } = options;
+  const { client, fileId, expectedSyncToken, store } = options;
 
   // Pre-write: get current version.
   const preCheck = await client.checkForUpdates([fileId]);
@@ -50,10 +51,11 @@ export async function withVersionGuard<T>(
   }
 
   // CAS check: abort if the document changed since the agent's last read.
-  if (expectedVersion !== preWriteVersion) {
-    throw new VersionMismatchError(
-      `Document version mismatch: expected ${expectedVersion}, current is ${preWriteVersion}. ` +
-      `Re-read the document before retrying.`,
+  const currentToken = makeSyncToken(fileId, preWriteVersion);
+  if (expectedSyncToken !== currentToken) {
+    throw new SyncTokenMismatchError(
+      "Sync token mismatch: the document has changed. " +
+      "You MUST call read_document to get a fresh sync_token before retrying.",
     );
   }
 
@@ -66,7 +68,7 @@ export async function withVersionGuard<T>(
     // Post-write: check for concurrent modifications. A failure here
     // must not discard the write result, since the write already succeeded.
     let postWriteVersion: number | undefined;
-    let versionWarning: string | undefined;
+    let syncWarning: string | undefined;
 
     try {
       const postCheck = await client.checkForUpdates([fileId]);
@@ -74,19 +76,17 @@ export async function withVersionGuard<T>(
 
       const actualDelta = postWriteVersion - preWriteVersion;
       if (actualDelta !== apiCallCount) {
-        versionWarning =
-          `Write succeeded, but document version advanced by ${actualDelta} ` +
-          `(expected ${apiCallCount}). Another edit may have occurred concurrently. ` +
-          `Re-read the document and verify the result before making further changes.`;
+        syncWarning =
+          "Write succeeded, but another edit may have occurred concurrently. " +
+          "You MUST call read_document and verify the result before making further changes.";
       }
     } catch {
       // The write succeeded but the post-write version check failed.
       // Return the result with a warning instead of losing it.
       postWriteVersion = undefined;
-      versionWarning =
-        `Write succeeded, but the post-write version check failed. ` +
-        `The new document version could not be verified. ` +
-        `Re-read the document before making further changes.`;
+      syncWarning =
+        "Write succeeded, but the post-write check failed. " +
+        "You MUST call read_document before making further changes.";
     }
 
     return {
@@ -94,7 +94,7 @@ export async function withVersionGuard<T>(
       apiCallCount,
       preWriteVersion,
       postWriteVersion,
-      versionWarning,
+      syncWarning,
     };
   } finally {
     // Invalidate cached document content. On success, the write changed
@@ -107,11 +107,11 @@ export async function withVersionGuard<T>(
 }
 
 /**
- * Error thrown when the pre-write version check fails (stale expected_version).
+ * Error thrown when the pre-write sync token check fails (stale expected_sync_token).
  */
-export class VersionMismatchError extends Error {
+export class SyncTokenMismatchError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "VersionMismatchError";
+    this.name = "SyncTokenMismatchError";
   }
 }

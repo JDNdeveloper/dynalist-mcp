@@ -5,12 +5,13 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { makeSyncToken } from "../../sync-token";
 import {
   createTestContext,
   callTool,
   callToolOk,
   callToolError,
-  getVersion,
+  getSyncToken,
   parseErrorContent,
   standardSetup,
   type TestContext,
@@ -43,16 +44,16 @@ describe("insert_items race simulation", () => {
       doc.version++;
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1",
       items: [{ content: "Item A" }, { content: "Item B" }],
       position: "last_child",
     });
 
-    expect(result.version_warning).toBeDefined();
+    expect(result.sync_warning).toBeDefined();
     expect(result.total_created).toBe(2);
   });
 
@@ -66,16 +67,16 @@ describe("insert_items race simulation", () => {
       doc.version++;
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1",
       items: [{ content: "First A" }, { content: "First B" }],
       position: "first_child",
     });
 
-    expect(result.version_warning).toBeDefined();
+    expect(result.sync_warning).toBeDefined();
     expect(result.total_created).toBe(2);
   });
 
@@ -90,16 +91,16 @@ describe("insert_items race simulation", () => {
       doc.version++;
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1",
       items: [{ content: "After n1" }],
       position: "after",
     });
 
-    expect(result.version_warning).toBeDefined();
+    expect(result.sync_warning).toBeDefined();
     expect(result.total_created).toBe(1);
   });
 });
@@ -120,15 +121,15 @@ describe("delete_items race simulation", () => {
       doc.version++;
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       item_ids: ["n2"],
     });
 
     // The delete succeeded but missed the new child (orphaned).
-    expect(result.version_warning).toBeDefined();
+    expect(result.sync_warning).toBeDefined();
   });
 });
 
@@ -146,14 +147,14 @@ describe("move_items race simulation", () => {
       doc.version++;
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       moves: [{ item_id: "n1a", reference_item_id: "n2", position: "after" }],
     });
 
-    expect(result.version_warning).toBeDefined();
+    expect(result.sync_warning).toBeDefined();
   });
 });
 
@@ -173,15 +174,15 @@ describe("version guard edge cases", () => {
       doc.version -= 5;
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "test" }],
     });
 
     // Negative delta != 1, so a warning should be produced.
-    expect(result.version_warning).toBeDefined();
+    expect(result.sync_warning).toBeDefined();
   });
 
   test("operations on different documents have independent version tracking", async () => {
@@ -189,10 +190,10 @@ describe("version guard edge cases", () => {
     const doc1Before = ctx.server.documents.get("doc1")!.version;
     const doc2Before = ctx.server.documents.get("doc2")!.version;
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "Updated doc1" }],
     });
 
@@ -205,10 +206,10 @@ describe("version guard edge cases", () => {
 
   test("insert_items with nested tree counts batches across levels", async () => {
     // A 3-level tree should produce 3 editDocument calls.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1",
       position: "last_child",
       items: [{
@@ -221,7 +222,7 @@ describe("version guard edge cases", () => {
     });
 
     expect(result.total_created).toBe(3);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.sync_warning).toBeUndefined();
   });
 
   test("concurrent edit during multi-level insert produces warning", async () => {
@@ -231,10 +232,10 @@ describe("version guard edge cases", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1",
       position: "last_child",
       items: [{
@@ -246,9 +247,7 @@ describe("version guard edge cases", () => {
       }],
     });
 
-    expect(result.version_warning).toBeDefined();
-    expect(result.version_warning).toContain("advanced by 4");
-    expect(result.version_warning).toContain("expected 3");
+    expect(result.sync_warning).toBeDefined();
   });
 
   test("partial insert failure does not prevent reading partial writes", async () => {
@@ -266,10 +265,10 @@ describe("version guard edge cases", () => {
     // regressing on the finally-block fix specifically.
     ctx.server.failEditAfterNCalls(1);
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "n1",
       position: "last_child",
       items: [{
@@ -293,12 +292,12 @@ describe("version guard edge cases", () => {
     expect(contents).toContain("Partial parent");
   });
 
-  test("expected_version with concurrent edit: abort before write", async () => {
+  test("expected_sync_token with concurrent edit: abort before write", async () => {
     // Simulate a concurrent edit that happens between the agent's
     // read_document and the write tool call. The pre-write check
-    // should detect the stale version and abort.
+    // should detect the stale sync token and abort.
     const doc = ctx.server.documents.get("doc1")!;
-    const staleVersion = doc.version;
+    const staleToken = makeSyncToken("doc1", doc.version);
 
     // Simulate someone else editing the document.
     ctx.server.simulateConcurrentEdit("doc1");
@@ -306,11 +305,9 @@ describe("version guard edge cases", () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Should not apply" }],
-      expected_version: staleVersion,
+      expected_sync_token: staleToken,
     });
 
-    expect(err.error).toBe("VersionMismatch");
-    expect(err.message).toContain(`expected ${staleVersion}`);
-    expect(err.message).toContain(`current is ${staleVersion + 1}`);
+    expect(err.error).toBe("SyncTokenMismatch");
   });
 });

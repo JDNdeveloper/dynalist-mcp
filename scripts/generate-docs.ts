@@ -302,7 +302,7 @@ function exampleString(name: string): string {
   if (name === "since") return "2025-03-01";
   if (name === "until") return "2025-03-14";
   // Metadata strings.
-  if (name === "version_warning") return "Document was modified by another client during write.";
+  if (name === "sync_warning") return "Document was modified by another client during write.";
   if (name === "warning") return "Response exceeds size threshold. Retry with bypass_warning: true.";
   if (name === "created") return "2025-03-11T12:00:00.000Z";
   if (name === "modified") return "2025-03-11T14:30:00.000Z";
@@ -310,11 +310,13 @@ function exampleString(name: string): string {
   if (name === "type") return "document";
   if (name === "permission") return "owner";
   if (name === "access_policy") return "read";
+  if (name === "sync_token" || name === "expected_sync_token") return "a1b2c";
+  if (name === "value") return "a1b2c";
   throw new Error(`No example string for field '${name}'. Add it to exampleString() in generate-docs.ts.`);
 }
 
 function exampleNumber(name: string): number {
-  if (name === "version" || name === "expected_version" || name === "value") return 42;
+  if (name === "value") return 42;
   // Counts match auto-generated array lengths (1 element each).
   if (name === "count" || name === "edited_count" || name === "moved_count" || name === "deleted_count" || name === "total_created") return 1;
   if (name === "promoted_children") return 1;
@@ -516,11 +518,11 @@ function generateToolsMarkdown(): string {
         }
       }
 
-      // Example output. Skip warning/version_warning since they represent
+      // Example output. Skip warning/sync_warning since they represent
       // error-path responses, not the normal success shape.
       const exampleOutput: Record<string, unknown> = {};
       for (const [key, schema] of Object.entries(tool.outputSchema)) {
-        if (key === "warning" || key === "version_warning") continue;
+        if (key === "warning" || key === "sync_warning") continue;
         exampleOutput[key] = generateExample(key, schema);
       }
       lines.push("");

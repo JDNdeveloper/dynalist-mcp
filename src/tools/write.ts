@@ -19,10 +19,10 @@ import {
 import type { DocumentStore } from "../document-store";
 import {
   FILE_ID_DESCRIPTION, ITEM_ID_DESCRIPTION,
-  VERSION_WARNING_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION,
+  SYNC_WARNING_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION,
   CHECKED_DESCRIPTION,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
-  CONTENT_MULTILINE_GUIDANCE, EXPECTED_VERSION_DESCRIPTION,
+  CONTENT_MULTILINE_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
 } from "./descriptions";
 import { HEADING_VALUES, COLOR_VALUES, HEADING_TO_NUMBER, COLOR_TO_NUMBER } from "./node-metadata";
 import type { HeadingValue, ColorValue } from "./node-metadata";
@@ -133,19 +133,19 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
           color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
         }).strict()).describe("Array of item edits to apply."),
-        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         edited_count: z.number().describe("Number of items edited"),
         item_ids: z.array(z.string()).describe("IDs of all edited items"),
-        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
+        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
       file_id,
       items,
-      expected_version,
+      expected_sync_token,
     }: {
       file_id: string;
       items: Array<{
@@ -157,7 +157,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         heading?: HeadingValue;
         color?: ColorValue;
       }>;
-      expected_version: number;
+      expected_sync_token: string;
     }) => {
       if (items.length === 0) {
         return makeErrorResponse("InvalidInput", "No items to edit (empty array).");
@@ -202,7 +202,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
         async () => {
           // Pre-validate that all item IDs exist in the document.
           const doc = await store.read(file_id);
@@ -224,7 +224,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         edited_count: items.length,
         item_ids: itemIds,
       };
-      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 
       return makeResponse(data);
     })
@@ -277,13 +277,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "Exact child index within the parent. 0 = first, -1 = last. " +
           "Only valid with first_child/last_child. Cannot combine with reference_item_id for sibling positions."
         ),
-        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         total_created: z.number().describe("Total number of items created"),
         root_item_ids: z.array(z.string()).describe("IDs of all top-level inserted items"),
-        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
+        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
@@ -292,14 +292,14 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       position,
       reference_item_id,
       index,
-      expected_version,
+      expected_sync_token,
     }: {
       file_id: string;
       items: unknown[];
       position: string;
       reference_item_id?: string;
       index?: number;
-      expected_version: number;
+      expected_sync_token: string;
     }) => {
       const config = getConfig();
 
@@ -325,7 +325,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
         async () => {
           let parentNodeId: string | undefined;
           let startIndex: number | undefined;
@@ -402,7 +402,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         total_created: insertResult.totalCreated,
         root_item_ids: insertResult.rootNodeIds,
       };
-      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 
       return makeResponse(data);
     })

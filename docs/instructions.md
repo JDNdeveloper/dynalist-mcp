@@ -116,10 +116,12 @@ Example:
     ...
 ```
 
-## Version tracking
+## Sync tokens
 
-- Call read_document before any write tool to obtain the document version.
-- If a write tool returns version_warning, a concurrent edit may have occurred. Re-read and verify before further edits.
+- Call read_document before any write tool to obtain the sync_token.
+- Pass the sync_token as expected_sync_token to write tools.
+- If a write tool returns sync_warning, a concurrent edit may have occurred. Re-read and verify before further edits.
+- Do NOT modify or fabricate sync tokens. They are opaque and unpredictable.
 
 ## Confirmation and verification
 

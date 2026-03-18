@@ -3,7 +3,7 @@ import {
   createTestContext,
   callToolOk,
   callToolError,
-  getVersion,
+  getSyncToken,
   type TestContext,
 } from "./test-helpers";
 import { setTestConfig } from "../../config";
@@ -225,7 +225,7 @@ describe("edit_items with ACL", () => {
   test("denied document returns NotFound (not Forbidden)", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "denied_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ item_id: "dn1", content: "hacked" }],
     });
     expect(err.error).toBe("NotFound");
@@ -234,17 +234,17 @@ describe("edit_items with ACL", () => {
   test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "readonly_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ item_id: "rn1", content: "hacked" }],
     });
     expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document edit succeeds", async () => {
-    const version = await getVersion(ctx.mcpClient, "allowed_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "allowed_doc");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "allowed_doc",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "an1", content: "Updated content" }],
     });
     expect(result.file_id).toBe("allowed_doc");
@@ -260,7 +260,7 @@ describe("insert_items with ACL", () => {
   test("denied document returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "denied_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ content: "hacked" }],
       position: "last_child",
     });
@@ -270,7 +270,7 @@ describe("insert_items with ACL", () => {
   test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "readonly_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ content: "hacked" }],
       position: "last_child",
     });
@@ -278,10 +278,10 @@ describe("insert_items with ACL", () => {
   });
 
   test("allow-policy document insert succeeds", async () => {
-    const version = await getVersion(ctx.mcpClient, "allowed_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "allowed_doc");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "allowed_doc",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "New item" }, { content: "Another item" }],
       position: "last_child",
     });
@@ -298,7 +298,7 @@ describe("delete_items with ACL", () => {
   test("denied document returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "denied_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       item_ids: ["dn1"],
     });
     expect(err.error).toBe("NotFound");
@@ -307,17 +307,17 @@ describe("delete_items with ACL", () => {
   test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "readonly_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       item_ids: ["rn1"],
     });
     expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document delete succeeds", async () => {
-    const version = await getVersion(ctx.mcpClient, "allowed_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "allowed_doc");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "allowed_doc",
-      expected_version: version,
+      expected_sync_token: syncToken,
       item_ids: ["an1a"],
     });
     expect(result.file_id).toBe("allowed_doc");
@@ -333,7 +333,7 @@ describe("move_items with ACL", () => {
   test("denied document returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "denied_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       moves: [{ item_id: "dn1a", reference_item_id: "dn1", position: "first_child" }],
     });
     expect(err.error).toBe("NotFound");
@@ -342,17 +342,17 @@ describe("move_items with ACL", () => {
   test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "readonly_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       moves: [{ item_id: "rn1a", reference_item_id: "rn1", position: "first_child" }],
     });
     expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document move succeeds", async () => {
-    const version = await getVersion(ctx.mcpClient, "allowed_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "allowed_doc");
     const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "allowed_doc",
-      expected_version: version,
+      expected_sync_token: syncToken,
       moves: [{ item_id: "an1a", reference_item_id: "root", position: "last_child" }],
     });
     expect(result.file_id).toBe("allowed_doc");
@@ -720,58 +720,64 @@ describe("search_documents with ACL", () => {
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("check_document_versions with ACL", () => {
-  test("allowed documents appear in versions map", async () => {
+  test("allowed documents appear in sync tokens map", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["allowed_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.allowed_doc).toBeGreaterThan(0);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.allowed_doc).toBe("string");
+    expect(syncTokens.allowed_doc.length).toBe(5);
   });
 
-  test("denied documents get version -1 (indistinguishable from not-found)", async () => {
+  test("denied documents get empty string (indistinguishable from not-found)", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["denied_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.denied_doc).toBe(-1);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(syncTokens.denied_doc).toBe("");
     expect(result.denied).toBeUndefined();
   });
 
-  test("read-policy documents appear in versions (read is sufficient)", async () => {
+  test("read-policy documents appear in sync tokens (read is sufficient)", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["readonly_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.readonly_doc).toBeGreaterThan(0);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.readonly_doc).toBe("string");
+    expect(syncTokens.readonly_doc.length).toBe(5);
   });
 
-  test("mixed batch: denied gets -1, allowed and read get real versions", async () => {
+  test("mixed batch: denied gets empty string, allowed and read get real tokens", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["allowed_doc", "denied_doc", "readonly_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.allowed_doc).toBeGreaterThan(0);
-    expect(versions.readonly_doc).toBeGreaterThan(0);
-    expect(versions.denied_doc).toBe(-1);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.allowed_doc).toBe("string");
+    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(typeof syncTokens.readonly_doc).toBe("string");
+    expect(syncTokens.readonly_doc.length).toBe(5);
+    expect(syncTokens.denied_doc).toBe("");
     expect(result.denied).toBeUndefined();
   });
 
-  test("all-denied batch returns all versions as -1", async () => {
+  test("all-denied batch returns all tokens as empty string", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["denied_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.denied_doc).toBe(-1);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(syncTokens.denied_doc).toBe("");
     expect(result.denied).toBeUndefined();
   });
 
-  test("all-allowed batch returns populated versions without denied field", async () => {
+  test("all-allowed batch returns populated sync tokens without denied field", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["allowed_doc", "readonly_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.allowed_doc).toBeGreaterThan(0);
-    expect(versions.readonly_doc).toBeGreaterThan(0);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.allowed_doc).toBe("string");
+    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(typeof syncTokens.readonly_doc).toBe("string");
+    expect(syncTokens.readonly_doc.length).toBe(5);
     expect(result.denied).toBeUndefined();
   });
 });
@@ -1027,7 +1033,7 @@ describe("access.default 'read' blocks all writes", () => {
     writeReadDefaultConfig();
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "allowed_doc",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ item_id: "an1", content: "hacked" }],
     });
     expect(err.error).toBe("Forbidden");
@@ -1141,39 +1147,41 @@ describe("check_document_versions mixed allowed/denied IDs", () => {
     await vCtx.cleanup();
   });
 
-  test("mixed batch returns real versions for allowed and -1 for denied", async () => {
+  test("mixed batch returns real sync tokens for allowed and empty for denied", async () => {
     const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
       file_ids: ["allowed_doc", "denied_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.allowed_doc).toBeGreaterThan(0);
-    expect(versions.denied_doc).toBe(-1);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.allowed_doc).toBe("string");
+    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(syncTokens.denied_doc).toBe("");
   });
 
-  test("all denied IDs return version -1", async () => {
+  test("all denied IDs return empty string", async () => {
     const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
       file_ids: ["denied_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.denied_doc).toBe(-1);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(syncTokens.denied_doc).toBe("");
   });
 
-  test("nonexistent ID returns -1 same as denied", async () => {
+  test("nonexistent ID returns empty string same as denied", async () => {
     const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
       file_ids: ["allowed_doc", "denied_doc", "fake_id"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.allowed_doc).toBeGreaterThan(0);
-    expect(versions.denied_doc).toBe(-1);
-    expect(versions.fake_id).toBe(-1);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.allowed_doc).toBe("string");
+    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(syncTokens.denied_doc).toBe("");
+    expect(syncTokens.fake_id).toBe("");
   });
 
-  test("empty file_ids array returns empty versions map", async () => {
+  test("empty file_ids array returns empty sync tokens map", async () => {
     const result = await callToolOk(vCtx.mcpClient, "check_document_versions", {
       file_ids: [],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(Object.keys(versions)).toHaveLength(0);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(Object.keys(syncTokens)).toHaveLength(0);
   });
 });
 

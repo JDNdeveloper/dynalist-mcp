@@ -195,7 +195,7 @@ const editPipeline: Pipeline = {
     {
       category: "version-guard",
       id: "read-then-edit",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current version number. Then edit the node 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_version from the read response. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current sync token. Then edit the node 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_sync_token from the read response. ${AUTH}`,
     },
     {
       category: "cleanup",

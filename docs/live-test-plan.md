@@ -197,11 +197,11 @@ All tools that accept heading/color use string enums. Verify the full value spac
 
 ### 5a. Stale version
 
-- Read a document (get version N). Make an edit (bumps to N+1). Attempt another edit with `expected_version: N`. Verify the tool aborts with a stale version error and requests a re-read.
+- Read a document (get sync token T). Make an edit (sync token changes). Attempt another edit with `expected_sync_token: T`. Verify the tool aborts with a stale sync token error and requests a re-read.
 
 ### 5b. Version warning
 
-- Two rapid edits where the second uses the version from the first read. If a concurrent edit happened between, verify the response includes `version_warning`.
+- Two rapid edits where the second uses the sync token from the first read. If a concurrent edit happened between, verify the response includes `sync_warning`.
 
 **Note:** This test requires a concurrent writer and cannot be exercised in a single-agent setup. Mark as SKIP if no concurrent writer is available.
 

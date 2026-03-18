@@ -16,8 +16,8 @@ import {
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import {
-  FILE_ID_DESCRIPTION, VERSION_WARNING_DESCRIPTION,
-  CONFIRM_GUIDANCE, EXPECTED_VERSION_DESCRIPTION,
+  FILE_ID_DESCRIPTION, SYNC_WARNING_DESCRIPTION,
+  CONFIRM_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
 } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
@@ -35,26 +35,26 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           "'promote': re-parent children to the deleted item's parent " +
           "(single-item only; use to remove a grouping item while keeping its children)."
         ),
-        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         deleted_count: z.number().describe("Number of items deleted"),
         deleted_ids: z.array(z.string()).describe("IDs of all deleted items (targets and descendants)."),
         promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
-        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
+        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
       file_id,
       item_ids,
       children: childrenMode,
-      expected_version,
+      expected_sync_token,
     }: {
       file_id: string;
       item_ids: string[];
       children: "delete" | "promote";
-      expected_version: number;
+      expected_sync_token: string;
     }) => {
       if (item_ids.length === 0) {
         return makeErrorResponse("InvalidInput", "No items to delete (empty array).");
@@ -89,7 +89,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
         async (): Promise<{ result: { deleted_count: number; deleted_ids: string[]; promoted_children?: number }; apiCallCount: number }> => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
@@ -209,7 +209,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       if (guard.result.promoted_children !== undefined) {
         data.promoted_children = guard.result.promoted_children;
       }
-      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 
       return makeResponse(data);
     })
@@ -232,19 +232,19 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             "'first_child'/'last_child': child of reference."
           ),
         }).strict()).describe("Array of moves to apply sequentially."),
-        expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
+        expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moved_count: z.number().describe("Number of items moved"),
         item_ids: z.array(z.string()).describe("IDs of all moved items"),
-        version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
+        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
       file_id,
       moves,
-      expected_version,
+      expected_sync_token,
     }: {
       file_id: string;
       moves: Array<{
@@ -252,7 +252,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         reference_item_id: string;
         position: string;
       }>;
-      expected_version: number;
+      expected_sync_token: string;
     }) => {
       if (moves.length === 0) {
         return makeErrorResponse("InvalidInput", "No moves to apply (empty array).");
@@ -276,7 +276,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedVersion: expected_version, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
         async () => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
@@ -411,7 +411,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         moved_count: moves.length,
         item_ids: itemIds,
       };
-      if (guard.versionWarning) data.version_warning = guard.versionWarning;
+      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 
       return makeResponse(data);
     })

@@ -4,8 +4,9 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { withVersionGuard, VersionMismatchError } from "../version-guard";
+import { withVersionGuard, SyncTokenMismatchError } from "../version-guard";
 import { DynalistApiError, type DynalistClient } from "../dynalist-client";
+import { makeSyncToken } from "../sync-token";
 
 type MockClient = Pick<DynalistClient, "checkForUpdates">;
 
@@ -35,52 +36,51 @@ function createMockClient(opts: {
 }
 
 describe("withVersionGuard", () => {
-  test("passes when expectedVersion matches current version", async () => {
+  test("passes when expectedSyncToken matches current version", async () => {
     const client = createMockClient({ preVersion: 5, postVersion: 6 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 5 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5) },
       async () => ({ result: "ok", apiCallCount: 1 }),
     );
 
     expect(guard.result).toBe("ok");
     expect(guard.preWriteVersion).toBe(5);
     expect(guard.postWriteVersion).toBe(6);
-    expect(guard.versionWarning).toBeUndefined();
+    expect(guard.syncWarning).toBeUndefined();
   });
 
-  test("aborts with VersionMismatchError when expectedVersion is stale", async () => {
+  test("aborts with SyncTokenMismatchError when expectedSyncToken is stale", async () => {
     const client = createMockClient({ preVersion: 7, postVersion: 8 });
     let writeCalled = false;
 
     await expect(
       withVersionGuard(
-        { client, fileId: "test_doc", expectedVersion: 5 },
+        { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5) },
         async () => {
           writeCalled = true;
           return { result: "ok", apiCallCount: 1 };
         },
       ),
-    ).rejects.toThrow(VersionMismatchError);
+    ).rejects.toThrow(SyncTokenMismatchError);
 
     // The write function must not have been called.
     expect(writeCalled).toBe(false);
   });
 
-  test("aborts with VersionMismatchError and includes version info in message", async () => {
+  test("aborts with SyncTokenMismatchError and includes mismatch info in message", async () => {
     const client = createMockClient({ preVersion: 7, postVersion: 8 });
 
     try {
       await withVersionGuard(
-        { client, fileId: "test_doc", expectedVersion: 5 },
+        { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5) },
         async () => ({ result: "ok", apiCallCount: 1 }),
       );
       throw new Error("Should have thrown");
     } catch (e) {
-      expect(e).toBeInstanceOf(VersionMismatchError);
-      const msg = (e as VersionMismatchError).message;
-      expect(msg).toContain("expected 5");
-      expect(msg).toContain("current is 7");
+      expect(e).toBeInstanceOf(SyncTokenMismatchError);
+      const msg = (e as SyncTokenMismatchError).message;
+      expect(msg).toContain("Sync token mismatch");
     }
   });
 
@@ -89,25 +89,23 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 10, postVersion: 13 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 10 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 10) },
       async () => ({ result: "data", apiCallCount: 1 }),
     );
 
     expect(guard.result).toBe("data");
-    expect(guard.versionWarning).toBeDefined();
-    expect(guard.versionWarning).toContain("advanced by 3");
-    expect(guard.versionWarning).toContain("expected 1");
+    expect(guard.syncWarning).toBeDefined();
   });
 
   test("clean write produces no warning when delta equals apiCallCount", async () => {
     const client = createMockClient({ preVersion: 10, postVersion: 13 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 10 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 10) },
       async () => ({ result: "data", apiCallCount: 3 }),
     );
 
-    expect(guard.versionWarning).toBeUndefined();
+    expect(guard.syncWarning).toBeUndefined();
   });
 
   test("detects unexpected delta when version advances less than apiCallCount", async () => {
@@ -115,13 +113,11 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 10, postVersion: 11 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 10 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 10) },
       async () => ({ result: "data", apiCallCount: 3 }),
     );
 
-    expect(guard.versionWarning).toBeDefined();
-    expect(guard.versionWarning).toContain("advanced by 1");
-    expect(guard.versionWarning).toContain("expected 3");
+    expect(guard.syncWarning).toBeDefined();
   });
 
   test("propagates writeFn errors without running post-write check", async () => {
@@ -137,7 +133,7 @@ describe("withVersionGuard", () => {
 
     await expect(
       withVersionGuard(
-        { client, fileId: "test_doc", expectedVersion: 5 },
+        { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5) },
         async () => {
           throw new Error("write failed");
         },
@@ -156,14 +152,14 @@ describe("withVersionGuard", () => {
 
     await expect(
       withVersionGuard(
-        { client, fileId: "nonexistent", expectedVersion: 1 },
+        { client, fileId: "nonexistent", expectedSyncToken: makeSyncToken("nonexistent", 1) },
         async () => ({ result: "ok", apiCallCount: 1 }),
       ),
     ).rejects.toThrow(DynalistApiError);
 
     try {
       await withVersionGuard(
-        { client, fileId: "nonexistent", expectedVersion: 1 },
+        { client, fileId: "nonexistent", expectedSyncToken: makeSyncToken("nonexistent", 1) },
         async () => ({ result: "ok", apiCallCount: 1 }),
       );
     } catch (e) {
@@ -176,11 +172,11 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 1, postVersion: 5 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 1 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 1) },
       async () => ({ result: "tree", apiCallCount: 4 }),
     );
 
-    expect(guard.versionWarning).toBeUndefined();
+    expect(guard.syncWarning).toBeUndefined();
     expect(guard.apiCallCount).toBe(4);
   });
 
@@ -188,12 +184,11 @@ describe("withVersionGuard", () => {
     const client = createMockClient({ preVersion: 100, postVersion: 200 });
 
     const guard = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 100 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 100) },
       async () => ({ result: "ok", apiCallCount: 1 }),
     );
 
-    expect(guard.versionWarning).toBeDefined();
-    expect(guard.versionWarning).toContain("advanced by 100");
+    expect(guard.syncWarning).toBeDefined();
   });
 
   test("checkForUpdates failure propagates as error", async () => {
@@ -205,7 +200,7 @@ describe("withVersionGuard", () => {
 
     await expect(
       withVersionGuard(
-        { client, fileId: "test_doc", expectedVersion: 1 },
+        { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 1) },
         async () => ({ result: "ok", apiCallCount: 1 }),
       ),
     ).rejects.toThrow(DynalistApiError);

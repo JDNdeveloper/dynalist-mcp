@@ -3,10 +3,11 @@ import {
   createTestContext,
   callToolOk,
   callToolError,
-  getVersion,
+  getSyncToken,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
+import { makeSyncToken } from "../../sync-token";
 
 let ctx: TestContext;
 
@@ -24,11 +25,11 @@ describe("delete_items", () => {
   // ─── Single-node subtree deletion ──────────────────────────────────
 
   test("deletes a leaf node", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
@@ -41,11 +42,11 @@ describe("delete_items", () => {
 
   test("default behavior deletes entire subtree", async () => {
     // n1 has children n1a, n1b. Default (children: "delete") deletes all.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     // n1, n1a, n1b.
     expect(result.deleted_count).toBe(3);
@@ -58,11 +59,11 @@ describe("delete_items", () => {
   });
 
   test("deleted_count includes all descendants in subtree deletion", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(3);
   });
@@ -76,11 +77,11 @@ describe("delete_items", () => {
       ctx.server.makeNode("d4", "Level 4", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "deep_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "deep_doc");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "deep_doc",
       item_ids: ["d1"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(4);
 
@@ -96,11 +97,11 @@ describe("delete_items", () => {
 
   test("deleting root's only child leaves root with empty children", async () => {
     // doc2 has root -> [m1]. Delete m1.
-    const version = await getVersion(ctx.mcpClient, "doc2");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc2");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc2",
       item_ids: ["m1"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
 
@@ -113,11 +114,11 @@ describe("delete_items", () => {
 
   test("bulk: deletes multiple disjoint subtrees", async () => {
     // n1 has children [n1a, n1b], n2 has child [n2a]. Delete both subtrees.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "n2"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     // n1 (3 nodes) + n2 (2 nodes) = 5.
     expect(result.deleted_count).toBe(5);
@@ -137,11 +138,11 @@ describe("delete_items", () => {
 
   test("bulk: overlapping subtrees are deduplicated", async () => {
     // Delete n1 (subtree of 3) and n1a (descendant of n1). n1a is covered by n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "n1a"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     // n1's subtree is 3 nodes. n1a is a subset, so total is still 3.
     expect(result.deleted_count).toBe(3);
@@ -154,11 +155,11 @@ describe("delete_items", () => {
 
   test("bulk: overlapping subtrees with descendant listed first", async () => {
     // Order reversed: descendant before ancestor.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a", "n1"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(3);
   });
@@ -173,11 +174,11 @@ describe("delete_items", () => {
 
     // Delete "a" and "c". "c" is a grandchild of "a", so it should be
     // deduplicated. The ancestor walk must traverse multiple levels.
-    const version = await getVersion(ctx.mcpClient, "dedup_deep");
+    const syncToken = await getSyncToken(ctx.mcpClient, "dedup_deep");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "dedup_deep",
       item_ids: ["a", "c"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     // a, b, c (c not double-counted).
     expect(result.deleted_count).toBe(3);
@@ -185,11 +186,11 @@ describe("delete_items", () => {
 
   test("bulk: deletes all children of same parent", async () => {
     // Delete n1, n2, n3 (all children of root).
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "n2", "n3"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     // n1 (3) + n2 (2) + n3 (1) = 6.
     expect(result.deleted_count).toBe(6);
@@ -209,11 +210,11 @@ describe("delete_items", () => {
       ctx.server.makeNode("b", "B", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "deep_bulk");
+    const syncToken = await getSyncToken(ctx.mcpClient, "deep_bulk");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "deep_bulk",
       item_ids: ["a", "b"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     // a (4 nodes) + b (1 node) = 5.
     expect(result.deleted_count).toBe(5);
@@ -224,11 +225,11 @@ describe("delete_items", () => {
   });
 
   test("bulk: delete multiple leaf nodes", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a", "n1b", "n2a"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(3);
 
@@ -245,11 +246,11 @@ describe("delete_items", () => {
   });
 
   test("bulk: promoted_children absent for subtree deletion", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "n2"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.promoted_children).toBeUndefined();
   });
@@ -257,11 +258,11 @@ describe("delete_items", () => {
   // ─── State round-trip ──────────────────────────────────────────────
 
   test("state round-trip: bulk delete then read_document", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "n3"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {
@@ -279,12 +280,12 @@ describe("delete_items", () => {
   // ─── Child promotion (single node only) ────────────────────────────
 
   test("children: promote re-parents children up to parent", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
     expect(result.deleted_ids).toEqual(["n1"]);
@@ -301,12 +302,12 @@ describe("delete_items", () => {
 
   test("promoted children appear at the deleted node's position in parent", async () => {
     // Root children are [n1, n2, n3]. Delete n1 which has children [n1a, n1b].
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -328,12 +329,12 @@ describe("delete_items", () => {
       ctx.server.makeNode("after", "Sibling After", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "promo_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "promo_doc");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "promo_doc",
       item_ids: ["target"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("promo_doc")!;
@@ -351,12 +352,12 @@ describe("delete_items", () => {
       ctx.server.makeNode("sibling", "Sibling", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "promo_first");
+    const syncToken = await getSyncToken(ctx.mcpClient, "promo_first");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "promo_first",
       item_ids: ["target"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("promo_first")!;
@@ -374,12 +375,12 @@ describe("delete_items", () => {
       ctx.server.makeNode("c", "Child C", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "promo_last");
+    const syncToken = await getSyncToken(ctx.mcpClient, "promo_last");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "promo_last",
       item_ids: ["target"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("promo_last")!;
@@ -388,12 +389,12 @@ describe("delete_items", () => {
   });
 
   test("promoted children preserve their content", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -405,46 +406,46 @@ describe("delete_items", () => {
   });
 
   test("promoted_children count matches actual promoted count", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.promoted_children).toBe(2);
   });
 
   test("promoted_children is 0 for leaf with children promote", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
     expect(result.promoted_children).toBe(0);
   });
 
   test("promoted_children absent when children is 'delete'", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "delete",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.promoted_children).toBeUndefined();
   });
 
   test("state round-trip: promote then read_document", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {
@@ -466,7 +467,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["root"],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -483,7 +484,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "custom_root_doc",
       item_ids: ["my_root"],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("custom_root_doc", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -492,7 +493,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "root"],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
 
@@ -505,7 +506,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "nonexistent",
       item_ids: ["n1"],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -514,7 +515,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["nonexistent"],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("NodeNotFound");
   });
@@ -524,7 +525,7 @@ describe("delete_items", () => {
       file_id: "doc1",
       item_ids: ["nonexistent"],
       children: "delete",
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("NodeNotFound");
   });
@@ -533,7 +534,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "nonexistent"],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("NodeNotFound");
 
@@ -546,7 +547,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: [],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -555,7 +556,7 @@ describe("delete_items", () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "n1"],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -565,7 +566,7 @@ describe("delete_items", () => {
       file_id: "doc1",
       item_ids: ["n1", "n2"],
       children: "promote",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
 
@@ -581,23 +582,23 @@ describe("delete_items", () => {
   // ─── Response shape ────────────────────────────────────────────────
 
   test("response includes file_id and deleted_count", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
     expect(typeof result.deleted_count).toBe("number");
   });
 
   test("response includes promoted_children when children were promoted", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n2"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
@@ -611,11 +612,11 @@ describe("move_items", () => {
   // ─── Single-move behavior (one-element array) ─────────────────────
 
   test("first_child: moves node as first child of reference", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n2a", reference_item_id: "n1", position: "first_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -623,11 +624,11 @@ describe("move_items", () => {
   });
 
   test("last_child: moves node as last child of reference", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n2a", reference_item_id: "n1", position: "last_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -636,11 +637,11 @@ describe("move_items", () => {
 
   test("after: moves node as sibling after reference", async () => {
     // Move n3 to be after n1 (under root).
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "after" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -649,11 +650,11 @@ describe("move_items", () => {
   });
 
   test("before: moves node as sibling before reference", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "before" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -664,11 +665,11 @@ describe("move_items", () => {
   // ─── State round-trip: move then read ─────────────────────────────
 
   test("state round-trip: move then verify via read_document", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {
@@ -688,11 +689,11 @@ describe("move_items", () => {
 
   test("first_child: moved node is at index 0 of reference's children", async () => {
     // n1 already has children [n1a, n1b]. Move n3 as first child of n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "first_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -701,11 +702,11 @@ describe("move_items", () => {
 
   test("last_child: moved node is at last index of reference's children", async () => {
     // n1 already has children [n1a, n1b]. Move n3 as last child of n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "last_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -714,11 +715,11 @@ describe("move_items", () => {
 
   test("after: moved node is at index immediately after reference", async () => {
     // Root children are [n1, n2, n3]. Move n3 after n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "after" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -729,11 +730,11 @@ describe("move_items", () => {
 
   test("before: moved node is at index immediately before reference", async () => {
     // Root children are [n1, n2, n3]. Move n3 before n2.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n2", position: "before" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -744,11 +745,11 @@ describe("move_items", () => {
 
   test("move with children: entire subtree moves together", async () => {
     // Move n1 (which has children n1a, n1b) as last child of n2.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n2", position: "last_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -781,7 +782,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n1a1", position: "first_child" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -791,7 +792,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n1a", position: "first_child" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -802,7 +803,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n1a", position: "after" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -811,7 +812,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n1b", position: "before" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -820,7 +821,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n1", position: "after" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -829,7 +830,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n1", position: "before" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -838,7 +839,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n1", position: "first_child" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -847,7 +848,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "root", reference_item_id: "n1", position: "after" }],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("root item");
@@ -863,21 +864,21 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "custom_root_doc",
       moves: [{ item_id: "my_root", reference_item_id: "cr1", position: "after" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("custom_root_doc", 1),
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("root item");
   });
 
   test("root node mixed into bulk moves fails entire batch", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n1", reference_item_id: "n2", position: "after" },
         { item_id: "root", reference_item_id: "n1", position: "first_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(err.error).toBe("InvalidInput");
 
@@ -891,11 +892,11 @@ describe("move_items", () => {
 
   test("reorder sibling: move node before its own sibling", async () => {
     // Root children are [n1, n2, n3]. Move n3 before n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "before" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -909,11 +910,11 @@ describe("move_items", () => {
   test("move earlier sibling before later sibling: exact position", async () => {
     // Root children are [n1, n2, n3]. Move n1 before n3.
     // Expected result: [n2, n1, n3].
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n3", position: "before" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -922,11 +923,11 @@ describe("move_items", () => {
 
   test("reorder sibling: move node after its own sibling", async () => {
     // Root children are [n1, n2, n3]. Move n1 after n3.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "n3", position: "after" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -940,11 +941,11 @@ describe("move_items", () => {
   // ─── Response shape ───────────────────────────────────────────────
 
   test("response includes file_id, moved_count, and item_ids", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "first_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
     expect(result.moved_count).toBe(1);
@@ -952,14 +953,14 @@ describe("move_items", () => {
   });
 
   test("response shape for multi-move", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n1a", reference_item_id: "n3", position: "last_child" },
         { item_id: "n1b", reference_item_id: "n3", position: "last_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
     expect(result.moved_count).toBe(2);
@@ -972,7 +973,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "nonexistent", reference_item_id: "n1", position: "after" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("NodeNotFound");
   });
@@ -981,7 +982,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "nonexistent", position: "first_child" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("NodeNotFound");
   });
@@ -990,7 +991,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "nonexistent", position: "after" }],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("NodeNotFound");
   });
@@ -999,7 +1000,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "nonexistent",
       moves: [{ item_id: "n1", reference_item_id: "n2", position: "after" }],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -1010,7 +1011,7 @@ describe("move_items", () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [],
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -1019,14 +1020,14 @@ describe("move_items", () => {
 
   test("bulk: move two nodes to be children of a different parent", async () => {
     // Root children are [n1, n2, n3]. Move n1a and n1b as last_child of n3.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n1a", reference_item_id: "n3", position: "last_child" },
         { item_id: "n1b", reference_item_id: "n3", position: "last_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1052,7 +1053,7 @@ describe("move_items", () => {
       ctx.server.makeNode("c", "C", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "lc_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "lc_doc");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "lc_doc",
       moves: [
@@ -1060,7 +1061,7 @@ describe("move_items", () => {
         { item_id: "b", reference_item_id: "target", position: "last_child" },
         { item_id: "c", reference_item_id: "target", position: "last_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("lc_doc")!;
@@ -1083,14 +1084,14 @@ describe("move_items", () => {
     ]);
 
     // Move c after a, then move d after c. Result should be [a, c, d, b].
-    const version = await getVersion(ctx.mcpClient, "dep_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "dep_doc");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "dep_doc",
       moves: [
         { item_id: "c", reference_item_id: "a", position: "after" },
         { item_id: "d", reference_item_id: "c", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("dep_doc")!;
@@ -1101,14 +1102,14 @@ describe("move_items", () => {
   test("bulk: reverse a list of 3 siblings", async () => {
     // Root children are [n1, n2, n3]. Reverse to [n3, n2, n1].
     // Strategy: move n3 before n1, then move n2 after n3.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n3", reference_item_id: "n1", position: "before" },
         { item_id: "n2", reference_item_id: "n3", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1118,14 +1119,14 @@ describe("move_items", () => {
 
   test("bulk: cross-parent moves (from different parents to the same target)", async () => {
     // n1 -> [n1a, n1b], n2 -> [n2a]. Move n1a and n2a as children of n3.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n1a", reference_item_id: "n3", position: "last_child" },
         { item_id: "n2a", reference_item_id: "n3", position: "last_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1142,14 +1143,14 @@ describe("move_items", () => {
   test("bulk: move same node twice (processed sequentially)", async () => {
     // Move n3 to first_child of n1, then move it to last_child of n2.
     // The second move should win since moves are applied sequentially.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n3", reference_item_id: "n1", position: "first_child" },
         { item_id: "n3", reference_item_id: "n2", position: "last_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1171,21 +1172,21 @@ describe("move_items", () => {
         { item_id: "n1a", reference_item_id: "n2", position: "last_child" },
         { item_id: "n2", reference_item_id: "n1a", position: "first_child" },
       ],
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("bulk: moving to/from root level", async () => {
     // Move n1a (child of n1) to root level after n3, then move n3 under n1.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n1a", reference_item_id: "n3", position: "after" },
         { item_id: "n3", reference_item_id: "n1", position: "first_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1199,14 +1200,14 @@ describe("move_items", () => {
 
   test("bulk: state round-trip for multi-move via read_document", async () => {
     // Move n1a and n1b as children of n3, then verify via read_document.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
         { item_id: "n1a", reference_item_id: "n3", position: "first_child" },
         { item_id: "n1b", reference_item_id: "n3", position: "last_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {
@@ -1234,7 +1235,7 @@ describe("move_items", () => {
 
     // Reverse [a, b, c, d] to [d, c, b, a].
     // Move d before a, move c after d, move b after c.
-    const version = await getVersion(ctx.mcpClient, "rev_doc");
+    const syncToken = await getSyncToken(ctx.mcpClient, "rev_doc");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "rev_doc",
       moves: [
@@ -1242,7 +1243,7 @@ describe("move_items", () => {
         { item_id: "c", reference_item_id: "d", position: "after" },
         { item_id: "b", reference_item_id: "c", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("rev_doc")!;
@@ -1253,7 +1254,7 @@ describe("move_items", () => {
   test("bulk: move nodes from nested positions to flat list", async () => {
     // n1 -> [n1a, n1b], n2 -> [n2a].
     // Flatten: move n1a, n1b, n2a all to root level after n3.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
@@ -1261,7 +1262,7 @@ describe("move_items", () => {
         { item_id: "n1b", reference_item_id: "n1a", position: "after" },
         { item_id: "n2a", reference_item_id: "n1b", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1285,14 +1286,14 @@ describe("move_items", () => {
       ctx.server.makeNode("e", "E", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "idx_doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "idx_doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc1",
       moves: [
         { item_id: "c", reference_item_id: "d", position: "after" },
         { item_id: "b", reference_item_id: "e", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("idx_doc1")!;
@@ -1315,7 +1316,7 @@ describe("move_items", () => {
       ctx.server.makeNode("e", "E", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "idx_doc2");
+    const syncToken = await getSyncToken(ctx.mcpClient, "idx_doc2");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc2",
       moves: [
@@ -1323,7 +1324,7 @@ describe("move_items", () => {
         { item_id: "d", reference_item_id: "c", position: "before" },
         { item_id: "a", reference_item_id: "e", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("idx_doc2")!;
@@ -1345,14 +1346,14 @@ describe("move_items", () => {
       ctx.server.makeNode("d", "D", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "idx_doc3");
+    const syncToken = await getSyncToken(ctx.mcpClient, "idx_doc3");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc3",
       moves: [
         { item_id: "a", reference_item_id: "d", position: "after" },
         { item_id: "c", reference_item_id: "root", position: "first_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("idx_doc3")!;
@@ -1377,7 +1378,7 @@ describe("move_items", () => {
       ctx.server.makeNode("f", "F", []),
     ]);
 
-    const version = await getVersion(ctx.mcpClient, "idx_doc4");
+    const syncToken = await getSyncToken(ctx.mcpClient, "idx_doc4");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc4",
       moves: [
@@ -1385,7 +1386,7 @@ describe("move_items", () => {
         { item_id: "b", reference_item_id: "f", position: "after" },
         { item_id: "c", reference_item_id: "f", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("idx_doc4")!;
@@ -1429,14 +1430,14 @@ describe("move_items cross-parent sequential moves", () => {
   test("sequential moves between different parents", async () => {
     // Move 'a' from p1 to p2, then move 'e' from p3 to p1.
     // The second move must see that p1 lost 'a' from the first move.
-    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    const syncToken = await getSyncToken(xpCtx.mcpClient, "xp_doc");
     await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
         { item_id: "a", reference_item_id: "p2", position: "first_child" },
         { item_id: "e", reference_item_id: "p1", position: "first_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = xpCtx.server.documents.get("xp_doc")!;
@@ -1459,7 +1460,7 @@ describe("move_items cross-parent sequential moves", () => {
     // After move 1: p1=[a,b,c], p2=[d], p3=[e].
     // After move 2: p1=[a,b,c], p2=[], p3=[e,d].
     // After move 3: p1=[b,c,a], p2=[], p3=[e,d].
-    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    const syncToken = await getSyncToken(xpCtx.mcpClient, "xp_doc");
     await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
@@ -1467,7 +1468,7 @@ describe("move_items cross-parent sequential moves", () => {
         { item_id: "d", reference_item_id: "p3", position: "last_child" },
         { item_id: "a", reference_item_id: "c", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = xpCtx.server.documents.get("xp_doc")!;
@@ -1484,14 +1485,14 @@ describe("move_items cross-parent sequential moves", () => {
     // Move 'a' as first_child of p3 (a goes from p1 to p3).
     // Move 'e' after 'a' (reference is 'a', which is now in p3).
     // The second move should place 'e' after 'a' within p3 (not the old parent).
-    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    const syncToken = await getSyncToken(xpCtx.mcpClient, "xp_doc");
     await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
         { item_id: "a", reference_item_id: "p3", position: "first_child" },
         { item_id: "e", reference_item_id: "a", position: "after" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = xpCtx.server.documents.get("xp_doc")!;
@@ -1507,14 +1508,14 @@ describe("move_items cross-parent sequential moves", () => {
 
   test("move empties one parent then moves into the empty parent", async () => {
     // Move 'e' out of p3 to p1, then move 'b' into (now empty) p3.
-    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    const syncToken = await getSyncToken(xpCtx.mcpClient, "xp_doc");
     await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
         { item_id: "e", reference_item_id: "p1", position: "last_child" },
         { item_id: "b", reference_item_id: "p3", position: "first_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = xpCtx.server.documents.get("xp_doc")!;
@@ -1537,7 +1538,7 @@ describe("move_items cross-parent sequential moves", () => {
     // After move 1: p1=[b], p2=[a,c,d], p3=[e].
     // After move 2: p1=[b], p2=[a,d], p3=[c,e].
     // After move 3: p1=[e,b], p2=[a,d], p3=[c].
-    const version = await getVersion(xpCtx.mcpClient, "xp_doc");
+    const syncToken = await getSyncToken(xpCtx.mcpClient, "xp_doc");
     await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
@@ -1545,7 +1546,7 @@ describe("move_items cross-parent sequential moves", () => {
         { item_id: "c", reference_item_id: "p3", position: "first_child" },
         { item_id: "e", reference_item_id: "p1", position: "first_child" },
       ],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const doc = xpCtx.server.documents.get("xp_doc")!;

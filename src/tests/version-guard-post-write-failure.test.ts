@@ -7,6 +7,7 @@
 import { describe, test, expect } from "bun:test";
 import { withVersionGuard } from "../version-guard";
 import { DynalistApiError, type DynalistClient } from "../dynalist-client";
+import { makeSyncToken } from "../sync-token";
 
 type MockClient = Pick<DynalistClient, "checkForUpdates">;
 
@@ -40,12 +41,12 @@ function createPostWriteFailureClient(opts: {
 }
 
 describe("withVersionGuard post-write checkForUpdates failure", () => {
-  test("write result is returned with a version warning", async () => {
+  test("write result is returned with a sync warning", async () => {
     const client = createPostWriteFailureClient({ preVersion: 5 });
     let writeExecuted = false;
 
     const guardResult = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 5 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5) },
       async () => {
         writeExecuted = true;
         return { result: "write-succeeded", apiCallCount: 1 };
@@ -62,8 +63,8 @@ describe("withVersionGuard post-write checkForUpdates failure", () => {
     expect(guardResult.postWriteVersion).toBeUndefined();
 
     // A warning is present indicating the check failed.
-    expect(guardResult.versionWarning).toBeDefined();
-    expect(guardResult.versionWarning).toContain("post-write version check failed");
+    expect(guardResult.syncWarning).toBeDefined();
+    expect(guardResult.syncWarning).toContain("post-write check failed");
   });
 
   test("warning is present regardless of the error type", async () => {
@@ -74,13 +75,13 @@ describe("withVersionGuard post-write checkForUpdates failure", () => {
     });
 
     const guardResult = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 10 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 10) },
       async () => ({ result: "ok", apiCallCount: 1 }),
     );
 
     expect(guardResult.result).toBe("ok");
-    expect(guardResult.versionWarning).toBeDefined();
-    expect(guardResult.versionWarning).toContain("post-write version check failed");
+    expect(guardResult.syncWarning).toBeDefined();
+    expect(guardResult.syncWarning).toContain("post-write check failed");
   });
 
   test("store is still invalidated despite post-write failure", async () => {
@@ -99,7 +100,7 @@ describe("withVersionGuard post-write checkForUpdates failure", () => {
       {
         client,
         fileId: "test_doc",
-        expectedVersion: 5,
+        expectedSyncToken: makeSyncToken("test_doc", 5),
         store: mockStore as unknown as import("../document-store").DocumentStore,
       },
       async () => ({ result: "ok", apiCallCount: 1 }),
@@ -117,12 +118,12 @@ describe("withVersionGuard post-write checkForUpdates failure", () => {
     });
 
     const guardResult = await withVersionGuard(
-      { client, fileId: "test_doc", expectedVersion: 5 },
+      { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5) },
       async () => ({ result: "ok", apiCallCount: 1 }),
     );
 
     expect(guardResult.result).toBe("ok");
-    expect(guardResult.versionWarning).toBeDefined();
-    expect(guardResult.versionWarning).toContain("post-write version check failed");
+    expect(guardResult.syncWarning).toBeDefined();
+    expect(guardResult.syncWarning).toContain("post-write check failed");
   });
 });

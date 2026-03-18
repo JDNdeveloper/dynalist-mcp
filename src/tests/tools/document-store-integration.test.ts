@@ -7,7 +7,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   createTestContext,
   callToolOk,
-  getVersion,
+  getSyncToken,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -28,13 +28,13 @@ describe("document store cache invalidation", () => {
     const before = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    expect(before.version).toBeDefined();
+    expect(before.sync_token).toBeDefined();
 
     // Edit a node.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "Edited via integration test" }],
     });
 
@@ -44,8 +44,8 @@ describe("document store cache invalidation", () => {
       file_id: "doc1",
     });
 
-    // Version should have advanced.
-    expect(after.version as number).toBeGreaterThan(before.version as number);
+    // Sync token should have changed.
+    expect(after.sync_token as string).not.toBe(before.sync_token as string);
 
     // The edited content should be visible in the node tree.
     const serialized = JSON.stringify(after.item);
@@ -57,10 +57,10 @@ describe("document store cache invalidation", () => {
       file_id: "doc1",
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       reference_item_id: "root",
       items: [{ content: "Newly inserted node" }],
       position: "last_child",
@@ -70,7 +70,7 @@ describe("document store cache invalidation", () => {
       file_id: "doc1",
     });
 
-    expect(after.version as number).toBeGreaterThan(before.version as number);
+    expect(after.sync_token as string).not.toBe(before.sync_token as string);
     const serialized = JSON.stringify(after.item);
     expect(serialized).toContain("Newly inserted node");
   });
@@ -82,10 +82,10 @@ describe("document store cache invalidation", () => {
     const serializedBefore = JSON.stringify(before.item);
     expect(serializedBefore).toContain("Third item");
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       item_ids: ["n3"],
     });
 
@@ -93,7 +93,7 @@ describe("document store cache invalidation", () => {
       file_id: "doc1",
     });
 
-    expect(after.version as number).toBeGreaterThan(before.version as number);
+    expect(after.sync_token as string).not.toBe(before.sync_token as string);
     const serializedAfter = JSON.stringify(after.item);
     expect(serializedAfter).not.toContain("Third item");
   });
@@ -104,10 +104,10 @@ describe("document store cache invalidation", () => {
     });
 
     // Move n3 to be the first child of root (before n1).
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       moves: [{ item_id: "n3", reference_item_id: "n1", position: "before" }],
     });
 
@@ -115,7 +115,7 @@ describe("document store cache invalidation", () => {
       file_id: "doc1",
     });
 
-    expect(after.version as number).toBeGreaterThan(before.version as number);
+    expect(after.sync_token as string).not.toBe(before.sync_token as string);
 
     // n3 ("Third item") should now be the first child of root.
     const root = after.item as Record<string, unknown>;
@@ -128,13 +128,13 @@ describe("document store cache invalidation", () => {
     const firstRead = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    const doc1VersionBefore = firstRead.version as number;
+    const doc1TokenBefore = firstRead.sync_token as string;
 
     // Write to doc2 (a different document).
-    const doc2Version = await getVersion(ctx.mcpClient, "doc2");
+    const doc2SyncToken = await getSyncToken(ctx.mcpClient, "doc2");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc2",
-      expected_version: doc2Version,
+      expected_sync_token: doc2SyncToken,
       items: [{ item_id: "m1", content: "Edited in doc2" }],
     });
 
@@ -142,8 +142,8 @@ describe("document store cache invalidation", () => {
     const secondRead = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    // Version should be the same since doc1 was not modified.
-    expect(secondRead.version as number).toBe(doc1VersionBefore);
+    // Sync token should be the same since doc1 was not modified.
+    expect(secondRead.sync_token as string).toBe(doc1TokenBefore);
     const serialized = JSON.stringify(secondRead.item);
     expect(serialized).toContain("First item");
   });
@@ -162,7 +162,7 @@ describe("document store cache invalidation", () => {
       file_id: "inbox_doc",
     });
 
-    expect(after.version as number).toBeGreaterThan(before.version as number);
+    expect(after.sync_token as string).not.toBe(before.sync_token as string);
     const serialized = JSON.stringify(after.item);
     expect(serialized).toContain("Inbox integration test item");
   });

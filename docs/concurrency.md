@@ -8,11 +8,11 @@ Every write tool (`edit_items`, `insert_items`, `delete_items`, `move_items`) is
 
 ### Pre-write check
 
-Before the write executes, the guard calls `checkForUpdates()` to fetch the document's current version and compares it to the `expected_version` the agent passed in. If they differ, the write is aborted with a `VersionMismatchError` before any API mutation occurs. This is the CAS (compare-and-swap) gate: it catches the common case where the agent's cached read is stale because another client edited the document between the agent's `read_document` and the write tool call.
+Before the write executes, the guard calls `checkForUpdates()` to fetch the document's current version, hashes it into a sync token, and compares it to the `expected_sync_token` the agent passed in. If they differ, the write is aborted with a `SyncTokenMismatchError` before any API mutation occurs. This is the CAS (compare-and-swap) gate: it catches the common case where the agent's cached read is stale because another client edited the document between the agent's `read_document` and the write tool call.
 
 ### Post-write check
 
-After the write succeeds, the guard fetches the version again and compares the delta (`postWriteVersion - preWriteVersion`) against the number of API calls the write made (`apiCallCount`). Each `editDocument` call advances the version by exactly 1, so if the delta exceeds `apiCallCount`, another edit occurred concurrently during the write window. The tool returns a `version_warning` string in the response, and the MCP instructions tell the agent to re-read and verify before making further changes.
+After the write succeeds, the guard fetches the version again and compares the delta (`postWriteVersion - preWriteVersion`) against the number of API calls the write made (`apiCallCount`). Each `editDocument` call advances the version by exactly 1, so if the delta exceeds `apiCallCount`, another edit occurred concurrently during the write window. The tool returns a `sync_warning` string in the response, and the MCP instructions tell the agent to re-read and verify before making further changes.
 
 The post-write check is best-effort: if the version fetch itself fails (network error, rate limit), the write result is still returned with a warning. The write already succeeded; discarding its result would be worse than surfacing uncertainty.
 
@@ -73,7 +73,7 @@ The test suite includes dedicated race condition tests across five files:
 | `version-guard-toctou.test.ts` | TOCTOU races: concurrent edits between the version guard's pre-check and the planning read inside the guarded function. |
 | `version-guard-races.test.ts` | Specific race window scenarios during write batches. |
 
-The race tests use a dummy server that provides an `onNextRead(hook)` callback and a `simulateConcurrentEdit(fileId)` method. The hook injects a concurrent edit at a precise point in the tool's execution (e.g., during the planning read, between batch calls), then verifies that the post-write check detects the version delta mismatch and returns a `version_warning`.
+The race tests use a dummy server that provides an `onNextRead(hook)` callback and a `simulateConcurrentEdit(fileId)` method. The hook injects a concurrent edit at a precise point in the tool's execution (e.g., during the planning read, between batch calls), then verifies that the post-write check detects the version delta mismatch and returns a `sync_warning`.
 
 Specific scenarios tested include:
 

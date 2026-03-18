@@ -10,10 +10,11 @@ import {
   callTool,
   callToolOk,
   callToolError,
-  getVersion,
+  getSyncToken,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
+import { makeSyncToken } from "../../sync-token";
 
 let ctx: TestContext;
 
@@ -29,13 +30,13 @@ afterEach(async () => {
 // edit_items version guard wiring
 // ═════════════════════════════════════════════════════════════════════
 describe("edit_items version guard", () => {
-  test("stale expected_version aborts with VersionMismatch", async () => {
+  test("stale expected_sync_token aborts with SyncTokenMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_version: 999,
+      expected_sync_token: "zzzzz",
     });
-    expect(err.error).toBe("VersionMismatch");
+    expect(err.error).toBe("SyncTokenMismatch");
 
     // Verify the node was not modified.
     const doc = ctx.server.documents.get("doc1")!;
@@ -43,26 +44,26 @@ describe("edit_items version guard", () => {
     expect(node.content).toBe("First item");
   });
 
-  test("correct expected_version succeeds", async () => {
+  test("correct expected_sync_token succeeds", async () => {
     const doc = ctx.server.documents.get("doc1")!;
-    const version = doc.version;
+    const syncToken = makeSyncToken("doc1", doc.version);
 
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect((result.item_ids as string[])).toEqual(["n1"]);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.sync_warning).toBeUndefined();
   });
 
-  test("omitted expected_version returns schema validation error", async () => {
+  test("omitted expected_sync_token returns schema validation error", async () => {
     const result = await callTool(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
     });
     expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("expected_version");
+    expect(JSON.stringify(result.content)).toContain("expected_sync_token");
   });
 });
 
@@ -70,15 +71,15 @@ describe("edit_items version guard", () => {
 // insert_items version guard wiring
 // ═════════════════════════════════════════════════════════════════════
 describe("insert_items version guard", () => {
-  test("stale expected_version aborts with VersionMismatch", async () => {
+  test("stale expected_sync_token aborts with SyncTokenMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       reference_item_id: "n1",
       items: [{ content: "New child" }],
       position: "last_child",
-      expected_version: 999,
+      expected_sync_token: "zzzzz",
     });
-    expect(err.error).toBe("VersionMismatch");
+    expect(err.error).toBe("SyncTokenMismatch");
 
     // Verify no nodes were created.
     const doc = ctx.server.documents.get("doc1")!;
@@ -86,22 +87,22 @@ describe("insert_items version guard", () => {
     expect(n1.children).toEqual(["n1a", "n1b"]);
   });
 
-  test("correct expected_version succeeds", async () => {
+  test("correct expected_sync_token succeeds", async () => {
     const doc = ctx.server.documents.get("doc1")!;
-    const version = doc.version;
+    const syncToken = makeSyncToken("doc1", doc.version);
 
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       reference_item_id: "n1",
       items: [{ content: "New child" }],
       position: "last_child",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.total_created).toBe(1);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.sync_warning).toBeUndefined();
   });
 
-  test("omitted expected_version returns schema validation error", async () => {
+  test("omitted expected_sync_token returns schema validation error", async () => {
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       reference_item_id: "n1",
@@ -109,7 +110,7 @@ describe("insert_items version guard", () => {
       position: "last_child",
     });
     expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("expected_version");
+    expect(JSON.stringify(result.content)).toContain("expected_sync_token");
   });
 });
 
@@ -117,68 +118,68 @@ describe("insert_items version guard", () => {
 // delete_items version guard wiring
 // ═════════════════════════════════════════════════════════════════════
 describe("delete_items version guard", () => {
-  test("stale expected_version aborts with VersionMismatch", async () => {
+  test("stale expected_sync_token aborts with SyncTokenMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a"],
-      expected_version: 999,
+      expected_sync_token: "zzzzz",
     });
-    expect(err.error).toBe("VersionMismatch");
+    expect(err.error).toBe("SyncTokenMismatch");
 
     // Verify node was not deleted.
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.some(n => n.id === "n1a")).toBe(true);
   });
 
-  test("correct expected_version succeeds", async () => {
+  test("correct expected_sync_token succeeds", async () => {
     const doc = ctx.server.documents.get("doc1")!;
-    const version = doc.version;
+    const syncToken = makeSyncToken("doc1", doc.version);
 
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.sync_warning).toBeUndefined();
   });
 
-  test("omitted expected_version returns schema validation error", async () => {
+  test("omitted expected_sync_token returns schema validation error", async () => {
     const result = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a"],
     });
     expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("expected_version");
+    expect(JSON.stringify(result.content)).toContain("expected_sync_token");
   });
 
-  test("stale expected_version aborts child promotion path", async () => {
+  test("stale expected_sync_token aborts child promotion path", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: 999,
+      expected_sync_token: "zzzzz",
     });
-    expect(err.error).toBe("VersionMismatch");
+    expect(err.error).toBe("SyncTokenMismatch");
 
     // Verify node was not deleted.
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.some(n => n.id === "n1")).toBe(true);
   });
 
-  test("correct expected_version succeeds for child promotion", async () => {
+  test("correct expected_sync_token succeeds for child promotion", async () => {
     const doc = ctx.server.documents.get("doc1")!;
-    const version = doc.version;
+    const syncToken = makeSyncToken("doc1", doc.version);
 
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
     expect(result.promoted_children).toBe(2);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.sync_warning).toBeUndefined();
   });
 });
 
@@ -186,13 +187,13 @@ describe("delete_items version guard", () => {
 // move_items version guard wiring
 // ═════════════════════════════════════════════════════════════════════
 describe("move_items version guard", () => {
-  test("stale expected_version aborts with VersionMismatch", async () => {
+  test("stale expected_sync_token aborts with SyncTokenMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
-      expected_version: 999,
+      expected_sync_token: "zzzzz",
     });
-    expect(err.error).toBe("VersionMismatch");
+    expect(err.error).toBe("SyncTokenMismatch");
 
     // Verify node was not moved.
     const doc = ctx.server.documents.get("doc1")!;
@@ -200,26 +201,26 @@ describe("move_items version guard", () => {
     expect(n1.children).toContain("n1a");
   });
 
-  test("correct expected_version succeeds", async () => {
+  test("correct expected_sync_token succeeds", async () => {
     const doc = ctx.server.documents.get("doc1")!;
-    const version = doc.version;
+    const syncToken = makeSyncToken("doc1", doc.version);
 
     const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
     expect(result.item_ids).toEqual(["n1a"]);
-    expect(result.version_warning).toBeUndefined();
+    expect(result.sync_warning).toBeUndefined();
   });
 
-  test("omitted expected_version returns schema validation error", async () => {
+  test("omitted expected_sync_token returns schema validation error", async () => {
     const result = await callTool(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
     });
     expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("expected_version");
+    expect(JSON.stringify(result.content)).toContain("expected_sync_token");
   });
 });
 
@@ -227,85 +228,77 @@ describe("move_items version guard", () => {
 // Post-write concurrent modification detection
 // ═════════════════════════════════════════════════════════════════════
 describe("post-write concurrent modification detection", () => {
-  test("clean write has no version_warning", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+  test("clean write has no sync_warning", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
-    expect(result.version_warning).toBeUndefined();
+    expect(result.sync_warning).toBeUndefined();
   });
 
-  test("concurrent edit during write produces version_warning", async () => {
+  test("concurrent edit during write produces sync_warning", async () => {
     // Hook: simulate concurrent edit when editDocument is called.
     ctx.server.onNextEdit((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
-    expect(result.version_warning).toBeDefined();
-    expect(result.version_warning).toContain("advanced by 2");
-    expect(result.version_warning).toContain("expected 1");
+    expect(result.sync_warning).toBeDefined();
   });
 
-  test("concurrent edit during insert produces version_warning", async () => {
+  test("concurrent edit during insert produces sync_warning", async () => {
     ctx.server.onNextEdit((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       reference_item_id: "n1",
       items: [{ content: "New" }],
       position: "last_child",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
-    expect(result.version_warning).toBeDefined();
-    expect(result.version_warning).toContain("advanced by 2");
-    expect(result.version_warning).toContain("expected 1");
+    expect(result.sync_warning).toBeDefined();
   });
 
-  test("concurrent edit during delete produces version_warning", async () => {
+  test("concurrent edit during delete produces sync_warning", async () => {
     ctx.server.onNextEdit((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1a"],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
-    expect(result.version_warning).toBeDefined();
-    expect(result.version_warning).toContain("advanced by 2");
-    expect(result.version_warning).toContain("expected 1");
+    expect(result.sync_warning).toBeDefined();
   });
 
-  test("concurrent edit during move produces version_warning", async () => {
+  test("concurrent edit during move produces sync_warning", async () => {
     ctx.server.onNextEdit((fileId) => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
-    expect(result.version_warning).toBeDefined();
-    expect(result.version_warning).toContain("advanced by 2");
-    expect(result.version_warning).toContain("expected 1");
+    expect(result.sync_warning).toBeDefined();
   });
 
   test("concurrent edit during multi-batch delete_items with child promotion", async () => {
@@ -316,59 +309,57 @@ describe("post-write concurrent modification detection", () => {
       ctx.server.simulateConcurrentEdit(fileId);
     });
 
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1"],
       children: "promote",
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
-    expect(result.version_warning).toBeDefined();
-    expect(result.version_warning).toContain("advanced by 3");
-    expect(result.version_warning).toContain("expected 2");
+    expect(result.sync_warning).toBeDefined();
   });
 });
 
 // ═════════════════════════════════════════════════════════════════════
 // CAS check fires with version 0
 // ═════════════════════════════════════════════════════════════════════
-describe("CAS check fires with version 0", () => {
-  test("expected_version 0 aborts with VersionMismatch on fresh document", async () => {
-    // A freshly created document starts at version 1, so passing 0
-    // should trigger the version mismatch guard.
+describe("CAS check fires with sync token 0", () => {
+  test("expected_sync_token 0 aborts with SyncTokenMismatch on fresh document", async () => {
+    // A freshly created document starts at version 1, so passing sync token 0
+    // should trigger the sync token mismatch guard.
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_version: 0,
+      expected_sync_token: "00000",
     });
-    expect(err.error).toBe("VersionMismatch");
+    expect(err.error).toBe("SyncTokenMismatch");
   });
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// read_document version field
+// read_document sync_token field
 // ═════════════════════════════════════════════════════════════════════
-describe("read_document version", () => {
-  test("includes version in response", async () => {
+describe("read_document sync_token", () => {
+  test("includes sync_token in response", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    expect(result.version).toBe(1);
+    expect(typeof result.sync_token).toBe("string");
+    expect((result.sync_token as string).length).toBe(5);
   });
 
-  test("version increments after edits", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+  test("sync_token changes after edits", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    // Version 1 + 1 edit = 2.
-    expect(result.version).toBe(2);
+    expect(result.sync_token).not.toBe(syncToken);
   });
 });

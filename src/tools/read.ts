@@ -22,9 +22,10 @@ import type { ParentLevels } from "../utils/dynalist-helpers";
 import {
   FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION, ITEM_ID_DESCRIPTION,
   DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
-  VERSION_DESCRIPTION, SIZE_WARNING_DESCRIPTION, MATCH_COUNT_DESCRIPTION,
+  SYNC_TOKEN_DESCRIPTION, SIZE_WARNING_DESCRIPTION, MATCH_COUNT_DESCRIPTION,
   BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION,
 } from "./descriptions";
+import { makeSyncToken } from "../sync-token";
 import { NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "./node-metadata";
 
 // ─── Output schemas for read tools ──────────────────────────────────
@@ -404,7 +405,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
-        version: z.number().optional().describe(VERSION_DESCRIPTION),
+        sync_token: z.string().optional().describe(SYNC_TOKEN_DESCRIPTION),
         item: outputNodeSchema.optional().describe("Root of the item tree"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
@@ -471,7 +472,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         return makeResponse({
           file_id,
           title: doc.title,
-          version: doc.version,
+          sync_token: makeSyncToken(file_id, doc.version),
           warning: sizeCheck.warning,
         });
       }
@@ -479,7 +480,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       return makeResponse({
         file_id,
         title: doc.title,
-        version: doc.version,
+        sync_token: makeSyncToken(file_id, doc.version),
         item: tree,
       });
     })
@@ -502,7 +503,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
-        version: z.number().optional().describe(VERSION_DESCRIPTION),
+        sync_token: z.string().optional().describe(SYNC_TOKEN_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         query: z.string().optional().describe("The search query that was used"),
         matches: z.array(searchMatchSchema).optional().describe("Matching items"),
@@ -575,7 +576,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const result = {
         file_id,
         title: doc.title,
-        version: doc.version,
+        sync_token: makeSyncToken(file_id, doc.version),
         count: matches.length,
         query,
         matches,
@@ -597,7 +598,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         return makeResponse({
           file_id,
           title: doc.title,
-          version: doc.version,
+          sync_token: makeSyncToken(file_id, doc.version),
           warning: sizeCheck.warning,
         });
       }
@@ -627,7 +628,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       outputSchema: {
         file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
-        version: z.number().optional().describe(VERSION_DESCRIPTION),
+        sync_token: z.string().optional().describe(SYNC_TOKEN_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         matches: z.array(changeMatchSchema).optional().describe("Changed items"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
@@ -729,7 +730,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const result = {
         file_id,
         title: doc.title,
-        version: doc.version,
+        sync_token: makeSyncToken(file_id, doc.version),
         count: matches.length,
         matches,
       };
@@ -751,7 +752,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         return makeResponse({
           file_id,
           title: doc.title,
-          version: doc.version,
+          sync_token: makeSyncToken(file_id, doc.version),
           warning: sizeCheck.warning,
         });
       }
@@ -764,16 +765,15 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "check_document_versions",
     {
       description:
-        "Check document version numbers without fetching content. " +
+        "Check document sync tokens without fetching content. " +
         "Detect changes before an expensive read_document call. " +
-        "Version increments on each edit. " +
-        "-1 means not found or access denied.",
+        "Empty string means not found or access denied.",
       inputSchema: {
         file_ids: z.array(z.string()).describe("Array of document file IDs to check"),
       },
       outputSchema: {
-        versions: z.record(z.string(), z.number()).describe(
-          "Map of file ID to version number. -1 means the document was not found."
+        sync_tokens: z.record(z.string(), z.string()).describe(
+          "Map of file ID to sync token. Empty string means the document was not found."
         ),
       },
     },
@@ -781,13 +781,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const config = getConfig();
       const policies = await ac.getPolicies(file_ids, config);
 
-      // Separate allowed from denied. Denied IDs get version -1
+      // Separate allowed from denied. Denied IDs get empty string
       // (indistinguishable from not-found) to avoid confirming existence.
       const allowedIds: string[] = [];
-      const versions: Record<string, number> = {};
+      const syncTokens: Record<string, string> = {};
       for (const id of file_ids) {
         if (policies.get(id) === "deny") {
-          versions[id] = -1;
+          syncTokens[id] = "";
         } else {
           allowedIds.push(id);
         }
@@ -796,11 +796,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       if (allowedIds.length > 0) {
         const response = await client.checkForUpdates(allowedIds);
         for (const id of allowedIds) {
-          versions[id] = response.versions[id] ?? -1;
+          const version = response.versions[id];
+          syncTokens[id] = version !== undefined ? makeSyncToken(id, version) : "";
         }
       }
 
-      return makeResponse({ versions });
+      return makeResponse({ sync_tokens: syncTokens });
     })
   );
 }

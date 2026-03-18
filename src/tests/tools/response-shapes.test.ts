@@ -2,11 +2,12 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   createTestContext,
   callTool,
-  getVersion,
+  getSyncToken,
   parseErrorContent,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
+import { makeSyncToken } from "../../sync-token";
 
 let ctx: TestContext;
 
@@ -237,11 +238,11 @@ describe("check_document_versions response shape", () => {
     });
     const data = assertSuccessEnvelope(raw);
 
-    expect(typeof data.versions).toBe("object");
-    expect(data.versions).not.toBeNull();
-    const versions = data.versions as Record<string, number>;
-    expect(typeof versions["doc1"]).toBe("number");
-    expect(typeof versions["doc2"]).toBe("number");
+    expect(typeof data.sync_tokens).toBe("object");
+    expect(data.sync_tokens).not.toBeNull();
+    const syncTokens = data.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens["doc1"]).toBe("string");
+    expect(typeof syncTokens["doc2"]).toBe("string");
   });
 
   test("success response for empty file_ids has correct envelope", async () => {
@@ -249,7 +250,7 @@ describe("check_document_versions response shape", () => {
       file_ids: [],
     });
     const data = assertSuccessEnvelope(raw);
-    expect(typeof data.versions).toBe("object");
+    expect(typeof data.sync_tokens).toBe("object");
   });
 });
 
@@ -257,10 +258,10 @@ describe("check_document_versions response shape", () => {
 
 describe("edit_items response shape", () => {
   test("success response has correct envelope and fields", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "n1", content: "Updated content" }],
     });
     const data = assertSuccessEnvelope(raw);
@@ -273,7 +274,7 @@ describe("edit_items response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "edit_items", {
       file_id: "nonexistent",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ item_id: "n1", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
@@ -281,10 +282,10 @@ describe("edit_items response shape", () => {
   });
 
   test("error response for non-existent node has correct envelope", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ item_id: "bad_node", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
@@ -296,10 +297,10 @@ describe("edit_items response shape", () => {
 
 describe("insert_items response shape", () => {
   test("success response has correct envelope and fields", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       items: [{ content: "Item A" }, { content: "Item B" }],
       position: "last_child",
     });
@@ -313,7 +314,7 @@ describe("insert_items response shape", () => {
   test("error response for empty nodes array has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [],
       position: "last_child",
     });
@@ -324,7 +325,7 @@ describe("insert_items response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "nonexistent",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       items: [{ content: "test" }],
       position: "last_child",
     });
@@ -359,10 +360,10 @@ describe("send_to_inbox response shape", () => {
 
 describe("delete_items response shape", () => {
   test("success response for leaf deletion has correct envelope and fields", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       item_ids: ["n1a"],
     });
     const data = assertSuccessEnvelope(raw);
@@ -372,10 +373,10 @@ describe("delete_items response shape", () => {
   });
 
   test("success response for deletion with promotion has promoted_children", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       item_ids: ["n1"],
       children: "promote",
     });
@@ -389,7 +390,7 @@ describe("delete_items response shape", () => {
   test("error response for deleting root node has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       item_ids: ["root"],
     });
     const err = assertErrorEnvelope(raw);
@@ -399,7 +400,7 @@ describe("delete_items response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "nonexistent",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       item_ids: ["n1"],
     });
     const err = assertErrorEnvelope(raw);
@@ -411,10 +412,10 @@ describe("delete_items response shape", () => {
 
 describe("move_items response shape", () => {
   test("success response has correct envelope and fields", async () => {
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      expected_version: version,
+      expected_sync_token: syncToken,
       moves: [{ item_id: "n2a", reference_item_id: "n1", position: "last_child" }],
     });
     const data = assertSuccessEnvelope(raw);
@@ -427,7 +428,7 @@ describe("move_items response shape", () => {
   test("error response for self-referential move has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      expected_version: 1,
+      expected_sync_token: makeSyncToken("doc1", 1),
       moves: [{ item_id: "n1", reference_item_id: "n1", position: "last_child" }],
     });
     const err = assertErrorEnvelope(raw);
@@ -437,7 +438,7 @@ describe("move_items response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_items", {
       file_id: "nonexistent",
-      expected_version: 1,
+      expected_sync_token: "zzzzz",
       moves: [{ item_id: "n1", reference_item_id: "n2", position: "after" }],
     });
     const err = assertErrorEnvelope(raw);

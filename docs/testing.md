@@ -48,7 +48,7 @@ The general pattern:
 1. Register a hook (e.g., `onNextRead`) that fires during a specific internal operation.
 2. Inside the hook, call `simulateConcurrentEdit(fileId)` to bump the version.
 3. Let the tool complete.
-4. Assert that the version guard detected the delta mismatch and returned a `version_warning`.
+4. Assert that the version guard detected the delta mismatch and returned a `sync_warning`.
 
 Specific scenarios tested:
 
@@ -92,7 +92,7 @@ The harness spawns non-interactive Claude CLI sessions, each executing a natural
 
 - **Positioning pipeline.** Tests all `insert_items` position values: `first_child`, `last_child`, `after`, `before`, with and without `reference_node_id`.
 - **Enums pipeline.** Tests heading/color string enum values on insert, edit, clear, and inbox. Tests nested tree insertion with metadata.
-- **Edit pipeline.** Tests content edits, note updates, checkbox toggling, and version guard compliance (passing `expected_version` from a prior read).
+- **Edit pipeline.** Tests content edits, note updates, checkbox toggling, and version guard compliance (passing `expected_sync_token` from a prior read).
 - **Search pipeline.** Tests `search_in_document` with `parent_levels: "all"`, note searching, depth-limited item expansion, and URL-to-file-ID extraction.
 - **Delete/move pipeline.** Tests `delete_items` with promote, multi-item delete, `move_items` with after and first_child positioning.
 - **File management pipeline.** Tests create, rename, and move operations for both documents and folders.

@@ -3,7 +3,7 @@ import {
   createTestContext,
   callToolOk,
   callToolError,
-  getVersion,
+  getSyncToken,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -1576,12 +1576,12 @@ describe("search_in_document", () => {
     expect(Array.isArray(result.matches)).toBe(true);
   });
 
-  test("response includes version as a number", async () => {
+  test("response includes sync_token as a string", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "First",
     });
-    expect(typeof result.version).toBe("number");
+    expect(typeof result.sync_token).toBe("string");
   });
 
   test("plain node omits checked, show_checkbox, heading, color from match", async () => {
@@ -1928,12 +1928,12 @@ describe("get_recent_changes", () => {
     expect(Array.isArray(result.matches)).toBe(true);
   });
 
-  test("response includes version as a number", async () => {
+  test("response includes sync_token as a string", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
       since: "1970-01-01",
     });
-    expect(typeof result.version).toBe("number");
+    expect(typeof result.sync_token).toBe("string");
   });
 
   test("each match includes item_id, content, created, modified, change_type, url", async () => {
@@ -1990,72 +1990,74 @@ describe("get_recent_changes", () => {
 // ─── check_document_versions ─────────────────────────────────────────
 
 describe("check_document_versions", () => {
-  test("returns versions for valid documents", async () => {
+  test("returns sync_tokens for valid documents", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["doc1", "doc2"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.doc1).toBeGreaterThan(0);
-    expect(versions.doc2).toBeGreaterThan(0);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.doc1).toBe("string");
+    expect((syncTokens.doc1 as string).length).toBe(5);
+    expect(typeof syncTokens.doc2).toBe("string");
+    expect((syncTokens.doc2 as string).length).toBe(5);
   });
 
-  test("non-existent document gets -1 version", async () => {
+  test("non-existent document gets empty string sync_token", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["nonexistent"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(versions.nonexistent).toBe(-1);
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(syncTokens.nonexistent).toBe("");
   });
 
-  test("version increments after edits", async () => {
+  test("sync_token changes after edits", async () => {
     const before = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["doc1"],
     });
-    const v1 = (before.versions as Record<string, number>).doc1;
+    const t1 = (before.sync_tokens as Record<string, string>).doc1;
 
     // Edit the document.
-    const version = await getVersion(ctx.mcpClient, "doc1");
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_version: version,
+      expected_sync_token: syncToken,
     });
 
     const after = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["doc1"],
     });
-    const v2 = (after.versions as Record<string, number>).doc1;
-    expect(v2).toBeGreaterThan(v1);
+    const t2 = (after.sync_tokens as Record<string, string>).doc1;
+    expect(t2).not.toBe(t1);
   });
 
-  test("empty file_ids returns empty versions", async () => {
+  test("empty file_ids returns empty sync_tokens", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: [],
     });
-    expect(result.versions).toEqual({});
+    expect(result.sync_tokens).toEqual({});
   });
 
   // ─── Section 9a: additional tests ─────────────────────────────────
 
-  test("multiple documents in single call: all versions returned", async () => {
+  test("multiple documents in single call: all sync_tokens returned", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["doc1", "doc2", "inbox_doc"],
     });
-    const versions = result.versions as Record<string, number>;
-    expect(typeof versions.doc1).toBe("number");
-    expect(typeof versions.doc2).toBe("number");
-    expect(typeof versions.inbox_doc).toBe("number");
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    expect(typeof syncTokens.doc1).toBe("string");
+    expect(typeof syncTokens.doc2).toBe("string");
+    expect(typeof syncTokens.inbox_doc).toBe("string");
   });
 
-  test("response shape: versions is a record of string to number", async () => {
+  test("response shape: sync_tokens is a record of string to string", async () => {
     const result = await callToolOk(ctx.mcpClient, "check_document_versions", {
       file_ids: ["doc1"],
     });
-    expect(result.versions).toBeDefined();
-    const versions = result.versions as Record<string, number>;
-    for (const [key, value] of Object.entries(versions)) {
+    expect(result.sync_tokens).toBeDefined();
+    const syncTokens = result.sync_tokens as Record<string, string>;
+    for (const [key, value] of Object.entries(syncTokens)) {
       expect(typeof key).toBe("string");
-      expect(typeof value).toBe("number");
+      expect(typeof value).toBe("string");
     }
   });
 });
@@ -2266,7 +2268,7 @@ describe("read_document size warning content", () => {
     expect(warning).toContain("item_id");
   });
 
-  test("size warning response includes file_id, title, and version", async () => {
+  test("size warning response includes file_id, title, and sync_token", async () => {
     function bigSetup(server: DummyDynalistServer): void {
       const childIds: string[] = [];
       const nodes = [server.makeNode("root", "Big Doc", [] as string[])];
@@ -2288,7 +2290,7 @@ describe("read_document size warning content", () => {
     expect(result.warning).toBeDefined();
     expect(result.file_id).toBe("warn_doc2");
     expect(result.title).toBe("Big Doc");
-    expect(typeof result.version).toBe("number");
+    expect(typeof result.sync_token).toBe("string");
   });
 });
 
@@ -2358,7 +2360,7 @@ describe("search_in_document size warnings", () => {
     expect(second.count).toBeGreaterThan(0);
   });
 
-  test("size warning response includes file_id, title, and version", async () => {
+  test("size warning response includes file_id, title, and sync_token", async () => {
     cfgCtx = await createTestContext(manyNodesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "search_in_document", {
@@ -2368,7 +2370,7 @@ describe("search_in_document size warnings", () => {
     expect(result.warning).toBeDefined();
     expect(result.file_id).toBe("search_warn_doc");
     expect(result.title).toBe("Search Doc");
-    expect(typeof result.version).toBe("number");
+    expect(typeof result.sync_token).toBe("string");
   });
 });
 
@@ -2558,7 +2560,7 @@ describe("get_recent_changes size warnings", () => {
     expect(warning).toContain("type");
   });
 
-  test("size warning response includes file_id, title, and version", async () => {
+  test("size warning response includes file_id, title, and sync_token", async () => {
     cfgCtx = await createTestContext(manyChangesSetup, { sizeWarning: { warningTokenThreshold: 50, maxTokenThreshold: 24500 } });
 
     const result = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
@@ -2568,7 +2570,7 @@ describe("get_recent_changes size warnings", () => {
     expect(result.warning).toBeDefined();
     expect(result.file_id).toBe("changes_doc");
     expect(result.title).toBe("Changes Doc");
-    expect(typeof result.version).toBe("number");
+    expect(typeof result.sync_token).toBe("string");
   });
 });
 

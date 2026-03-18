@@ -139,6 +139,7 @@ src/
 ├── document-store.ts             # LRU-cached document reader with version checks
 ├── types.ts                      # Shared types (OutputNode, NodeSummary, etc.)
 ├── dynalist-client.ts            # Wrapper for the Dynalist API
+├── sync-token.ts                 # Opaque sync token generation (sha256-based)
 ├── version-guard.ts              # Pre/post-write version checks for race detection
 ├── tools/
 │   ├── index.ts                  # Aggregator - registers all tools
