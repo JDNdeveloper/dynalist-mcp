@@ -13,7 +13,7 @@ import type { HeadingValue, ColorValue } from "../tools/node-metadata";
 
 /**
  * A node in a parsed tree, used as the intermediate representation for
- * insert_nodes. Carries optional per-node fields alongside content.
+ * insert_items. Carries optional per-node fields alongside content.
  */
 export interface ParsedNode {
   content: string;
@@ -338,7 +338,7 @@ export function buildNodeTree(
   // Build output with properties in canonical order. Metadata comes before
   // the nested children array so it stays visually collocated with content.
   const output = {
-    node_id: node.id,
+    item_id: node.id,
     content: node.content,
   } as OutputNode;
 
@@ -380,7 +380,7 @@ export class PartialInsertError extends Error {
     failedAtDepth: number;
     cause: unknown;
   }) {
-    const msg = `Inserted ${opts.insertedCount} of ${opts.totalCount} nodes before failure at depth ${opts.failedAtDepth}. You may need to clean up partial results.`;
+    const msg = `Inserted ${opts.insertedCount} of ${opts.totalCount} items before failure at depth ${opts.failedAtDepth}. You may need to clean up partial results.`;
     super(msg, { cause: opts.cause });
     this.name = "PartialInsertError";
     this.fileId = opts.fileId;
@@ -397,7 +397,7 @@ export class PartialInsertError extends Error {
       file_id: this.fileId,
       inserted_count: this.insertedCount,
       total_count: this.totalCount,
-      first_node_id: this.firstNodeId ?? null,
+      first_item_id: this.firstNodeId ?? null,
       failed_at_depth: this.failedAtDepth,
     };
     return {

@@ -29,7 +29,7 @@ export const CONTENT_MULTILINE_GUIDANCE =
 // IDs.
 export const FILE_ID_DESCRIPTION = "Document file ID";
 export const FOLDER_ID_DESCRIPTION = "Folder file ID";
-export const NODE_ID_DESCRIPTION = "Node ID";
+export const ITEM_ID_DESCRIPTION = "Item ID";
 export const PARENT_FOLDER_ID_DESCRIPTION = "Parent folder file ID";
 
 // Common output fields.
@@ -54,7 +54,7 @@ export const PARENT_LEVELS_DESCRIPTION =
 export const FOLDER_INDEX_DESCRIPTION =
   "Position in folder. 0 = first, -1 = last.";
 
-// Node metadata fields (input).
+// Item metadata fields (input).
 export const CHECKED_DESCRIPTION =
   `Checked (completed) state. ${CHECKED_GUIDANCE}`;
 export const SHOW_CHECKBOX_DESCRIPTION = SHOW_CHECKBOX_GUIDANCE;

@@ -32,11 +32,11 @@ describe("send_to_inbox", () => {
     });
 
     expect(result.file_id).toBe("inbox_doc");
-    expect(result.node_id).toBeString();
+    expect(result.item_id).toBeString();
 
     // Verify the node was created in the inbox document.
     const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.id === result.node_id);
+    const node = doc.nodes.find((n) => n.id === result.item_id);
     expect(node).toBeDefined();
     expect(node!.content).toBe("Buy groceries");
   });
@@ -48,7 +48,7 @@ describe("send_to_inbox", () => {
     });
 
     const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.id === result.node_id)!;
+    const node = doc.nodes.find((n) => n.id === result.item_id)!;
     expect(node.content).toBe("Read paper");
     expect(node.note).toBe("The one about distributed systems");
   });
@@ -62,7 +62,7 @@ describe("send_to_inbox", () => {
     });
 
     const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.id === result.node_id)!;
+    const node = doc.nodes.find((n) => n.id === result.item_id)!;
     expect(node.content).toBe("Important task");
     expect(node.checkbox).toBe(true);
     expect(node.heading).toBe(2);
@@ -77,7 +77,7 @@ describe("send_to_inbox", () => {
     });
 
     const doc = ctx.server.documents.get("inbox_doc")!;
-    const node = doc.nodes.find((n) => n.id === result.node_id)!;
+    const node = doc.nodes.find((n) => n.id === result.item_id)!;
     expect(node.checkbox).toBe(true);
     expect(node.checked).toBe(true);
   });

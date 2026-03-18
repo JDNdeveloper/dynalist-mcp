@@ -27,11 +27,11 @@ afterEach(async () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// Race simulation: insert_nodes
+// Race simulation: insert_items
 // ═════════════════════════════════════════════════════════════════════
-describe("insert_nodes race simulation", () => {
+describe("insert_items race simulation", () => {
   test("last_child multi-item race: concurrent child added", async () => {
-    // After insert_nodes reads the parent's child count but before the
+    // After insert_items reads the parent's child count but before the
     // write, another client adds a child. The version guard detects the
     // concurrent modification.
     ctx.server.onNextEdit((fileId) => {
@@ -44,11 +44,11 @@ describe("insert_nodes race simulation", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      reference_node_id: "n1",
-      nodes: [{ content: "Item A" }, { content: "Item B" }],
+      reference_item_id: "n1",
+      items: [{ content: "Item A" }, { content: "Item B" }],
       position: "last_child",
     });
 
@@ -67,11 +67,11 @@ describe("insert_nodes race simulation", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      reference_node_id: "n1",
-      nodes: [{ content: "First A" }, { content: "First B" }],
+      reference_item_id: "n1",
+      items: [{ content: "First A" }, { content: "First B" }],
       position: "first_child",
     });
 
@@ -91,11 +91,11 @@ describe("insert_nodes race simulation", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      reference_node_id: "n1",
-      nodes: [{ content: "After n1" }],
+      reference_item_id: "n1",
+      items: [{ content: "After n1" }],
       position: "after",
     });
 
@@ -105,11 +105,11 @@ describe("insert_nodes race simulation", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// Race simulation: delete_nodes
+// Race simulation: delete_items
 // ═════════════════════════════════════════════════════════════════════
-describe("delete_nodes race simulation", () => {
+describe("delete_items race simulation", () => {
   test("subtree race: new child added during subtree enumeration", async () => {
-    // After delete_nodes reads to enumerate the subtree but before the
+    // After delete_items reads to enumerate the subtree but before the
     // delete call, another client adds a child under the target.
     ctx.server.onNextEdit((fileId) => {
       const doc = ctx.server.documents.get(fileId)!;
@@ -121,10 +121,10 @@ describe("delete_nodes race simulation", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       expected_version: version,
-      node_ids: ["n2"],
+      item_ids: ["n2"],
     });
 
     // The delete succeeded but missed the new child (orphaned).
@@ -133,11 +133,11 @@ describe("delete_nodes race simulation", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
-// Race simulation: move_nodes
+// Race simulation: move_items
 // ═════════════════════════════════════════════════════════════════════
-describe("move_nodes race simulation", () => {
+describe("move_items race simulation", () => {
   test("index race: sibling reorder during move computation", async () => {
-    // After move_nodes reads and computes the target index but before
+    // After move_items reads and computes the target index but before
     // the move call, another client reorders siblings.
     ctx.server.onNextEdit((fileId) => {
       const doc = ctx.server.documents.get(fileId)!;
@@ -147,10 +147,10 @@ describe("move_nodes race simulation", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       expected_version: version,
-      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "after" }],
+      moves: [{ item_id: "n1a", reference_item_id: "n2", position: "after" }],
     });
 
     expect(result.version_warning).toBeDefined();
@@ -174,10 +174,10 @@ describe("version guard edge cases", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", content: "test" }],
+      items: [{ item_id: "n1", content: "test" }],
     });
 
     // Negative delta != 1, so a warning should be produced.
@@ -190,10 +190,10 @@ describe("version guard edge cases", () => {
     const doc2Before = ctx.server.documents.get("doc2")!.version;
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "edit_nodes", {
+    await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", content: "Updated doc1" }],
+      items: [{ item_id: "n1", content: "Updated doc1" }],
     });
 
     const doc1After = ctx.server.documents.get("doc1")!.version;
@@ -203,15 +203,15 @@ describe("version guard edge cases", () => {
     expect(doc2After).toBe(doc2Before);
   });
 
-  test("insert_nodes with nested tree counts batches across levels", async () => {
+  test("insert_items with nested tree counts batches across levels", async () => {
     // A 3-level tree should produce 3 editDocument calls.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      reference_node_id: "n1",
+      reference_item_id: "n1",
       position: "last_child",
-      nodes: [{
+      items: [{
         content: "Level 1",
         children: [{
           content: "Level 2",
@@ -232,12 +232,12 @@ describe("version guard edge cases", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      reference_node_id: "n1",
+      reference_item_id: "n1",
       position: "last_child",
-      nodes: [{
+      items: [{
         content: "Level 1",
         children: [{
           content: "Level 2",
@@ -267,12 +267,12 @@ describe("version guard edge cases", () => {
     ctx.server.failEditAfterNCalls(1);
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callTool(ctx.mcpClient, "insert_nodes", {
+    const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      reference_node_id: "n1",
+      reference_item_id: "n1",
       position: "last_child",
-      nodes: [{
+      items: [{
         content: "Partial parent",
         children: [{ content: "Partial child" }],
       }],
@@ -286,9 +286,9 @@ describe("version guard edge cases", () => {
     // node was created even though the level-1 insert failed).
     const readResult = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
-      node_id: "n1",
+      item_id: "n1",
     });
-    const children = (readResult.node as Record<string, unknown>).children as Record<string, unknown>[];
+    const children = (readResult.item as Record<string, unknown>).children as Record<string, unknown>[];
     const contents = children.map(c => c.content);
     expect(contents).toContain("Partial parent");
   });
@@ -303,9 +303,9 @@ describe("version guard edge cases", () => {
     // Simulate someone else editing the document.
     ctx.server.simulateConcurrentEdit("doc1");
 
-    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+    const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      nodes: [{ node_id: "n1", content: "Should not apply" }],
+      items: [{ item_id: "n1", content: "Should not apply" }],
       expected_version: staleVersion,
     });
 

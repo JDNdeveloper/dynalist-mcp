@@ -8,27 +8,27 @@ Dynalist is an outliner for organizing information as nested bullet-point lists.
 1. **File tree** (folders and documents): A tree of folders and documents, like a filesystem.
    - Folders contain other folders and documents.
    - Documents hold actual content.
-2. **Item tree** (nodes within a document): Each document contains a tree of items ("nodes" in the API).
-   - Each node has text content, an optional note, and can have children nested beneath it.
-   - Each document has a single root node whose children are the top-level visible items.
+2. **Item tree** (items within a document): Each document contains a tree of items.
+   - Each item has text content, an optional note, and can have children nested beneath it.
+   - Each document has a single root item whose children are the top-level visible items.
 
 ## Identifiers
 
 Three entity types:
 - Folders: file ID (e.g. "abc123def456"). Organize documents but hold no content.
-- Documents: file ID (same format). Hold node trees.
-- Nodes (items): node ID (e.g. "a1b2c3d4e5f6"). Meaningful only within its parent document.
+- Documents: file ID (same format). Hold item trees.
+- Items: item ID (e.g. "a1b2c3d4e5f6"). Meaningful only within its parent document.
 
 ## URL format
 
 - Document: https://dynalist.io/d/{fileId}
-- Specific node (deep link): https://dynalist.io/d/{fileId}#z={nodeId}
+- Specific item (deep link): https://dynalist.io/d/{fileId}#z={itemId}
 - No URL for folders.
-- Tools accept file_id and node_id, not URLs. Extract file_id from the /d/ path segment and node_id from the #z= fragment.
+- Tools accept file_id and item_id, not URLs. Extract file_id from the /d/ path segment and item_id from the #z= fragment.
 
-## Node content
+## Item content
 
-- Node text is short, typically one sentence.
+- Item text is short, typically one sentence.
 - Multiline is supported but longer content belongs in the note field.
 
 Supported Markdown subset for inline formatting:
@@ -47,11 +47,11 @@ Non-text metadata properties:
 
 ## Compositional patterns
 
-- **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with a regex pattern matching the node's text and parent_levels: "all" to get the full ancestor chain. Fallback: read_document with just file_id, then search the tree for the target node_id.
-- **Sibling context**: Call read_document with the parent's node_id and max_depth: 1.
-- **Expanding collapsed sections**: If a node has collapsed: true and child_count > 0 but empty children, pass the node's node_id to read_document (the starting node always expands), or re-request with include_collapsed_children: true.
-- **Drilling into depth-limited nodes**: Drilling into depth-limited nodes is the primary pattern for exploring documents. If a node has depth_limited: true, call read_document with that node's node_id to zoom into the subtree.
-- **File vs node management**: File tools (create_document, move_document, etc.) operate on the file tree. Node tools (insert_nodes, edit_nodes, etc.) operate within a document. Do not confuse file IDs with node IDs.
+- **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with a regex pattern matching the item's text and parent_levels: "all" to get the full ancestor chain. Fallback: read_document with just file_id, then search the tree for the target item_id.
+- **Sibling context**: Call read_document with the parent's item_id and max_depth: 1.
+- **Expanding collapsed sections**: If an item has collapsed: true and child_count > 0 but empty children, pass the item's item_id to read_document (the starting item always expands), or re-request with include_collapsed_children: true.
+- **Drilling into depth-limited items**: Drilling into depth-limited items is the primary pattern for exploring documents. If an item has depth_limited: true, call read_document with that item's item_id to zoom into the subtree.
+- **File vs item management**: File tools (create_document, move_document, etc.) operate on the file tree. Item tools (insert_items, edit_items, etc.) operate within a document. Do not confuse file IDs with item IDs.
 
 ## API limitations
 
@@ -60,8 +60,7 @@ Non-text metadata properties:
 
 ## Presenting information to users
 
-- NEVER expose the term "node" to the user. Refer to nodes as "items" in user-facing content.
-- NEVER present file IDs or node IDs to users, unless in the form of a URL (construct from the format above).
+- NEVER present file IDs or item IDs to users, unless in the form of a URL (construct from the format above).
 - NEVER expose the root folder to users. Show all files and folders under root as top-level items.
 - Folders and documents are intermixed in the UI, not grouped separately.
 - Present them in the order they appear in the parent folder's children array.
@@ -73,7 +72,7 @@ Non-text metadata properties:
 - Always use `•` (unicode bullet), never `-`, `*`, or `+`.
 - Append `/` to folder names.
 - Show checked items with strikethrough (~~Buy groceries~~).
-- Only show node text content; omit metadata like notes, colors, headings, and collapsed state.
+- Only show item text content; omit metadata like notes, colors, headings, and collapsed state.
 - Applies to file trees, document content, summaries, mutation previews, and confirmations.
 
 ### Indentation rule
@@ -97,12 +96,12 @@ Example:
 
 For mutation previews/confirmations, use diff-style:
 - Prefix each line with `+` for additions, `-` for deletions, or a space for unchanged context.
-- The prefix is a fixed 2-char column preceding the node's tree indentation.
-- Do not let the prefix alter node indentation.
+- The prefix is a fixed 2-char column preceding the item's tree indentation.
+- Do not let the prefix alter item indentation.
 - Show edits as a `-`/`+` pair.
-- **IMPORTANT: The preview MUST show ALL affected locations.** For moves, show both where nodes are removed (`-`) AND where they are added (`+`). For multi-move operations, every source and every destination must appear in the preview. Omitting any affected location makes the preview incomplete.
+- **IMPORTANT: The preview MUST show ALL affected locations.** For moves, show both where items are removed (`-`) AND where they are added (`+`). For multi-move operations, every source and every destination must appear in the preview. Omitting any affected location makes the preview incomplete.
 - Within each affected location, include only enough context to show where the change sits (parent and nearby siblings). Use `...` at the same indent to indicate omitted siblings.
-- Indentation is relative to the topmost shown node.
+- Indentation is relative to the topmost shown item.
 
 Example:
 
@@ -126,4 +125,4 @@ Example:
 
 - **IMPORTANT:** Before ANY mutation, ALWAYS preview the intended changes and stop. Wait for the user to explicitly confirm before calling the mutating tool. NEVER preview and mutate in the same response.
 - After a mutation, **ALWAYS** read back the affected area to verify. Report any discrepancies to the user.
-- When checking (completing) a parent node, do not check its children unless the user explicitly asked. Dynalist visually greys out descendants of checked nodes.
+- When checking (completing) a parent item, do not check its children unless the user explicitly asked. Dynalist visually greys out descendants of checked items.

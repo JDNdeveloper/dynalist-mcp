@@ -32,10 +32,10 @@ describe("document store cache invalidation", () => {
 
     // Edit a node.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "edit_nodes", {
+    await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", content: "Edited via integration test" }],
+      items: [{ item_id: "n1", content: "Edited via integration test" }],
     });
 
     // Read again. The cache should have been invalidated by the edit,
@@ -48,7 +48,7 @@ describe("document store cache invalidation", () => {
     expect(after.version as number).toBeGreaterThan(before.version as number);
 
     // The edited content should be visible in the node tree.
-    const serialized = JSON.stringify(after.node);
+    const serialized = JSON.stringify(after.item);
     expect(serialized).toContain("Edited via integration test");
   });
 
@@ -58,11 +58,11 @@ describe("document store cache invalidation", () => {
     });
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "insert_nodes", {
+    await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      reference_node_id: "root",
-      nodes: [{ content: "Newly inserted node" }],
+      reference_item_id: "root",
+      items: [{ content: "Newly inserted node" }],
       position: "last_child",
     });
 
@@ -71,7 +71,7 @@ describe("document store cache invalidation", () => {
     });
 
     expect(after.version as number).toBeGreaterThan(before.version as number);
-    const serialized = JSON.stringify(after.node);
+    const serialized = JSON.stringify(after.item);
     expect(serialized).toContain("Newly inserted node");
   });
 
@@ -79,14 +79,14 @@ describe("document store cache invalidation", () => {
     const before = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    const serializedBefore = JSON.stringify(before.node);
+    const serializedBefore = JSON.stringify(before.item);
     expect(serializedBefore).toContain("Third item");
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       expected_version: version,
-      node_ids: ["n3"],
+      item_ids: ["n3"],
     });
 
     const after = await callToolOk(ctx.mcpClient, "read_document", {
@@ -94,7 +94,7 @@ describe("document store cache invalidation", () => {
     });
 
     expect(after.version as number).toBeGreaterThan(before.version as number);
-    const serializedAfter = JSON.stringify(after.node);
+    const serializedAfter = JSON.stringify(after.item);
     expect(serializedAfter).not.toContain("Third item");
   });
 
@@ -105,10 +105,10 @@ describe("document store cache invalidation", () => {
 
     // Move n3 to be the first child of root (before n1).
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       expected_version: version,
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "before" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "before" }],
     });
 
     const after = await callToolOk(ctx.mcpClient, "read_document", {
@@ -118,7 +118,7 @@ describe("document store cache invalidation", () => {
     expect(after.version as number).toBeGreaterThan(before.version as number);
 
     // n3 ("Third item") should now be the first child of root.
-    const root = after.node as Record<string, unknown>;
+    const root = after.item as Record<string, unknown>;
     const children = root.children as Array<Record<string, unknown>>;
     expect(children[0].content).toBe("Third item");
   });
@@ -132,10 +132,10 @@ describe("document store cache invalidation", () => {
 
     // Write to doc2 (a different document).
     const doc2Version = await getVersion(ctx.mcpClient, "doc2");
-    await callToolOk(ctx.mcpClient, "edit_nodes", {
+    await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc2",
       expected_version: doc2Version,
-      nodes: [{ node_id: "m1", content: "Edited in doc2" }],
+      items: [{ item_id: "m1", content: "Edited in doc2" }],
     });
 
     // Read doc1 again. It should still return valid data.
@@ -144,7 +144,7 @@ describe("document store cache invalidation", () => {
     });
     // Version should be the same since doc1 was not modified.
     expect(secondRead.version as number).toBe(doc1VersionBefore);
-    const serialized = JSON.stringify(secondRead.node);
+    const serialized = JSON.stringify(secondRead.item);
     expect(serialized).toContain("First item");
   });
 
@@ -163,7 +163,7 @@ describe("document store cache invalidation", () => {
     });
 
     expect(after.version as number).toBeGreaterThan(before.version as number);
-    const serialized = JSON.stringify(after.node);
+    const serialized = JSON.stringify(after.item);
     expect(serialized).toContain("Inbox integration test item");
   });
 });

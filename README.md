@@ -8,7 +8,7 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 
 - **17 tools** for reading, writing, searching, and organizing documents.
 - **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
-- **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more.
+- **Configurable defaults** for read depth, collapsed items, notes, checked items, size warnings, and more.
 - **Structured responses** with JSON (`structuredContent`) on success and plain text on errors, for broad client compatibility.
 - **Native-feeling output** via MCP instructions that guide agents to render outlines, show diff previews before writes, and handle large documents gracefully.
 - **Concurrent edit detection** so writes against stale data are caught before or immediately after they happen.
@@ -173,7 +173,7 @@ This server uses MCP stdio transport: it runs as a local subprocess of the MCP c
 
 ### LLM access risks
 
-While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). The LLM could read sensitive content, modify or delete nodes, or exfiltrate data by including it in responses. Use the access control system to limit exposure.
+While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). The LLM could read sensitive content, modify or delete items, or exfiltrate data by including it in responses. Use the access control system to limit exposure.
 
 To enforce global read-only mode (all reads allowed, all writes blocked):
 

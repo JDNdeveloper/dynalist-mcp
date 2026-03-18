@@ -218,60 +218,60 @@ describe("get_recent_changes with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3e. edit_nodes with ACL
+// 3e. edit_items with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("edit_nodes with ACL", () => {
+describe("edit_items with ACL", () => {
   test("denied document returns NotFound (not Forbidden)", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+    const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "denied_doc",
       expected_version: 1,
-      nodes: [{ node_id: "dn1", content: "hacked" }],
+      items: [{ item_id: "dn1", content: "hacked" }],
     });
     expect(err.error).toBe("NotFound");
   });
 
   test("read-policy document returns Forbidden error", async () => {
-    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+    const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "readonly_doc",
       expected_version: 1,
-      nodes: [{ node_id: "rn1", content: "hacked" }],
+      items: [{ item_id: "rn1", content: "hacked" }],
     });
     expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document edit succeeds", async () => {
     const version = await getVersion(ctx.mcpClient, "allowed_doc");
-    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "allowed_doc",
       expected_version: version,
-      nodes: [{ node_id: "an1", content: "Updated content" }],
+      items: [{ item_id: "an1", content: "Updated content" }],
     });
     expect(result.file_id).toBe("allowed_doc");
-    expect((result.node_ids as string[])).toEqual(["an1"]);
+    expect((result.item_ids as string[])).toEqual(["an1"]);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3f. insert_nodes with ACL
+// 3f. insert_items with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("insert_nodes with ACL", () => {
+describe("insert_items with ACL", () => {
   test("denied document returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "denied_doc",
       expected_version: 1,
-      nodes: [{ content: "hacked" }],
+      items: [{ content: "hacked" }],
       position: "last_child",
     });
     expect(err.error).toBe("NotFound");
   });
 
   test("read-policy document returns Forbidden error", async () => {
-    const err = await callToolError(ctx.mcpClient, "insert_nodes", {
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "readonly_doc",
       expected_version: 1,
-      nodes: [{ content: "hacked" }],
+      items: [{ content: "hacked" }],
       position: "last_child",
     });
     expect(err.error).toBe("Forbidden");
@@ -279,10 +279,10 @@ describe("insert_nodes with ACL", () => {
 
   test("allow-policy document insert succeeds", async () => {
     const version = await getVersion(ctx.mcpClient, "allowed_doc");
-    const result = await callToolOk(ctx.mcpClient, "insert_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "allowed_doc",
       expected_version: version,
-      nodes: [{ content: "New item" }, { content: "Another item" }],
+      items: [{ content: "New item" }, { content: "Another item" }],
       position: "last_child",
     });
     expect(result.file_id).toBe("allowed_doc");
@@ -291,34 +291,34 @@ describe("insert_nodes with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3h. delete_nodes with ACL
+// 3h. delete_items with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("delete_nodes with ACL", () => {
+describe("delete_items with ACL", () => {
   test("denied document returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "denied_doc",
       expected_version: 1,
-      node_ids: ["dn1"],
+      item_ids: ["dn1"],
     });
     expect(err.error).toBe("NotFound");
   });
 
   test("read-policy document returns Forbidden error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "readonly_doc",
       expected_version: 1,
-      node_ids: ["rn1"],
+      item_ids: ["rn1"],
     });
     expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document delete succeeds", async () => {
     const version = await getVersion(ctx.mcpClient, "allowed_doc");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "allowed_doc",
       expected_version: version,
-      node_ids: ["an1a"],
+      item_ids: ["an1a"],
     });
     expect(result.file_id).toBe("allowed_doc");
     expect(result.deleted_count).toBe(1);
@@ -326,37 +326,37 @@ describe("delete_nodes with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3i. move_nodes with ACL
+// 3i. move_items with ACL
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("move_nodes with ACL", () => {
+describe("move_items with ACL", () => {
   test("denied document returns NotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "denied_doc",
       expected_version: 1,
-      moves: [{ node_id: "dn1a", reference_node_id: "dn1", position: "first_child" }],
+      moves: [{ item_id: "dn1a", reference_item_id: "dn1", position: "first_child" }],
     });
     expect(err.error).toBe("NotFound");
   });
 
   test("read-policy document returns Forbidden error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "readonly_doc",
       expected_version: 1,
-      moves: [{ node_id: "rn1a", reference_node_id: "rn1", position: "first_child" }],
+      moves: [{ item_id: "rn1a", reference_item_id: "rn1", position: "first_child" }],
     });
     expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document move succeeds", async () => {
     const version = await getVersion(ctx.mcpClient, "allowed_doc");
-    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "allowed_doc",
       expected_version: version,
-      moves: [{ node_id: "an1a", reference_node_id: "root", position: "last_child" }],
+      moves: [{ item_id: "an1a", reference_item_id: "root", position: "last_child" }],
     });
     expect(result.file_id).toBe("allowed_doc");
-    expect(result.node_ids).toEqual(["an1a"]);
+    expect(result.item_ids).toEqual(["an1a"]);
   });
 });
 
@@ -370,7 +370,7 @@ describe("send_to_inbox with ACL", () => {
       content: "Inbox item",
     });
     expect(result.file_id).toBe("inbox_doc");
-    expect(result.node_id).toBeDefined();
+    expect(result.item_id).toBeDefined();
   });
 
   test("deny-all default blocks inbox when no explicit inbox rule", async () => {
@@ -427,7 +427,7 @@ describe("send_to_inbox with ACL", () => {
       content: "Should succeed",
     });
     expect(result.file_id).toBe("inbox_doc");
-    expect(result.node_id).toBeDefined();
+    expect(result.item_id).toBeDefined();
   });
 });
 
@@ -1025,10 +1025,10 @@ describe("access.default 'read' blocks all writes", () => {
 
   test("blocks write on any document", async () => {
     writeReadDefaultConfig();
-    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+    const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "allowed_doc",
       expected_version: 1,
-      nodes: [{ node_id: "an1", content: "hacked" }],
+      items: [{ item_id: "an1", content: "hacked" }],
     });
     expect(err.error).toBe("Forbidden");
     expect(err.message).toBe("Document is read-only per access policy.");

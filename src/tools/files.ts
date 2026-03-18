@@ -27,7 +27,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Create an empty document in a folder. Use the returned file_id with " +
-        "insert_nodes to add content.",
+        "insert_items to add content.",
       inputSchema: {
         parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),
         title: z.string().optional().default("").describe(DOCUMENT_TITLE_DESCRIPTION),
@@ -234,7 +234,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Move a document to a different folder, or reorder within its current folder. " +
-        "Operates on the file tree, not document nodes.",
+        "Operates on the file tree, not document items.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         parent_folder_id: z.string().describe(PARENT_FOLDER_ID_DESCRIPTION),

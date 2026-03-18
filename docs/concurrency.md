@@ -4,7 +4,7 @@ MCP tool calls happen at agent-turn granularity: the agent reads a document, rea
 
 ## Version guards (compare-and-swap)
 
-Every write tool (`edit_nodes`, `insert_nodes`, `delete_nodes`, `move_nodes`) is wrapped in `withVersionGuard()`, which performs a two-phase version check around the actual write.
+Every write tool (`edit_items`, `insert_items`, `delete_items`, `move_items`) is wrapped in `withVersionGuard()`, which performs a two-phase version check around the actual write.
 
 ### Pre-write check
 
@@ -26,13 +26,13 @@ Several tools must resolve a target position (parent + index) before issuing the
 
 ### Insert position resolution
 
-The Dynalist API snapshots a node's children at the start of a batch. Sending `index: -1` (append) for every item in a multi-item insert causes them all to resolve to the same position, reversing their order. The `insert_nodes` tool handles this by reading the parent's current child count and assigning each item a distinct sequential index. For single-item inserts, `index: -1` is safe and avoids the read.
+The Dynalist API snapshots a node's children at the start of a batch. Sending `index: -1` (append) for every item in a multi-item insert causes them all to resolve to the same position, reversing their order. The `insert_items` tool handles this by reading the parent's current child count and assigning each item a distinct sequential index. For single-item inserts, `index: -1` is safe and avoids the read.
 
 For `after`/`before` positioning, the tool reads the reference node's current index from the parent map and computes the target index explicitly.
 
 ### Move state simulation
 
-`move_nodes` accepts an array of moves applied sequentially within a single tool call. Later moves must see the effects of earlier ones. The tool builds mutable copies of the document's `childrenMap` and `parentMap`, then for each move:
+`move_items` accepts an array of moves applied sequentially within a single tool call. Later moves must see the effects of earlier ones. The tool builds mutable copies of the document's `childrenMap` and `parentMap`, then for each move:
 
 1. Resolves the target parent and index from the current mutable state.
 2. Compensates for the API's post-removal indexing: the API removes the node first, then inserts at the given index. When moving within the same parent and the node is earlier than the target, the removal shifts the target down by 1.
@@ -45,11 +45,11 @@ The tool also checks for cyclic moves (moving a node into one of its own descend
 
 ### Deletion ordering
 
-`delete_nodes` collects the full subtree via DFS, then reverses the list so children are deleted before parents. This makes partial failure recoverable: if batching is interrupted (rate limit, network error), only leaf nodes have been deleted and the remaining nodes are still connected to the tree. Retrying the tool re-reads the document, re-collects the surviving subtree, and deletes the rest. Parent-first ordering would orphan children with no way to recover them.
+`delete_items` collects the full subtree via DFS, then reverses the list so children are deleted before parents. This makes partial failure recoverable: if batching is interrupted (rate limit, network error), only leaf nodes have been deleted and the remaining nodes are still connected to the tree. Retrying the tool re-reads the document, re-collects the surviving subtree, and deletes the rest. Parent-first ordering would orphan children with no way to recover them.
 
 ### Child promotion sequencing
 
-When `delete_nodes` is called with `children: "promote"`, the tool first moves all children to be siblings of the target node (one `editDocument` call), then deletes the now-childless node (second call). The sequential ordering ensures the second call operates on the post-move state.
+When `delete_items` is called with `children: "promote"`, the tool first moves all children to be siblings of the target node (one `editDocument` call), then deletes the now-childless node (second call). The sequential ordering ensures the second call operates on the post-move state.
 
 ## Cache invalidation
 
@@ -59,7 +59,7 @@ The document store caches recent reads (see [performance.md](performance.md)). W
 
 ## Document store self-healing
 
-The document store's warm-path version check acts as a secondary defense. When a tool reads a document for planning (e.g., `insert_nodes` reading to resolve the parent's child count), the store calls `checkForUpdates()` before returning the cached response. If the cached version is stale, it evicts the entry and fetches fresh. This means even if the cache was stale before planning started, it is detected and refreshed before the planning logic runs.
+The document store's warm-path version check acts as a secondary defense. When a tool reads a document for planning (e.g., `insert_items` reading to resolve the parent's child count), the store calls `checkForUpdates()` before returning the cached response. If the cached version is stale, it evicts the entry and fetches fresh. This means even if the cache was stale before planning started, it is detected and refreshed before the planning logic runs.
 
 ## Race simulation testing
 

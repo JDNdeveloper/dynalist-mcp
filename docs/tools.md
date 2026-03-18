@@ -100,31 +100,31 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 
 ### `read_document`
 
-Read a document as a JSON node tree. Provide node_id to zoom into a subtree.
+Read a document as a JSON item tree. Provide item_id to zoom into a subtree.
 
-max_depth and include_collapsed_children are orthogonal: max_depth does NOT expand collapsed nodes; include_collapsed_children does NOT bypass the depth limit.
+max_depth and include_collapsed_children are orthogonal: max_depth does NOT expand collapsed items; include_collapsed_children does NOT bypass the depth limit.
 
-The starting node always shows its children regardless of collapsed state.
+The starting item always shows its children regardless of collapsed state.
 
-Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that node_id to expand.
+Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that item_id to expand.
 
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
-| `node_id` | string | no |  | Starting node. Omit for document root. |
+| `item_id` | string | no |  | Starting item. Omit for document root. |
 | `max_depth` | number \| null | no | 3 | Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. |
-| `include_collapsed_children` | boolean | no | false | Include collapsed nodes' children. When false, collapsed nodes show child_count but empty children. |
-| `include_notes` | boolean | no | true | Include node notes. |
-| `include_checked` | boolean | no | true | Include checked/completed nodes. |
+| `include_collapsed_children` | boolean | no | false | Include collapsed items' children. When false, collapsed items show child_count but empty children. |
+| `include_notes` | boolean | no | true | Include item notes. |
+| `include_checked` | boolean | no | true | Include checked/completed items. |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 
 **Example input:**
 ```json
 {
   "file_id": "f_abc123",
-  "node_id": "n_item789"
+  "item_id": "n_item789"
 }
 ```
 
@@ -135,7 +135,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
 | `version` | number | no | Document version. Pass as expected_version to write tools. |
-| `node` | object | no | Root of the node tree |
+| `item` | object | no | Root of the item tree |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
 **Example response:**
@@ -144,8 +144,8 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
   "file_id": "f_abc123",
   "title": "Project Notes",
   "version": 42,
-  "node": {
-    "node_id": "n_item789",
+  "item": {
+    "item_id": "n_item789",
     "content": "Buy groceries",
     "child_count": 3,
     "children": []
@@ -155,14 +155,14 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 
 ### `search_in_document`
 
-Search for text in a document. Returns matching nodes with metadata. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
+Search for text in a document. Returns matching items with metadata. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
 
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
-| `query` | string | yes |  | Regex pattern to match against node content and notes. Case-insensitive by default. |
+| `query` | string | yes |  | Regex pattern to match against item content and notes. Case-insensitive by default. |
 | `search_notes` | boolean | no | true | Also search in notes |
 | `case_sensitive` | boolean | no | false | Case-sensitive matching. |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
@@ -185,16 +185,16 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 | `version` | number | no | Document version. Pass as expected_version to write tools. |
 | `count` | number | no | Number of matches found |
 | `query` | string | no | The search query that was used |
-| `matches` | object[] | no | Matching nodes |
+| `matches` | object[] | no | Matching items |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
 **`matches` element fields:**
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `node_id` | string | yes | Node ID |
-| `content` | string | yes | Node text content |
-| `note` | string | no | Node note. Omitted when empty. |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `note` | string | no | Item note. Omitted when empty. |
 | `checked` | boolean | no | Checked (completed) state. Omitted when no checkbox. |
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
 | `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
@@ -211,7 +211,7 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
   "query": "groceries",
   "matches": [
     {
-      "node_id": "n_item789",
+      "item_id": "n_item789",
       "content": "Buy groceries"
     }
   ]
@@ -220,7 +220,7 @@ Search for text in a document. Returns matching nodes with metadata. Use parent_
 
 ### `get_recent_changes`
 
-Get nodes created or modified within a time period. Accepts ISO 8601 date strings. Date-only strings like '2025-03-11' are start-of-day for 'since' and end-of-day for 'until'.
+Get items created or modified within a time period. Accepts ISO 8601 date strings. Date-only strings like '2025-03-11' are start-of-day for 'since' and end-of-day for 'until'.
 
 **Parameters:**
 
@@ -229,7 +229,7 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
 | `file_id` | string | yes |  | Document file ID |
 | `since` | string | yes |  | Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z') |
 | `until` | string | no |  | End: ISO 8601 date or datetime (default: now) |
-| `type` | `"created"`, `"modified"`, `"both"` | no | "both" | 'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all. |
+| `type` | `"created"`, `"modified"`, `"both"` | no | "both" | 'created' = new items only, 'modified' = edited (not new) only, 'both' = all. |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
 | `sort` | `"newest_first"`, `"oldest_first"` | no | "newest_first" | Sort order by timestamp |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
@@ -251,24 +251,24 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
 | `title` | string | no | Document title |
 | `version` | number | no | Document version. Pass as expected_version to write tools. |
 | `count` | number | no | Number of matches found |
-| `matches` | object[] | no | Changed nodes |
+| `matches` | object[] | no | Changed items |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
 **`matches` element fields:**
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `node_id` | string | yes | Node ID |
-| `content` | string | yes | Node text content |
-| `change_type` | `"created"`, `"modified"` | yes | Whether this node was created or modified in the time range |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `change_type` | `"created"`, `"modified"` | yes | Whether this item was created or modified in the time range |
 | `created` | string | yes | Creation timestamp (ISO 8601) |
 | `modified` | string | yes | Last modified timestamp (ISO 8601) |
-| `note` | string | no | Node note. Omitted when empty. |
+| `note` | string | no | Item note. Omitted when empty. |
 | `checked` | boolean | no | Checked (completed) state. Omitted when no checkbox. |
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
 | `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
-| `collapsed` | boolean | no | Whether the node is collapsed in the UI. Omitted when not collapsed. |
+| `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
 | `parents` | object[] | no | Ancestor chain. Present when parent_levels is not 'none' and ancestors exist. |
 
 **Example response:**
@@ -280,7 +280,7 @@ Get nodes created or modified within a time period. Accepts ISO 8601 date string
   "count": 1,
   "matches": [
     {
-      "node_id": "n_item789",
+      "item_id": "n_item789",
       "content": "Buy groceries",
       "change_type": "created",
       "created": "2025-03-11T12:00:00.000Z",
@@ -328,7 +328,7 @@ Check document version numbers without fetching content. Detect changes before a
 
 ### `send_to_inbox`
 
-Send an item to the Dynalist inbox. Target is the user's configured inbox. Returns the inbox document's file_id and created node_id. For specific documents or hierarchical content, use insert_nodes.
+Send an item to the Dynalist inbox. Target is the user's configured inbox. Returns the inbox document's file_id and created item_id. For specific documents or hierarchical content, use insert_items.
 
 **Parameters:**
 
@@ -358,37 +358,37 @@ Send an item to the Dynalist inbox. Target is the user's configured inbox. Retur
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `node_id` | string | yes | Node ID |
+| `item_id` | string | yes | Item ID |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "node_id": "n_item789"
+  "item_id": "n_item789"
 }
 ```
 
-### `edit_nodes`
+### `edit_items`
 
-Edit one or more nodes in a document. Only specified fields are updated; omitted fields are unchanged.
+Edit one or more items in a document. Only specified fields are updated; omitted fields are unchanged.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `nodes` | object[] | yes | Array of node edits to apply. |
+| `items` | object[] | yes | Array of item edits to apply. |
 | `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
-**`nodes` element fields:**
+**`items` element fields:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `node_id` | string | yes | Node ID to edit |
+| `item_id` | string | yes | Item ID to edit |
 | `content` | string | no | New content text. Supports multiline, but prefer notes for longer multiline text. |
 | `note` | string | no | New note text. Supports multiline. Set to '' to clear. |
 | `checked` | boolean | no | Checked (completed) state. Marks item as completed (greyed out). Works independently of show_checkbox. |
-| `show_checkbox` | boolean | no | Whether to show a checkbox on this node. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
+| `show_checkbox` | boolean | no | Whether to show a checkbox on this item. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
 
@@ -396,9 +396,9 @@ Edit one or more nodes in a document. Only specified fields are updated; omitted
 ```json
 {
   "file_id": "f_abc123",
-  "nodes": [
+  "items": [
     {
-      "node_id": "n_item789",
+      "item_id": "n_item789",
       "content": "Buy groceries"
     }
   ],
@@ -411,8 +411,8 @@ Edit one or more nodes in a document. Only specified fields are updated; omitted
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `edited_count` | number | yes | Number of nodes edited |
-| `node_ids` | string[] | yes | IDs of all edited nodes |
+| `edited_count` | number | yes | Number of items edited |
+| `item_ids` | string[] | yes | IDs of all edited items |
 | `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
@@ -420,28 +420,28 @@ Edit one or more nodes in a document. Only specified fields are updated; omitted
 {
   "file_id": "f_abc123",
   "edited_count": 1,
-  "node_ids": [
+  "item_ids": [
     "n_item789"
   ]
 }
 ```
 
-### `insert_nodes`
+### `insert_items`
 
-Insert nodes into a document as a JSON tree. Supports nested children and per-node metadata.
+Insert items into a document as a JSON tree. Supports nested children and per-item metadata.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `nodes` | object[] | yes | Array of nodes to insert |
-| `position` | `"first_child"`, `"last_child"`, `"after"`, `"before"` | yes | Insertion target. 'last_child' (most common): append under parent. 'first_child': prepend under parent. 'after'/'before': sibling-relative placement (reference_node_id required). |
-| `reference_node_id` | string | no | For first_child/last_child: the parent node. Omit for document root. For after/before: the sibling node (required). Cannot be the root node for after/before. |
-| `index` | number | no | Exact child index within the parent. 0 = first, -1 = last. Only valid with first_child/last_child. Cannot combine with reference_node_id for sibling positions. |
+| `items` | object[] | yes | Array of items to insert |
+| `position` | `"first_child"`, `"last_child"`, `"after"`, `"before"` | yes | Insertion target. 'last_child' (most common): append under parent. 'first_child': prepend under parent. 'after'/'before': sibling-relative placement (reference_item_id required). |
+| `reference_item_id` | string | no | For first_child/last_child: the parent item. Omit for document root. For after/before: the sibling item (required). Cannot be the root item for after/before. |
+| `index` | number | no | Exact child index within the parent. 0 = first, -1 = last. Only valid with first_child/last_child. Cannot combine with reference_item_id for sibling positions. |
 | `expected_version` | number | yes | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
-**`nodes` element fields:**
+**`items` element fields:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -451,19 +451,19 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 | `show_checkbox` | boolean | no | Whether to add a checkbox. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
-| `children` | object[] | no | Child nodes |
+| `children` | object[] | no | Child items |
 
 **Example input:**
 ```json
 {
   "file_id": "f_abc123",
-  "nodes": [
+  "items": [
     {
       "content": "Buy groceries"
     }
   ],
   "position": "first_child",
-  "reference_node_id": "n_sibling012",
+  "reference_item_id": "n_sibling012",
   "index": 0,
   "expected_version": 42
 }
@@ -474,8 +474,8 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `total_created` | number | yes | Total number of nodes created |
-| `root_node_ids` | string[] | yes | IDs of all top-level inserted nodes |
+| `total_created` | number | yes | Total number of items created |
+| `root_item_ids` | string[] | yes | IDs of all top-level inserted items |
 | `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
@@ -483,7 +483,7 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 {
   "file_id": "f_abc123",
   "total_created": 1,
-  "root_node_ids": [
+  "root_item_ids": [
     "n_new001"
   ]
 }
@@ -491,24 +491,24 @@ Insert nodes into a document as a JSON tree. Supports nested children and per-no
 
 ## Structure tools
 
-### `delete_nodes`
+### `delete_items`
 
-Delete nodes and their subtrees from a document.
+Delete items and their subtrees from a document.
 
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
-| `node_ids` | string[] | yes |  | Node IDs to delete. |
-| `children` | `"delete"`, `"promote"` | no | "delete" | What to do with children of deleted nodes. 'delete': remove entire subtree. 'promote': re-parent children to the deleted node's parent (single-node only; use to remove a grouping node while keeping its items). |
+| `item_ids` | string[] | yes |  | Item IDs to delete. |
+| `children` | `"delete"`, `"promote"` | no | "delete" | What to do with children of deleted items. 'delete': remove entire subtree. 'promote': re-parent children to the deleted item's parent (single-item only; use to remove a grouping item while keeping its children). |
 | `expected_version` | number | yes |  | Document version from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **Example input:**
 ```json
 {
   "file_id": "f_abc123",
-  "node_ids": [
+  "item_ids": [
     "n_item789"
   ],
   "expected_version": 42
@@ -520,8 +520,8 @@ Delete nodes and their subtrees from a document.
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `deleted_count` | number | yes | Number of nodes deleted |
-| `deleted_ids` | string[] | yes | IDs of all deleted nodes (targets and descendants). |
+| `deleted_count` | number | yes | Number of items deleted |
+| `deleted_ids` | string[] | yes | IDs of all deleted items (targets and descendants). |
 | `promoted_children` | number | no | Number of direct children promoted to parent (only when children is 'promote') |
 | `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
@@ -537,9 +537,9 @@ Delete nodes and their subtrees from a document.
 }
 ```
 
-### `move_nodes`
+### `move_items`
 
-Move nodes (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects.
+Move items (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects.
 
 **Parameters:**
 
@@ -553,8 +553,8 @@ Move nodes (with subtrees) to new positions in a document. Moves within a single
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `node_id` | string | yes | Node to move (subtree included) |
-| `reference_node_id` | string | yes | Reference node for positioning |
+| `item_id` | string | yes | Item to move (subtree included) |
+| `reference_item_id` | string | yes | Reference item for positioning |
 | `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | yes | 'after'/'before': sibling of reference (same parent). 'first_child'/'last_child': child of reference. |
 
 **Example input:**
@@ -563,8 +563,8 @@ Move nodes (with subtrees) to new positions in a document. Moves within a single
   "file_id": "f_abc123",
   "moves": [
     {
-      "node_id": "n_item789",
-      "reference_node_id": "n_sibling012",
+      "item_id": "n_item789",
+      "reference_item_id": "n_sibling012",
       "position": "after"
     }
   ],
@@ -577,8 +577,8 @@ Move nodes (with subtrees) to new positions in a document. Moves within a single
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `moved_count` | number | yes | Number of nodes moved |
-| `node_ids` | string[] | yes | IDs of all moved nodes |
+| `moved_count` | number | yes | Number of items moved |
+| `item_ids` | string[] | yes | IDs of all moved items |
 | `version_warning` | string | no | Warning if a concurrent edit was detected during the write. |
 
 **Example response:**
@@ -586,7 +586,7 @@ Move nodes (with subtrees) to new positions in a document. Moves within a single
 {
   "file_id": "f_abc123",
   "moved_count": 1,
-  "node_ids": [
+  "item_ids": [
     "n_item789"
   ]
 }
@@ -596,7 +596,7 @@ Move nodes (with subtrees) to new positions in a document. Moves within a single
 
 ### `create_document`
 
-Create an empty document in a folder. Use the returned file_id with insert_nodes to add content.
+Create an empty document in a folder. Use the returned file_id with insert_items to add content.
 
 **Parameters:**
 
@@ -732,7 +732,7 @@ Rename a folder. The file_id does not change when renaming.
 
 ### `move_document`
 
-Move a document to a different folder, or reorder within its current folder. Operates on the file tree, not document nodes.
+Move a document to a different folder, or reorder within its current folder. Operates on the file tree, not document items.
 
 **Parameters:**
 

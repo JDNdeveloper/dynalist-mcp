@@ -20,7 +20,7 @@ import {
 import type { DocumentStore } from "../document-store";
 import type { ParentLevels } from "../utils/dynalist-helpers";
 import {
-  FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION, NODE_ID_DESCRIPTION,
+  FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION, ITEM_ID_DESCRIPTION,
   DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
   VERSION_DESCRIPTION, SIZE_WARNING_DESCRIPTION, MATCH_COUNT_DESCRIPTION,
   BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION,
@@ -31,13 +31,13 @@ import { NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "./node-metadata";
 
 // Shared fields for node summaries used in parents/children arrays.
 const nodeSummarySchema = z.object({
-  node_id: z.string().describe(NODE_ID_DESCRIPTION),
-  content: z.string().describe("Node text content"),
+  item_id: z.string().describe(ITEM_ID_DESCRIPTION),
+  content: z.string().describe("Item text content"),
 }).strict();
 
 // Shared optional metadata fields present on output nodes and match objects.
 const nodeMetadataFields = {
-  note: z.string().optional().describe("Node note. Omitted when empty."),
+  note: z.string().optional().describe("Item note. Omitted when empty."),
   checked: z.boolean().optional().describe("Checked (completed) state. Omitted when no checkbox."),
   show_checkbox: z.boolean().optional().describe("Whether a checkbox is shown. Omitted when no checkbox."),
   heading: z.enum(["h1", "h2", "h3"]).optional().describe(
@@ -48,18 +48,18 @@ const nodeMetadataFields = {
   ),
 };
 
-// Collapsed state applies to document nodes (read_document, search_in_document).
+// Collapsed state applies to document items (read_document, search_in_document).
 // File-tree folders also have a collapsed field in the API response, but list_documents
 // does not currently expose it.
 //
 // TODO: Expose collapsed folder state.
 const collapsedField = {
-  collapsed: z.boolean().optional().describe("Whether the node is collapsed in the UI. Omitted when not collapsed."),
+  collapsed: z.boolean().optional().describe("Whether the item is collapsed in the UI. Omitted when not collapsed."),
 };
 
-// Recursive schema for the read_document node tree.
+// Recursive schema for the read_document item tree.
 const outputNodeSchema: z.ZodType<{
-  node_id: string;
+  item_id: string;
   content: string;
   note?: string;
   checked?: boolean;
@@ -72,22 +72,22 @@ const outputNodeSchema: z.ZodType<{
   children: unknown[];
 }> = z.lazy(() =>
   z.object({
-    node_id: z.string().describe(NODE_ID_DESCRIPTION),
-    content: z.string().describe("Node text content"),
+    item_id: z.string().describe(ITEM_ID_DESCRIPTION),
+    content: z.string().describe("Item text content"),
     ...nodeMetadataFields,
     ...collapsedField,
     depth_limited: z.literal(true).optional().describe(
-      "Present when max_depth cut off traversal. Call read_document with this node_id to expand."
+      "Present when max_depth cut off traversal. Call read_document with this item_id to expand."
     ),
     child_count: z.number().describe("Total direct children, regardless of visibility"),
-    children: z.array(outputNodeSchema).describe("Child nodes. Empty when depth-limited or collapse-hidden."),
+    children: z.array(outputNodeSchema).describe("Child items. Empty when depth-limited or collapse-hidden."),
   }).strict()
 );
 
 // Match object for search_in_document results.
 const searchMatchSchema = z.object({
-  node_id: z.string().describe(NODE_ID_DESCRIPTION),
-  content: z.string().describe("Node text content"),
+  item_id: z.string().describe(ITEM_ID_DESCRIPTION),
+  content: z.string().describe("Item text content"),
   ...nodeMetadataFields,
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
@@ -96,9 +96,9 @@ const searchMatchSchema = z.object({
 
 // Match object for get_recent_changes results.
 const changeMatchSchema = z.object({
-  node_id: z.string().describe(NODE_ID_DESCRIPTION),
-  content: z.string().describe("Node text content"),
-  change_type: z.enum(["created", "modified"]).describe("Whether this node was created or modified in the time range"),
+  item_id: z.string().describe(ITEM_ID_DESCRIPTION),
+  content: z.string().describe("Item text content"),
+  change_type: z.enum(["created", "modified"]).describe("Whether this item was created or modified in the time range"),
   created: z.string().describe("Creation timestamp (ISO 8601)"),
   modified: z.string().describe("Last modified timestamp (ISO 8601)"),
   ...nodeMetadataFields,
@@ -375,29 +375,29 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "read_document",
     {
       description:
-        "Read a document as a JSON node tree. Provide node_id to zoom into a subtree.\n\n" +
+        "Read a document as a JSON item tree. Provide item_id to zoom into a subtree.\n\n" +
         "max_depth and include_collapsed_children are orthogonal: max_depth does NOT expand " +
-        "collapsed nodes; include_collapsed_children does NOT bypass the depth limit.\n\n" +
-        "The starting node always shows its children regardless of collapsed state.\n\n" +
+        "collapsed items; include_collapsed_children does NOT bypass the depth limit.\n\n" +
+        "The starting item always shows its children regardless of collapsed state.\n\n" +
         "Hidden children are signaled by depth_limited: true (max_depth cut off traversal). " +
-        "Call read_document with that node_id to expand.",
+        "Call read_document with that item_id to expand.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().optional().describe(
-          "Starting node. Omit for document root."
+        item_id: z.string().optional().describe(
+          "Starting item. Omit for document root."
         ),
         max_depth: z.number().nullable().optional().default(readDefaults.maxDepth).describe(
           "Max traversal depth. 0 = target only, 1 = target + children, null = unlimited."
         ),
         include_collapsed_children: z.boolean().optional().default(readDefaults.includeCollapsedChildren).describe(
-          "Include collapsed nodes' children. When false, collapsed nodes show " +
+          "Include collapsed items' children. When false, collapsed items show " +
           "child_count but empty children."
         ),
         include_notes: z.boolean().optional().default(readDefaults.includeNotes).describe(
-          "Include node notes."
+          "Include item notes."
         ),
         include_checked: z.boolean().optional().default(readDefaults.includeChecked).describe(
-          "Include checked/completed nodes."
+          "Include checked/completed items."
         ),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
@@ -405,13 +405,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id: z.string().optional().describe(FILE_ID_DESCRIPTION),
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
         version: z.number().optional().describe(VERSION_DESCRIPTION),
-        node: outputNodeSchema.optional().describe("Root of the node tree"),
+        item: outputNodeSchema.optional().describe("Root of the item tree"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      node_id,
+      item_id,
       max_depth,
       include_collapsed_children,
       include_notes,
@@ -419,7 +419,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       bypass_warning,
     }: {
       file_id: string;
-      node_id?: string;
+      item_id?: string;
       max_depth: number | null;
       include_collapsed_children: boolean;
       include_notes: boolean;
@@ -437,10 +437,10 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const nodeMap = buildNodeMap(doc.nodes);
 
       // Determine starting node.
-      const startNodeId = node_id ?? findRootNodeId(doc.nodes);
+      const startNodeId = item_id ?? findRootNodeId(doc.nodes);
 
       if (!nodeMap.has(startNodeId)) {
-        return makeErrorResponse("NodeNotFound", `Node '${startNodeId}' not found in document`);
+        return makeErrorResponse("NodeNotFound", `Item '${startNodeId}' not found in document`);
       }
 
       const tree = buildNodeTree(nodeMap, startNodeId, {
@@ -451,7 +451,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       });
 
       if (!tree) {
-        return makeErrorResponse("NodeNotFound", `Node '${startNodeId}' could not be rendered`);
+        return makeErrorResponse("NodeNotFound", `Item '${startNodeId}' could not be rendered`);
       }
 
       // Check content size on serialized output.
@@ -461,7 +461,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         bypass_warning,
         [
           "Use max_depth to limit traversal depth (e.g., max_depth: 2)",
-          "Target a specific node_id instead of entire document",
+          "Target a specific item_id instead of entire document",
         ],
         config.sizeWarning.warningTokenThreshold,
         config.sizeWarning.maxTokenThreshold,
@@ -480,7 +480,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         file_id,
         title: doc.title,
         version: doc.version,
-        node: tree,
+        item: tree,
       });
     })
   );
@@ -489,11 +489,11 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "search_in_document",
     {
       description:
-        "Search for text in a document. Returns matching nodes with metadata. " +
+        "Search for text in a document. Returns matching items with metadata. " +
         "Use parent_levels for ancestor breadcrumbs without a separate read_document call.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        query: z.string().describe("Regex pattern to match against node content and notes. Case-insensitive by default."),
+        query: z.string().describe("Regex pattern to match against item content and notes. Case-insensitive by default."),
         search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
         case_sensitive: z.boolean().optional().default(false).describe("Case-sensitive matching."),
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
@@ -505,7 +505,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         version: z.number().optional().describe(VERSION_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         query: z.string().optional().describe("The search query that was used"),
-        matches: z.array(searchMatchSchema).optional().describe("Matching nodes"),
+        matches: z.array(searchMatchSchema).optional().describe("Matching items"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
     },
@@ -550,7 +550,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         })
         .map((node) => {
           const match: Record<string, unknown> = {
-            node_id: node.id,
+            item_id: node.id,
             content: node.content,
           };
 
@@ -565,7 +565,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           if (parent_levels !== "none") {
             const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {
-              match.parents = parents.map(p => ({ node_id: p.id, content: p.content }));
+              match.parents = parents.map(p => ({ item_id: p.id, content: p.content }));
             }
           }
 
@@ -610,7 +610,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "get_recent_changes",
     {
       description:
-        "Get nodes created or modified within a time period. Accepts ISO 8601 date strings. " +
+        "Get items created or modified within a time period. Accepts ISO 8601 date strings. " +
         "Date-only strings like '2025-03-11' are start-of-day for 'since' and " +
         "end-of-day for 'until'.",
       inputSchema: {
@@ -618,7 +618,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         since: z.string().describe("Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z')"),
         until: z.string().optional().describe("End: ISO 8601 date or datetime (default: now)"),
         type: z.enum(["created", "modified", "both"]).optional().default("both").describe(
-          "'created' = new nodes only, 'modified' = edited (not new) only, 'both' = all."
+          "'created' = new items only, 'modified' = edited (not new) only, 'both' = all."
         ),
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
         sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
@@ -629,7 +629,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         title: z.string().optional().describe(DOCUMENT_TITLE_DESCRIPTION),
         version: z.number().optional().describe(VERSION_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
-        matches: z.array(changeMatchSchema).optional().describe("Changed nodes"),
+        matches: z.array(changeMatchSchema).optional().describe("Changed items"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
     },
@@ -693,7 +693,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           const createdInRange = node.created >= sinceTs && node.created <= untilTs;
 
           const match: Record<string, unknown> = {
-            node_id: node.id,
+            item_id: node.id,
             content: node.content,
             change_type: createdInRange ? "created" : "modified",
             created: new Date(node.created).toISOString(),
@@ -712,7 +712,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           if (parent_levels !== "none") {
             const parents = getAncestors(nodeMap, parentMap, node.id, parent_levels);
             if (parents.length > 0) {
-              match.parents = parents.map(p => ({ node_id: p.id, content: p.content }));
+              match.parents = parents.map(p => ({ item_id: p.id, content: p.content }));
             }
           }
 

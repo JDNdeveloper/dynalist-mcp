@@ -259,7 +259,7 @@ function generateExample(name: string, schema: ZodTypeAny, depth: number = 0): u
       for (const [key, fieldSchema] of Object.entries(shape)) {
         const { optional } = unwrap(fieldSchema as ZodTypeAny);
         // Skip some optional fields in examples for brevity.
-        if (optional && depth > 0 && !["content", "node_id", "position", "reference_node_id"].includes(key)) continue;
+        if (optional && depth > 0 && !["content", "item_id", "position", "reference_item_id"].includes(key)) continue;
         obj[key] = generateExample(key, fieldSchema as ZodTypeAny, depth + 1);
       }
       return obj;
@@ -288,11 +288,11 @@ function exampleString(name: string): string {
   if (name === "file_id" || name === "file_ids") return "f_abc123";
   if (name === "folder_id") return "f_folder456";
   if (name === "parent_folder_id") return "f_folder456";
-  if (name === "node_id" || name === "node_ids") return "n_item789";
-  if (name === "reference_node_id") return "n_sibling012";
+  if (name === "item_id" || name === "item_ids") return "n_item789";
+  if (name === "reference_item_id") return "n_sibling012";
   if (name === "root_file_id") return "f_root000";
   if (name === "deleted_ids") return "n_item789";
-  if (name === "root_node_ids") return "n_new001";
+  if (name === "root_item_ids") return "n_new001";
   // Content fields.
   if (name === "url") return "https://dynalist.io/d/f_abc123#z=n_item789";
   if (name === "title") return "Project Notes";

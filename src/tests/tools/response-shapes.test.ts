@@ -131,11 +131,11 @@ describe("read_document response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.title).toBe("string");
-    expect(data.node).toBeDefined();
+    expect(data.item).toBeDefined();
 
     // Validate the root node shape.
-    const node = data.node as Record<string, unknown>;
-    expect(typeof node.node_id).toBe("string");
+    const node = data.item as Record<string, unknown>;
+    expect(typeof node.item_id).toBe("string");
     expect(typeof node.content).toBe("string");
     expect(typeof node.child_count).toBe("number");
     expect(Array.isArray(node.children)).toBe(true);
@@ -150,7 +150,7 @@ describe("read_document response shape", () => {
   test("error response for non-existent node has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "read_document", {
       file_id: "doc1",
-      node_id: "bad_node",
+      item_id: "bad_node",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NodeNotFound");
@@ -177,7 +177,7 @@ describe("search_in_document response shape", () => {
     const matches = data.matches as Record<string, unknown>[];
     expect(matches.length).toBeGreaterThan(0);
     const match = matches[0];
-    expect(typeof match.node_id).toBe("string");
+    expect(typeof match.item_id).toBe("string");
     expect(typeof match.content).toBe("string");
   });
 
@@ -210,7 +210,7 @@ describe("get_recent_changes response shape", () => {
     const matches = data.matches as Record<string, unknown>[];
     if (matches.length > 0) {
       const match = matches[0];
-      expect(typeof match.node_id).toBe("string");
+      expect(typeof match.item_id).toBe("string");
       expect(typeof match.content).toBe("string");
       expect(typeof match.created).toBe("string");
       expect(typeof match.modified).toBe("string");
@@ -253,28 +253,28 @@ describe("check_document_versions response shape", () => {
   });
 });
 
-// ─── edit_nodes ──────────────────────────────────────────────────────
+// ─── edit_items ──────────────────────────────────────────────────────
 
-describe("edit_nodes response shape", () => {
+describe("edit_items response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const raw = await callTool(ctx.mcpClient, "edit_nodes", {
+    const raw = await callTool(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", content: "Updated content" }],
+      items: [{ item_id: "n1", content: "Updated content" }],
     });
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.edited_count).toBe("number");
-    expect(Array.isArray(data.node_ids)).toBe(true);
+    expect(Array.isArray(data.item_ids)).toBe(true);
   });
 
   test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "edit_nodes", {
+    const raw = await callTool(ctx.mcpClient, "edit_items", {
       file_id: "nonexistent",
       expected_version: 1,
-      nodes: [{ node_id: "n1", content: "test" }],
+      items: [{ item_id: "n1", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");
@@ -282,39 +282,39 @@ describe("edit_nodes response shape", () => {
 
   test("error response for non-existent node has correct envelope", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const raw = await callTool(ctx.mcpClient, "edit_nodes", {
+    const raw = await callTool(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "bad_node", content: "test" }],
+      items: [{ item_id: "bad_node", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NodeNotFound");
   });
 });
 
-// ─── insert_nodes ───────────────────────────────────────────────────
+// ─── insert_items ───────────────────────────────────────────────────
 
-describe("insert_nodes response shape", () => {
+describe("insert_items response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const raw = await callTool(ctx.mcpClient, "insert_nodes", {
+    const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ content: "Item A" }, { content: "Item B" }],
+      items: [{ content: "Item A" }, { content: "Item B" }],
       position: "last_child",
     });
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.total_created).toBe("number");
-    expect(Array.isArray(data.root_node_ids)).toBe(true);
+    expect(Array.isArray(data.root_item_ids)).toBe(true);
   });
 
   test("error response for empty nodes array has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "insert_nodes", {
+    const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_version: 1,
-      nodes: [],
+      items: [],
       position: "last_child",
     });
     const err = assertErrorEnvelope(raw);
@@ -322,10 +322,10 @@ describe("insert_nodes response shape", () => {
   });
 
   test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "insert_nodes", {
+    const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "nonexistent",
       expected_version: 1,
-      nodes: [{ content: "test" }],
+      items: [{ content: "test" }],
       position: "last_child",
     });
     const err = assertErrorEnvelope(raw);
@@ -343,7 +343,7 @@ describe("send_to_inbox response shape", () => {
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
-    expect(typeof data.node_id).toBe("string");
+    expect(typeof data.item_id).toBe("string");
   });
 
   test("error response for empty content has correct envelope", async () => {
@@ -355,15 +355,15 @@ describe("send_to_inbox response shape", () => {
   });
 });
 
-// ─── delete_nodes ───────────────────────────────────────────────────
+// ─── delete_items ───────────────────────────────────────────────────
 
-describe("delete_nodes response shape", () => {
+describe("delete_items response shape", () => {
   test("success response for leaf deletion has correct envelope and fields", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
+    const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       expected_version: version,
-      node_ids: ["n1a"],
+      item_ids: ["n1a"],
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -373,10 +373,10 @@ describe("delete_nodes response shape", () => {
 
   test("success response for deletion with promotion has promoted_children", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
+    const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       expected_version: version,
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       children: "promote",
     });
     const data = assertSuccessEnvelope(raw);
@@ -387,58 +387,58 @@ describe("delete_nodes response shape", () => {
   });
 
   test("error response for deleting root node has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
+    const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       expected_version: 1,
-      node_ids: ["root"],
+      item_ids: ["root"],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidInput");
   });
 
   test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "delete_nodes", {
+    const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "nonexistent",
       expected_version: 1,
-      node_ids: ["n1"],
+      item_ids: ["n1"],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");
   });
 });
 
-// ─── move_nodes ─────────────────────────────────────────────────────
+// ─── move_items ─────────────────────────────────────────────────────
 
-describe("move_nodes response shape", () => {
+describe("move_items response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const raw = await callTool(ctx.mcpClient, "move_nodes", {
+    const raw = await callTool(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       expected_version: version,
-      moves: [{ node_id: "n2a", reference_node_id: "n1", position: "last_child" }],
+      moves: [{ item_id: "n2a", reference_item_id: "n1", position: "last_child" }],
     });
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.moved_count).toBe("number");
-    expect(Array.isArray(data.node_ids)).toBe(true);
+    expect(Array.isArray(data.item_ids)).toBe(true);
   });
 
   test("error response for self-referential move has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "move_nodes", {
+    const raw = await callTool(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       expected_version: 1,
-      moves: [{ node_id: "n1", reference_node_id: "n1", position: "last_child" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1", position: "last_child" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidInput");
   });
 
   test("error response for non-existent document has correct envelope", async () => {
-    const raw = await callTool(ctx.mcpClient, "move_nodes", {
+    const raw = await callTool(ctx.mcpClient, "move_items", {
       file_id: "nonexistent",
       expected_version: 1,
-      moves: [{ node_id: "n1", reference_node_id: "n2", position: "after" }],
+      moves: [{ item_id: "n1", reference_item_id: "n2", position: "after" }],
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");

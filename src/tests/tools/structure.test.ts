@@ -18,16 +18,16 @@ afterEach(async () => {
   await ctx.cleanup();
 });
 
-// ─── delete_nodes ─────────────────────────────────────────────────────
+// ─── delete_items ─────────────────────────────────────────────────────
 
-describe("delete_nodes", () => {
+describe("delete_items", () => {
   // ─── Single-node subtree deletion ──────────────────────────────────
 
   test("deletes a leaf node", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1a"],
+      item_ids: ["n1a"],
       expected_version: version,
     });
     expect(result.file_id).toBe("doc1");
@@ -42,9 +42,9 @@ describe("delete_nodes", () => {
   test("default behavior deletes entire subtree", async () => {
     // n1 has children n1a, n1b. Default (children: "delete") deletes all.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       expected_version: version,
     });
     // n1, n1a, n1b.
@@ -59,9 +59,9 @@ describe("delete_nodes", () => {
 
   test("deleted_count includes all descendants in subtree deletion", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       expected_version: version,
     });
     expect(result.deleted_count).toBe(3);
@@ -77,9 +77,9 @@ describe("delete_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "deep_doc");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "deep_doc",
-      node_ids: ["d1"],
+      item_ids: ["d1"],
       expected_version: version,
     });
     expect(result.deleted_count).toBe(4);
@@ -97,9 +97,9 @@ describe("delete_nodes", () => {
   test("deleting root's only child leaves root with empty children", async () => {
     // doc2 has root -> [m1]. Delete m1.
     const version = await getVersion(ctx.mcpClient, "doc2");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc2",
-      node_ids: ["m1"],
+      item_ids: ["m1"],
       expected_version: version,
     });
     expect(result.deleted_count).toBe(1);
@@ -114,9 +114,9 @@ describe("delete_nodes", () => {
   test("bulk: deletes multiple disjoint subtrees", async () => {
     // n1 has children [n1a, n1b], n2 has child [n2a]. Delete both subtrees.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "n2"],
+      item_ids: ["n1", "n2"],
       expected_version: version,
     });
     // n1 (3 nodes) + n2 (2 nodes) = 5.
@@ -138,9 +138,9 @@ describe("delete_nodes", () => {
   test("bulk: overlapping subtrees are deduplicated", async () => {
     // Delete n1 (subtree of 3) and n1a (descendant of n1). n1a is covered by n1.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "n1a"],
+      item_ids: ["n1", "n1a"],
       expected_version: version,
     });
     // n1's subtree is 3 nodes. n1a is a subset, so total is still 3.
@@ -155,9 +155,9 @@ describe("delete_nodes", () => {
   test("bulk: overlapping subtrees with descendant listed first", async () => {
     // Order reversed: descendant before ancestor.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1a", "n1"],
+      item_ids: ["n1a", "n1"],
       expected_version: version,
     });
     expect(result.deleted_count).toBe(3);
@@ -174,9 +174,9 @@ describe("delete_nodes", () => {
     // Delete "a" and "c". "c" is a grandchild of "a", so it should be
     // deduplicated. The ancestor walk must traverse multiple levels.
     const version = await getVersion(ctx.mcpClient, "dedup_deep");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "dedup_deep",
-      node_ids: ["a", "c"],
+      item_ids: ["a", "c"],
       expected_version: version,
     });
     // a, b, c (c not double-counted).
@@ -186,9 +186,9 @@ describe("delete_nodes", () => {
   test("bulk: deletes all children of same parent", async () => {
     // Delete n1, n2, n3 (all children of root).
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "n2", "n3"],
+      item_ids: ["n1", "n2", "n3"],
       expected_version: version,
     });
     // n1 (3) + n2 (2) + n3 (1) = 6.
@@ -210,9 +210,9 @@ describe("delete_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "deep_bulk");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "deep_bulk",
-      node_ids: ["a", "b"],
+      item_ids: ["a", "b"],
       expected_version: version,
     });
     // a (4 nodes) + b (1 node) = 5.
@@ -225,9 +225,9 @@ describe("delete_nodes", () => {
 
   test("bulk: delete multiple leaf nodes", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1a", "n1b", "n2a"],
+      item_ids: ["n1a", "n1b", "n2a"],
       expected_version: version,
     });
     expect(result.deleted_count).toBe(3);
@@ -246,9 +246,9 @@ describe("delete_nodes", () => {
 
   test("bulk: promoted_children absent for subtree deletion", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "n2"],
+      item_ids: ["n1", "n2"],
       expected_version: version,
     });
     expect(result.promoted_children).toBeUndefined();
@@ -258,9 +258,9 @@ describe("delete_nodes", () => {
 
   test("state round-trip: bulk delete then read_document", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "n3"],
+      item_ids: ["n1", "n3"],
       expected_version: version,
     });
 
@@ -268,21 +268,21 @@ describe("delete_nodes", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const tree = result.node as Record<string, unknown>;
+    const tree = result.item as Record<string, unknown>;
     const children = tree.children as Record<string, unknown>[];
 
     // Only n2 and its subtree should remain.
     expect(children).toHaveLength(1);
-    expect(children[0].node_id).toBe("n2");
+    expect(children[0].item_id).toBe("n2");
   });
 
   // ─── Child promotion (single node only) ────────────────────────────
 
   test("children: promote re-parents children up to parent", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       children: "promote",
       expected_version: version,
     });
@@ -302,9 +302,9 @@ describe("delete_nodes", () => {
   test("promoted children appear at the deleted node's position in parent", async () => {
     // Root children are [n1, n2, n3]. Delete n1 which has children [n1a, n1b].
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       children: "promote",
       expected_version: version,
     });
@@ -329,9 +329,9 @@ describe("delete_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "promo_doc");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "promo_doc",
-      node_ids: ["target"],
+      item_ids: ["target"],
       children: "promote",
       expected_version: version,
     });
@@ -352,9 +352,9 @@ describe("delete_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "promo_first");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "promo_first",
-      node_ids: ["target"],
+      item_ids: ["target"],
       children: "promote",
       expected_version: version,
     });
@@ -375,9 +375,9 @@ describe("delete_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "promo_last");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "promo_last",
-      node_ids: ["target"],
+      item_ids: ["target"],
       children: "promote",
       expected_version: version,
     });
@@ -389,9 +389,9 @@ describe("delete_nodes", () => {
 
   test("promoted children preserve their content", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       children: "promote",
       expected_version: version,
     });
@@ -406,9 +406,9 @@ describe("delete_nodes", () => {
 
   test("promoted_children count matches actual promoted count", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       children: "promote",
       expected_version: version,
     });
@@ -417,9 +417,9 @@ describe("delete_nodes", () => {
 
   test("promoted_children is 0 for leaf with children promote", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1a"],
+      item_ids: ["n1a"],
       children: "promote",
       expected_version: version,
     });
@@ -429,9 +429,9 @@ describe("delete_nodes", () => {
 
   test("promoted_children absent when children is 'delete'", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       children: "delete",
       expected_version: version,
     });
@@ -440,9 +440,9 @@ describe("delete_nodes", () => {
 
   test("state round-trip: promote then read_document", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "delete_nodes", {
+    await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       children: "promote",
       expected_version: version,
     });
@@ -451,21 +451,21 @@ describe("delete_nodes", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const tree = result.node as Record<string, unknown>;
+    const tree = result.item as Record<string, unknown>;
     const children = tree.children as Record<string, unknown>[];
 
     // Root should have [n1a, n1b, n2, n3].
     expect(children).toHaveLength(4);
-    expect(children[0].node_id).toBe("n1a");
-    expect(children[1].node_id).toBe("n1b");
+    expect(children[0].item_id).toBe("n1a");
+    expect(children[1].item_id).toBe("n1b");
   });
 
   // ─── Validation and error cases ────────────────────────────────────
 
   test("cannot delete root node", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["root"],
+      item_ids: ["root"],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
@@ -480,18 +480,18 @@ describe("delete_nodes", () => {
       ctx.server.makeNode("cr1", "Child", []),
     ]);
 
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "custom_root_doc",
-      node_ids: ["my_root"],
+      item_ids: ["my_root"],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("root node mixed into bulk array fails entire batch", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "root"],
+      item_ids: ["n1", "root"],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
@@ -502,37 +502,37 @@ describe("delete_nodes", () => {
   });
 
   test("nonexistent file returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "nonexistent",
-      node_ids: ["n1"],
+      item_ids: ["n1"],
       expected_version: 1,
     });
     expect(err.error).toBe("NotFound");
   });
 
-  test("nonexistent node_id returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+  test("nonexistent item_id returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["nonexistent"],
+      item_ids: ["nonexistent"],
       expected_version: 1,
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
-  test("nonexistent node_id with children: 'delete' returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+  test("nonexistent item_id with children: 'delete' returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["nonexistent"],
+      item_ids: ["nonexistent"],
       children: "delete",
       expected_version: 1,
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
-  test("nonexistent node_id mixed with valid ones fails entire batch", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+  test("nonexistent item_id mixed with valid ones fails entire batch", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "nonexistent"],
+      item_ids: ["n1", "nonexistent"],
       expected_version: 1,
     });
     expect(err.error).toBe("NodeNotFound");
@@ -542,28 +542,28 @@ describe("delete_nodes", () => {
     expect(doc.nodes.find((n) => n.id === "n1")).toBeDefined();
   });
 
-  test("empty node_ids array returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+  test("empty item_ids array returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: [],
+      item_ids: [],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
-  test("duplicate node_id in array returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+  test("duplicate item_id in array returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "n1"],
+      item_ids: ["n1", "n1"],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("children: promote with multiple nodes returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "delete_nodes", {
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1", "n2"],
+      item_ids: ["n1", "n2"],
       children: "promote",
       expected_version: 1,
     });
@@ -582,9 +582,9 @@ describe("delete_nodes", () => {
 
   test("response includes file_id and deleted_count", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n1a"],
+      item_ids: ["n1a"],
       expected_version: version,
     });
     expect(result.file_id).toBe("doc1");
@@ -593,9 +593,9 @@ describe("delete_nodes", () => {
 
   test("response includes promoted_children when children were promoted", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "delete_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
-      node_ids: ["n2"],
+      item_ids: ["n2"],
       children: "promote",
       expected_version: version,
     });
@@ -605,16 +605,16 @@ describe("delete_nodes", () => {
   });
 });
 
-// ─── move_nodes ──────────────────────────────────────────────────────
+// ─── move_items ──────────────────────────────────────────────────────
 
-describe("move_nodes", () => {
+describe("move_items", () => {
   // ─── Single-move behavior (one-element array) ─────────────────────
 
   test("first_child: moves node as first child of reference", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n2a", reference_node_id: "n1", position: "first_child" }],
+      moves: [{ item_id: "n2a", reference_item_id: "n1", position: "first_child" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -624,9 +624,9 @@ describe("move_nodes", () => {
 
   test("last_child: moves node as last child of reference", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n2a", reference_node_id: "n1", position: "last_child" }],
+      moves: [{ item_id: "n2a", reference_item_id: "n1", position: "last_child" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -637,9 +637,9 @@ describe("move_nodes", () => {
   test("after: moves node as sibling after reference", async () => {
     // Move n3 to be after n1 (under root).
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "after" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "after" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -650,9 +650,9 @@ describe("move_nodes", () => {
 
   test("before: moves node as sibling before reference", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "before" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "before" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -665,9 +665,9 @@ describe("move_nodes", () => {
 
   test("state round-trip: move then verify via read_document", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1a", reference_node_id: "n2", position: "last_child" }],
+      moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
       expected_version: version,
     });
 
@@ -675,11 +675,11 @@ describe("move_nodes", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const tree = result.node as Record<string, unknown>;
+    const tree = result.item as Record<string, unknown>;
     const children = tree.children as Record<string, unknown>[];
-    const n2 = children.find((c) => c.node_id === "n2")!;
+    const n2 = children.find((c) => c.item_id === "n2")!;
     const n2Children = n2.children as Record<string, unknown>[];
-    const movedNode = n2Children.find((c) => c.node_id === "n1a");
+    const movedNode = n2Children.find((c) => c.item_id === "n1a");
     expect(movedNode).toBeDefined();
     expect(movedNode!.content).toBe("Child A");
   });
@@ -689,9 +689,9 @@ describe("move_nodes", () => {
   test("first_child: moved node is at index 0 of reference's children", async () => {
     // n1 already has children [n1a, n1b]. Move n3 as first child of n1.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "first_child" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "first_child" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -702,9 +702,9 @@ describe("move_nodes", () => {
   test("last_child: moved node is at last index of reference's children", async () => {
     // n1 already has children [n1a, n1b]. Move n3 as last child of n1.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "last_child" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "last_child" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -715,9 +715,9 @@ describe("move_nodes", () => {
   test("after: moved node is at index immediately after reference", async () => {
     // Root children are [n1, n2, n3]. Move n3 after n1.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "after" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "after" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -730,9 +730,9 @@ describe("move_nodes", () => {
   test("before: moved node is at index immediately before reference", async () => {
     // Root children are [n1, n2, n3]. Move n3 before n2.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n2", position: "before" }],
+      moves: [{ item_id: "n3", reference_item_id: "n2", position: "before" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -745,9 +745,9 @@ describe("move_nodes", () => {
   test("move with children: entire subtree moves together", async () => {
     // Move n1 (which has children n1a, n1b) as last child of n2.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n2", position: "last_child" }],
+      moves: [{ item_id: "n1", reference_item_id: "n2", position: "last_child" }],
       expected_version: version,
     });
 
@@ -778,9 +778,9 @@ describe("move_nodes", () => {
     const n1a = ctx.server.documents.get("doc1")!.nodes.find((n) => n.id === "n1a")!;
     n1a.children!.push("n1a1");
 
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n1a1", position: "first_child" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1a1", position: "first_child" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
@@ -788,9 +788,9 @@ describe("move_nodes", () => {
 
   test("cannot move node to be child of its own direct child", async () => {
     // n1 -> [n1a, n1b]. Moving n1 into n1a should fail.
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n1a", position: "first_child" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1a", position: "first_child" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
@@ -799,58 +799,58 @@ describe("move_nodes", () => {
   test("cannot move node 'after' one of its own descendants", async () => {
     // n1 -> [n1a, n1b]. Moving n1 to after n1a would resolve n1a's parent
     // (which is n1 itself), creating a circular move.
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n1a", position: "after" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1a", position: "after" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("cannot move node 'before' one of its own descendants", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n1b", position: "before" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1b", position: "before" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("self-reference with after position is rejected", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n1", position: "after" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1", position: "after" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("self-reference with before position is rejected", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n1", position: "before" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1", position: "before" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("self-reference with first_child position is rejected", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n1", position: "first_child" }],
+      moves: [{ item_id: "n1", reference_item_id: "n1", position: "first_child" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
   });
 
   test("cannot move root node (literal 'root' ID)", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "root", reference_node_id: "n1", position: "after" }],
+      moves: [{ item_id: "root", reference_item_id: "n1", position: "after" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
-    expect(err.message).toContain("root node");
+    expect(err.message).toContain("root item");
   });
 
   test("cannot move root node by actual root node ID (non-literal)", async () => {
@@ -860,22 +860,22 @@ describe("move_nodes", () => {
       ctx.server.makeNode("cr1", "Child", []),
     ]);
 
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "custom_root_doc",
-      moves: [{ node_id: "my_root", reference_node_id: "cr1", position: "after" }],
+      moves: [{ item_id: "my_root", reference_item_id: "cr1", position: "after" }],
       expected_version: 1,
     });
     expect(err.error).toBe("InvalidInput");
-    expect(err.message).toContain("root node");
+    expect(err.message).toContain("root item");
   });
 
   test("root node mixed into bulk moves fails entire batch", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1", reference_node_id: "n2", position: "after" },
-        { node_id: "root", reference_node_id: "n1", position: "first_child" },
+        { item_id: "n1", reference_item_id: "n2", position: "after" },
+        { item_id: "root", reference_item_id: "n1", position: "first_child" },
       ],
       expected_version: version,
     });
@@ -892,9 +892,9 @@ describe("move_nodes", () => {
   test("reorder sibling: move node before its own sibling", async () => {
     // Root children are [n1, n2, n3]. Move n3 before n1.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "before" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "before" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -910,9 +910,9 @@ describe("move_nodes", () => {
     // Root children are [n1, n2, n3]. Move n1 before n3.
     // Expected result: [n2, n1, n3].
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n3", position: "before" }],
+      moves: [{ item_id: "n1", reference_item_id: "n3", position: "before" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -923,9 +923,9 @@ describe("move_nodes", () => {
   test("reorder sibling: move node after its own sibling", async () => {
     // Root children are [n1, n2, n3]. Move n1 after n3.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "n3", position: "after" }],
+      moves: [{ item_id: "n1", reference_item_id: "n3", position: "after" }],
       expected_version: version,
     });
     const doc = ctx.server.documents.get("doc1")!;
@@ -939,66 +939,66 @@ describe("move_nodes", () => {
 
   // ─── Response shape ───────────────────────────────────────────────
 
-  test("response includes file_id, moved_count, and node_ids", async () => {
+  test("response includes file_id, moved_count, and item_ids", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n3", reference_node_id: "n1", position: "first_child" }],
+      moves: [{ item_id: "n3", reference_item_id: "n1", position: "first_child" }],
       expected_version: version,
     });
     expect(result.file_id).toBe("doc1");
     expect(result.moved_count).toBe(1);
-    expect(result.node_ids).toEqual(["n3"]);
+    expect(result.item_ids).toEqual(["n3"]);
   });
 
   test("response shape for multi-move", async () => {
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "move_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1a", reference_node_id: "n3", position: "last_child" },
-        { node_id: "n1b", reference_node_id: "n3", position: "last_child" },
+        { item_id: "n1a", reference_item_id: "n3", position: "last_child" },
+        { item_id: "n1b", reference_item_id: "n3", position: "last_child" },
       ],
       expected_version: version,
     });
     expect(result.file_id).toBe("doc1");
     expect(result.moved_count).toBe(2);
-    expect(result.node_ids).toEqual(["n1a", "n1b"]);
+    expect(result.item_ids).toEqual(["n1a", "n1b"]);
   });
 
   // ─── Nonexistent node validation ──────────────────────────────────
 
-  test("nonexistent node_id returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+  test("nonexistent item_id returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "nonexistent", reference_node_id: "n1", position: "after" }],
+      moves: [{ item_id: "nonexistent", reference_item_id: "n1", position: "after" }],
       expected_version: 1,
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
-  test("nonexistent reference_node_id with first_child returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+  test("nonexistent reference_item_id with first_child returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "nonexistent", position: "first_child" }],
+      moves: [{ item_id: "n1", reference_item_id: "nonexistent", position: "first_child" }],
       expected_version: 1,
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
-  test("nonexistent reference_node_id with after returns NodeNotFound", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+  test("nonexistent reference_item_id with after returns NodeNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
-      moves: [{ node_id: "n1", reference_node_id: "nonexistent", position: "after" }],
+      moves: [{ item_id: "n1", reference_item_id: "nonexistent", position: "after" }],
       expected_version: 1,
     });
     expect(err.error).toBe("NodeNotFound");
   });
 
   test("nonexistent file returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "nonexistent",
-      moves: [{ node_id: "n1", reference_node_id: "n2", position: "after" }],
+      moves: [{ item_id: "n1", reference_item_id: "n2", position: "after" }],
       expected_version: 1,
     });
     expect(err.error).toBe("NotFound");
@@ -1007,7 +1007,7 @@ describe("move_nodes", () => {
   // ─── Empty moves array ────────────────────────────────────────────
 
   test("empty moves array returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [],
       expected_version: 1,
@@ -1020,11 +1020,11 @@ describe("move_nodes", () => {
   test("bulk: move two nodes to be children of a different parent", async () => {
     // Root children are [n1, n2, n3]. Move n1a and n1b as last_child of n3.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1a", reference_node_id: "n3", position: "last_child" },
-        { node_id: "n1b", reference_node_id: "n3", position: "last_child" },
+        { item_id: "n1a", reference_item_id: "n3", position: "last_child" },
+        { item_id: "n1b", reference_item_id: "n3", position: "last_child" },
       ],
       expected_version: version,
     });
@@ -1053,12 +1053,12 @@ describe("move_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "lc_doc");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "lc_doc",
       moves: [
-        { node_id: "a", reference_node_id: "target", position: "last_child" },
-        { node_id: "b", reference_node_id: "target", position: "last_child" },
-        { node_id: "c", reference_node_id: "target", position: "last_child" },
+        { item_id: "a", reference_item_id: "target", position: "last_child" },
+        { item_id: "b", reference_item_id: "target", position: "last_child" },
+        { item_id: "c", reference_item_id: "target", position: "last_child" },
       ],
       expected_version: version,
     });
@@ -1084,11 +1084,11 @@ describe("move_nodes", () => {
 
     // Move c after a, then move d after c. Result should be [a, c, d, b].
     const version = await getVersion(ctx.mcpClient, "dep_doc");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "dep_doc",
       moves: [
-        { node_id: "c", reference_node_id: "a", position: "after" },
-        { node_id: "d", reference_node_id: "c", position: "after" },
+        { item_id: "c", reference_item_id: "a", position: "after" },
+        { item_id: "d", reference_item_id: "c", position: "after" },
       ],
       expected_version: version,
     });
@@ -1102,11 +1102,11 @@ describe("move_nodes", () => {
     // Root children are [n1, n2, n3]. Reverse to [n3, n2, n1].
     // Strategy: move n3 before n1, then move n2 after n3.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n3", reference_node_id: "n1", position: "before" },
-        { node_id: "n2", reference_node_id: "n3", position: "after" },
+        { item_id: "n3", reference_item_id: "n1", position: "before" },
+        { item_id: "n2", reference_item_id: "n3", position: "after" },
       ],
       expected_version: version,
     });
@@ -1119,11 +1119,11 @@ describe("move_nodes", () => {
   test("bulk: cross-parent moves (from different parents to the same target)", async () => {
     // n1 -> [n1a, n1b], n2 -> [n2a]. Move n1a and n2a as children of n3.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1a", reference_node_id: "n3", position: "last_child" },
-        { node_id: "n2a", reference_node_id: "n3", position: "last_child" },
+        { item_id: "n1a", reference_item_id: "n3", position: "last_child" },
+        { item_id: "n2a", reference_item_id: "n3", position: "last_child" },
       ],
       expected_version: version,
     });
@@ -1143,11 +1143,11 @@ describe("move_nodes", () => {
     // Move n3 to first_child of n1, then move it to last_child of n2.
     // The second move should win since moves are applied sequentially.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n3", reference_node_id: "n1", position: "first_child" },
-        { node_id: "n3", reference_node_id: "n2", position: "last_child" },
+        { item_id: "n3", reference_item_id: "n1", position: "first_child" },
+        { item_id: "n3", reference_item_id: "n2", position: "last_child" },
       ],
       expected_version: version,
     });
@@ -1165,11 +1165,11 @@ describe("move_nodes", () => {
     //
     // NOTE: After the first move, n1a is a child of n2, so moving n2
     // into n1a would be circular.
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
+    const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1a", reference_node_id: "n2", position: "last_child" },
-        { node_id: "n2", reference_node_id: "n1a", position: "first_child" },
+        { item_id: "n1a", reference_item_id: "n2", position: "last_child" },
+        { item_id: "n2", reference_item_id: "n1a", position: "first_child" },
       ],
       expected_version: 1,
     });
@@ -1179,11 +1179,11 @@ describe("move_nodes", () => {
   test("bulk: moving to/from root level", async () => {
     // Move n1a (child of n1) to root level after n3, then move n3 under n1.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1a", reference_node_id: "n3", position: "after" },
-        { node_id: "n3", reference_node_id: "n1", position: "first_child" },
+        { item_id: "n1a", reference_item_id: "n3", position: "after" },
+        { item_id: "n3", reference_item_id: "n1", position: "first_child" },
       ],
       expected_version: version,
     });
@@ -1200,11 +1200,11 @@ describe("move_nodes", () => {
   test("bulk: state round-trip for multi-move via read_document", async () => {
     // Move n1a and n1b as children of n3, then verify via read_document.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1a", reference_node_id: "n3", position: "first_child" },
-        { node_id: "n1b", reference_node_id: "n3", position: "last_child" },
+        { item_id: "n1a", reference_item_id: "n3", position: "first_child" },
+        { item_id: "n1b", reference_item_id: "n3", position: "last_child" },
       ],
       expected_version: version,
     });
@@ -1213,13 +1213,13 @@ describe("move_nodes", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const tree = result.node as Record<string, unknown>;
+    const tree = result.item as Record<string, unknown>;
     const children = tree.children as Record<string, unknown>[];
-    const n3 = children.find((c) => c.node_id === "n3")!;
+    const n3 = children.find((c) => c.item_id === "n3")!;
     const n3Children = n3.children as Record<string, unknown>[];
     expect(n3Children).toHaveLength(2);
-    expect(n3Children[0].node_id).toBe("n1a");
-    expect(n3Children[1].node_id).toBe("n1b");
+    expect(n3Children[0].item_id).toBe("n1a");
+    expect(n3Children[1].item_id).toBe("n1b");
   });
 
   test("bulk: reverse 4 siblings with sequential moves", async () => {
@@ -1235,12 +1235,12 @@ describe("move_nodes", () => {
     // Reverse [a, b, c, d] to [d, c, b, a].
     // Move d before a, move c after d, move b after c.
     const version = await getVersion(ctx.mcpClient, "rev_doc");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "rev_doc",
       moves: [
-        { node_id: "d", reference_node_id: "a", position: "before" },
-        { node_id: "c", reference_node_id: "d", position: "after" },
-        { node_id: "b", reference_node_id: "c", position: "after" },
+        { item_id: "d", reference_item_id: "a", position: "before" },
+        { item_id: "c", reference_item_id: "d", position: "after" },
+        { item_id: "b", reference_item_id: "c", position: "after" },
       ],
       expected_version: version,
     });
@@ -1254,12 +1254,12 @@ describe("move_nodes", () => {
     // n1 -> [n1a, n1b], n2 -> [n2a].
     // Flatten: move n1a, n1b, n2a all to root level after n3.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [
-        { node_id: "n1a", reference_node_id: "n3", position: "after" },
-        { node_id: "n1b", reference_node_id: "n1a", position: "after" },
-        { node_id: "n2a", reference_node_id: "n1b", position: "after" },
+        { item_id: "n1a", reference_item_id: "n3", position: "after" },
+        { item_id: "n1b", reference_item_id: "n1a", position: "after" },
+        { item_id: "n2a", reference_item_id: "n1b", position: "after" },
       ],
       expected_version: version,
     });
@@ -1286,11 +1286,11 @@ describe("move_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "idx_doc1");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc1",
       moves: [
-        { node_id: "c", reference_node_id: "d", position: "after" },
-        { node_id: "b", reference_node_id: "e", position: "after" },
+        { item_id: "c", reference_item_id: "d", position: "after" },
+        { item_id: "b", reference_item_id: "e", position: "after" },
       ],
       expected_version: version,
     });
@@ -1316,12 +1316,12 @@ describe("move_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "idx_doc2");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc2",
       moves: [
-        { node_id: "e", reference_node_id: "b", position: "before" },
-        { node_id: "d", reference_node_id: "c", position: "before" },
-        { node_id: "a", reference_node_id: "e", position: "after" },
+        { item_id: "e", reference_item_id: "b", position: "before" },
+        { item_id: "d", reference_item_id: "c", position: "before" },
+        { item_id: "a", reference_item_id: "e", position: "after" },
       ],
       expected_version: version,
     });
@@ -1346,11 +1346,11 @@ describe("move_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "idx_doc3");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc3",
       moves: [
-        { node_id: "a", reference_node_id: "d", position: "after" },
-        { node_id: "c", reference_node_id: "root", position: "first_child" },
+        { item_id: "a", reference_item_id: "d", position: "after" },
+        { item_id: "c", reference_item_id: "root", position: "first_child" },
       ],
       expected_version: version,
     });
@@ -1378,12 +1378,12 @@ describe("move_nodes", () => {
     ]);
 
     const version = await getVersion(ctx.mcpClient, "idx_doc4");
-    await callToolOk(ctx.mcpClient, "move_nodes", {
+    await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "idx_doc4",
       moves: [
-        { node_id: "a", reference_node_id: "f", position: "after" },
-        { node_id: "b", reference_node_id: "f", position: "after" },
-        { node_id: "c", reference_node_id: "f", position: "after" },
+        { item_id: "a", reference_item_id: "f", position: "after" },
+        { item_id: "b", reference_item_id: "f", position: "after" },
+        { item_id: "c", reference_item_id: "f", position: "after" },
       ],
       expected_version: version,
     });
@@ -1394,9 +1394,9 @@ describe("move_nodes", () => {
   });
 });
 
-// ─── move_nodes cross-parent sequential moves ─────────────────────────
+// ─── move_items cross-parent sequential moves ─────────────────────────
 
-describe("move_nodes cross-parent sequential moves", () => {
+describe("move_items cross-parent sequential moves", () => {
   let xpCtx: TestContext;
 
   beforeEach(async () => {
@@ -1430,11 +1430,11 @@ describe("move_nodes cross-parent sequential moves", () => {
     // Move 'a' from p1 to p2, then move 'e' from p3 to p1.
     // The second move must see that p1 lost 'a' from the first move.
     const version = await getVersion(xpCtx.mcpClient, "xp_doc");
-    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+    await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
-        { node_id: "a", reference_node_id: "p2", position: "first_child" },
-        { node_id: "e", reference_node_id: "p1", position: "first_child" },
+        { item_id: "a", reference_item_id: "p2", position: "first_child" },
+        { item_id: "e", reference_item_id: "p1", position: "first_child" },
       ],
       expected_version: version,
     });
@@ -1460,12 +1460,12 @@ describe("move_nodes cross-parent sequential moves", () => {
     // After move 2: p1=[a,b,c], p2=[], p3=[e,d].
     // After move 3: p1=[b,c,a], p2=[], p3=[e,d].
     const version = await getVersion(xpCtx.mcpClient, "xp_doc");
-    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+    await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
-        { node_id: "c", reference_node_id: "p1", position: "last_child" },
-        { node_id: "d", reference_node_id: "p3", position: "last_child" },
-        { node_id: "a", reference_node_id: "c", position: "after" },
+        { item_id: "c", reference_item_id: "p1", position: "last_child" },
+        { item_id: "d", reference_item_id: "p3", position: "last_child" },
+        { item_id: "a", reference_item_id: "c", position: "after" },
       ],
       expected_version: version,
     });
@@ -1485,11 +1485,11 @@ describe("move_nodes cross-parent sequential moves", () => {
     // Move 'e' after 'a' (reference is 'a', which is now in p3).
     // The second move should place 'e' after 'a' within p3 (not the old parent).
     const version = await getVersion(xpCtx.mcpClient, "xp_doc");
-    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+    await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
-        { node_id: "a", reference_node_id: "p3", position: "first_child" },
-        { node_id: "e", reference_node_id: "a", position: "after" },
+        { item_id: "a", reference_item_id: "p3", position: "first_child" },
+        { item_id: "e", reference_item_id: "a", position: "after" },
       ],
       expected_version: version,
     });
@@ -1508,11 +1508,11 @@ describe("move_nodes cross-parent sequential moves", () => {
   test("move empties one parent then moves into the empty parent", async () => {
     // Move 'e' out of p3 to p1, then move 'b' into (now empty) p3.
     const version = await getVersion(xpCtx.mcpClient, "xp_doc");
-    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+    await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
-        { node_id: "e", reference_node_id: "p1", position: "last_child" },
-        { node_id: "b", reference_node_id: "p3", position: "first_child" },
+        { item_id: "e", reference_item_id: "p1", position: "last_child" },
+        { item_id: "b", reference_item_id: "p3", position: "first_child" },
       ],
       expected_version: version,
     });
@@ -1538,12 +1538,12 @@ describe("move_nodes cross-parent sequential moves", () => {
     // After move 2: p1=[b], p2=[a,d], p3=[c,e].
     // After move 3: p1=[e,b], p2=[a,d], p3=[c].
     const version = await getVersion(xpCtx.mcpClient, "xp_doc");
-    await callToolOk(xpCtx.mcpClient, "move_nodes", {
+    await callToolOk(xpCtx.mcpClient, "move_items", {
       file_id: "xp_doc",
       moves: [
-        { node_id: "a", reference_node_id: "p2", position: "first_child" },
-        { node_id: "c", reference_node_id: "p3", position: "first_child" },
-        { node_id: "e", reference_node_id: "p1", position: "first_child" },
+        { item_id: "a", reference_item_id: "p2", position: "first_child" },
+        { item_id: "c", reference_item_id: "p3", position: "first_child" },
+        { item_id: "e", reference_item_id: "p1", position: "first_child" },
       ],
       expected_version: version,
     });

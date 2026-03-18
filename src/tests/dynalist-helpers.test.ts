@@ -167,11 +167,11 @@ describe("buildNodeTree", () => {
 
     const tree = buildNodeTree(nodeMap, "a", defaultOptions);
     expect(tree).not.toBeNull();
-    expect(tree!.node_id).toBe("a");
+    expect(tree!.item_id).toBe("a");
 
     // B should appear as child of A, but A should not appear again under B.
     expect(tree!.children).toHaveLength(1);
-    expect(tree!.children[0].node_id).toBe("b");
+    expect(tree!.children[0].item_id).toBe("b");
     expect(tree!.children[0].children).toHaveLength(0);
   });
 
@@ -181,7 +181,7 @@ describe("buildNodeTree", () => {
 
     const tree = buildNodeTree(nodeMap, "a", defaultOptions);
     expect(tree).not.toBeNull();
-    expect(tree!.node_id).toBe("a");
+    expect(tree!.item_id).toBe("a");
     // The self-reference should be skipped by the visited guard.
     expect(tree!.children).toHaveLength(0);
   });
@@ -192,13 +192,13 @@ describe("buildNodeTree", () => {
 describe("wrapToolHandler error paths", () => {
   test("ToolInputError is caught and returned as structured error", async () => {
     const handler = wrapToolHandler(async () => {
-      throw new ToolInputError("NodeNotFound", "Node 'xyz' not found in document.");
+      throw new ToolInputError("NodeNotFound", "Item 'xyz' not found in document.");
     });
     const result = await handler();
     expect(result.isError).toBe(true);
     const parsedError = parseErrorContent(result);
     expect(parsedError.error).toBe("NodeNotFound");
-    expect(parsedError.message).toContain("Node 'xyz' not found");
+    expect(parsedError.message).toContain("Item 'xyz' not found");
   });
 
   test("DynalistApiError is caught and returned with its code", async () => {
@@ -326,10 +326,10 @@ describe("checkContentSize boundary values", () => {
 
   test("recommendations appear in warning text", () => {
     const content = "x".repeat(40000);
-    const recs = ["Use max_depth", "Target a node_id"];
+    const recs = ["Use max_depth", "Target an item_id"];
     const result = checkContentSize(content, false, recs, 5000, 24500);
     expect(result).not.toBeNull();
     expect(result!.warning).toContain("Use max_depth");
-    expect(result!.warning).toContain("Target a node_id");
+    expect(result!.warning).toContain("Target an item_id");
   });
 });

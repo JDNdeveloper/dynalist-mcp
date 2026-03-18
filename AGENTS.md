@@ -91,7 +91,7 @@ scripts/
 There are three places text reaches the agent, each with a different role:
 
 - **MCP instructions** (`src/instructions.ts`): cross-tool workflow patterns, system-level concepts, and general rules of engagement. Example: "Read a document before writing to obtain the version." Do not repeat per-tool details here.
-- **Tool description** (the `description` field on each tool): what the tool does and when to use it. Example: "Edit one or more nodes in a document."
+- **Tool description** (the `description` field on each tool): what the tool does and when to use it. Example: "Edit one or more items in a document."
 - **Parameter descriptions** (Zod `.describe()` strings): what a single parameter means, where to get the value, and what happens on invalid input. Example: "Document version from your most recent read_document response."
 
 ### Writing style
@@ -107,7 +107,7 @@ Good (dense, imperative):
 Additional principles:
 
 - **Drop context-redundant qualifiers.** Every tool runs inside the Dynalist MCP server, so "a Dynalist document" is just "a document". Do not restate context the agent already has.
-- **Do not explain basic JSON schema usage.** Agents understand that an array parameter accepts one element. Hints like "for a single node, pass a one-element array" are noise.
+- **Do not explain basic JSON schema usage.** Agents understand that an array parameter accepts one element. Hints like "for a single item, pass a one-element array" are noise.
 - **Break long `.describe()` strings across lines.** Use string concatenation (`+`) and parentheses for readability. Short descriptions can stay inline.
 
 ### Deduplication
@@ -125,11 +125,12 @@ Key rules:
 
 ## Key conventions
 
+- **"Item" vs "node" terminology**: The Dynalist API calls document entries "nodes", but agents and users see them as "items". All agent-facing surfaces (tool names, parameter names, output field names, descriptions, error messages, MCP instructions) use "item"/"items". Internal code (TypeScript types, variable names, `dynalist-client.ts`, comments about API behavior) uses "node"/"nodes" to match the API. The boundary is the tool handler: input params arrive as `item_id` and are mapped to the API's `node_id`; API responses return `node_id` and are mapped to `item_id` in output objects.
 - **Tool parameter validation**: all tools use Zod schemas for strict input and output validation.
 - **Access control**: every tool handler checks access control (deny/read/allow) before making API calls.
 - **Error handling**: all tool handlers are wrapped in `wrapToolHandler` which catches exceptions and returns structured MCP error responses.
 - **Response format**: success responses return both `structuredContent` and a text content block for backwards compatibility, via `makeResponse()`. Error responses return only a text content block (no `structuredContent`) to avoid MCP client SDK schema validation failures.
-- **IDs only**: tools accept `file_id` and `node_id` parameters, not URLs. URLs are included in responses for human convenience.
+- **IDs only**: tools accept `file_id` and `item_id` parameters, not URLs. URLs are included in responses for human convenience.
 - **Config reloading**: config file is checked for mtime changes on every tool invocation (stat only, no read unless changed). Only `access`, `logLevel`, and `logFile` are hot-reloaded; all other settings (`readDefaults`, `sizeWarning`, `cache`) are frozen at startup and baked into tool schemas. Invalid config fails closed.
 - **Schema defaults from config**: use `getStartupConfig()` before tool registration to capture startup-only values and set Zod `.default()` calls. Use `getConfig()` inside tool handlers for all runtime config access. Never call `getStartupConfig()` inside a handler.
 - **Cache invalidation**: file tree cache is invalidated after create/rename/move operations and on denial retries.

@@ -1,5 +1,5 @@
 /**
- * Structure tools: delete_nodes, move_nodes.
+ * Structure tools: delete_items, move_items.
  */
 
 import { z } from "zod";
@@ -22,56 +22,56 @@ import {
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   server.registerTool(
-    "delete_nodes",
+    "delete_items",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Delete nodes and their subtrees from a document.",
+        "Delete items and their subtrees from a document.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_ids: z.array(z.string()).describe("Node IDs to delete."),
+        item_ids: z.array(z.string()).describe("Item IDs to delete."),
         children: z.enum(["delete", "promote"]).optional().default("delete").describe(
-          "What to do with children of deleted nodes. 'delete': remove entire subtree. " +
-          "'promote': re-parent children to the deleted node's parent " +
-          "(single-node only; use to remove a grouping node while keeping its items)."
+          "What to do with children of deleted items. 'delete': remove entire subtree. " +
+          "'promote': re-parent children to the deleted item's parent " +
+          "(single-item only; use to remove a grouping item while keeping its children)."
         ),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        deleted_count: z.number().describe("Number of nodes deleted"),
-        deleted_ids: z.array(z.string()).describe("IDs of all deleted nodes (targets and descendants)."),
+        deleted_count: z.number().describe("Number of items deleted"),
+        deleted_ids: z.array(z.string()).describe("IDs of all deleted items (targets and descendants)."),
         promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
         version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      node_ids,
+      item_ids,
       children: childrenMode,
       expected_version,
     }: {
       file_id: string;
-      node_ids: string[];
+      item_ids: string[];
       children: "delete" | "promote";
       expected_version: number;
     }) => {
-      if (node_ids.length === 0) {
-        return makeErrorResponse("InvalidInput", "No nodes to delete (empty array).");
+      if (item_ids.length === 0) {
+        return makeErrorResponse("InvalidInput", "No items to delete (empty array).");
       }
 
-      if (childrenMode === "promote" && node_ids.length > 1) {
+      if (childrenMode === "promote" && item_ids.length > 1) {
         return makeErrorResponse(
           "InvalidInput",
-          "children: 'promote' is only supported for single-node deletions (node_ids must have exactly one element).",
+          "children: 'promote' is only supported for single-item deletions (item_ids must have exactly one element).",
         );
       }
 
       // Reject duplicates.
       const seen = new Set<string>();
-      for (const id of node_ids) {
+      for (const id of item_ids) {
         if (seen.has(id)) {
-          return makeErrorResponse("InvalidInput", `Duplicate node_id '${id}' in array.`);
+          return makeErrorResponse("InvalidInput", `Duplicate item_id '${id}' in array.`);
         }
         seen.add(id);
       }
@@ -83,9 +83,9 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      // Reject deleting the root node (literal "root" string check, no read needed).
-      if (node_ids.includes("root")) {
-        return makeErrorResponse("InvalidInput", "Cannot delete the root node of a document.");
+      // Reject deleting the root item (literal "root" string check, no read needed).
+      if (item_ids.includes("root")) {
+        return makeErrorResponse("InvalidInput", "Cannot delete the root item of a document.");
       }
 
       const guard = await withVersionGuard(
@@ -96,25 +96,25 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           const nodeMap = buildNodeMap(doc.nodes);
           const parentMap = buildParentMap(doc.nodes);
 
-          // Validate all node IDs exist and none are the root.
-          for (const id of node_ids) {
+          // Validate all item IDs exist and none are the root.
+          for (const id of item_ids) {
             if (id === rootId) {
-              throw new ToolInputError("InvalidInput", "Cannot delete the root node of a document.");
+              throw new ToolInputError("InvalidInput", "Cannot delete the root item of a document.");
             }
             if (!nodeMap.has(id)) {
-              throw new ToolInputError("NodeNotFound", `Node '${id}' not found in document.`);
+              throw new ToolInputError("NodeNotFound", `Item '${id}' not found in document.`);
             }
           }
 
-          // Child promotion path (single node only).
+          // Child promotion path (single item only).
           if (childrenMode === "promote") {
-            const node_id = node_ids[0];
+            const node_id = item_ids[0];
             const targetNode = nodeMap.get(node_id)!;
 
             if (targetNode.children && targetNode.children.length > 0) {
               const parentInfo = parentMap.get(node_id);
               if (!parentInfo) {
-                throw new ToolInputError("NodeNotFound", "Could not find parent of node to delete.");
+                throw new ToolInputError("NodeNotFound", "Could not find parent of item to delete.");
               }
 
               // Capture count before mutations, since editDocument mutates the in-memory node.
@@ -148,12 +148,12 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             };
           }
 
-          // Subtree deletion path (one or more nodes).
-          const deleteSet = new Set(node_ids);
+          // Subtree deletion path (one or more items).
+          const deleteSet = new Set(item_ids);
 
-          // Deduplicate: skip nodes whose ancestor is also in deleteSet.
+          // Deduplicate: skip items whose ancestor is also in deleteSet.
           const deduped: string[] = [];
-          for (const id of node_ids) {
+          for (const id of item_ids) {
             let dominated = false;
             let cursor = parentMap.get(id);
             while (cursor) {
@@ -216,17 +216,17 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
   );
 
   server.registerTool(
-    "move_nodes",
+    "move_items",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Move nodes (with subtrees) to new positions in a document. Moves within a single " +
+        "Move items (with subtrees) to new positions in a document. Moves within a single " +
         "call are applied sequentially; later moves see earlier moves' effects.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moves: z.array(z.object({
-          node_id: z.string().describe("Node to move (subtree included)"),
-          reference_node_id: z.string().describe("Reference node for positioning"),
+          item_id: z.string().describe("Item to move (subtree included)"),
+          reference_item_id: z.string().describe("Reference item for positioning"),
           position: z.enum(["after", "before", "first_child", "last_child"]).describe(
             "'after'/'before': sibling of reference (same parent). " +
             "'first_child'/'last_child': child of reference."
@@ -236,8 +236,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        moved_count: z.number().describe("Number of nodes moved"),
-        node_ids: z.array(z.string()).describe("IDs of all moved nodes"),
+        moved_count: z.number().describe("Number of items moved"),
+        item_ids: z.array(z.string()).describe("IDs of all moved items"),
         version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
@@ -248,8 +248,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     }: {
       file_id: string;
       moves: Array<{
-        node_id: string;
-        reference_node_id: string;
+        item_id: string;
+        reference_item_id: string;
         position: string;
       }>;
       expected_version: number;
@@ -258,13 +258,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         return makeErrorResponse("InvalidInput", "No moves to apply (empty array).");
       }
 
-      // Reject moving the root node (literal "root" string check, no read needed).
+      // Reject moving the root item (literal "root" string check, no read needed).
       //
       // The Dynalist API does not reject this; it corrupts and permanently locks
       // the document. See docs/dynalist-api-behavior.md.
       for (const move of moves) {
-        if (move.node_id === "root") {
-          return makeErrorResponse("InvalidInput", "Cannot move the root node of a document.");
+        if (move.item_id === "root") {
+          return makeErrorResponse("InvalidInput", "Cannot move the root item of a document.");
         }
       }
 
@@ -282,10 +282,10 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           const rootId = findRootNodeId(doc.nodes);
           const nodeMap = buildNodeMap(doc.nodes);
 
-          // Validate no move targets the root node (by actual ID).
+          // Validate no move targets the root item (by actual ID).
           for (const move of moves) {
-            if (move.node_id === rootId) {
-              throw new ToolInputError("InvalidInput", "Cannot move the root node of a document.");
+            if (move.item_id === rootId) {
+              throw new ToolInputError("InvalidInput", "Cannot move the root item of a document.");
             }
           }
 
@@ -321,46 +321,46 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           const allChanges: Array<{ action: "move"; node_id: string; parent_id: string; index: number }> = [];
 
           for (const move of moves) {
-            const { node_id, reference_node_id, position } = move;
+            const { item_id, reference_item_id, position } = move;
 
-            if (!nodeMap.has(node_id)) {
-              throw new ToolInputError("NodeNotFound", `Node '${node_id}' not found in document.`);
+            if (!nodeMap.has(item_id)) {
+              throw new ToolInputError("NodeNotFound", `Item '${item_id}' not found in document.`);
             }
-            if (!nodeMap.has(reference_node_id)) {
-              throw new ToolInputError("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
+            if (!nodeMap.has(reference_item_id)) {
+              throw new ToolInputError("NodeNotFound", `Reference item '${reference_item_id}' not found in document.`);
             }
-            if (node_id === reference_node_id) {
-              throw new ToolInputError("InvalidInput", "Cannot move a node relative to itself.");
+            if (item_id === reference_item_id) {
+              throw new ToolInputError("InvalidInput", "Cannot move an item relative to itself.");
             }
 
             let targetParentId: string;
             let targetIndex: number;
 
             if (position === "first_child") {
-              targetParentId = reference_node_id;
+              targetParentId = reference_item_id;
               targetIndex = 0;
             } else if (position === "last_child") {
-              targetParentId = reference_node_id;
+              targetParentId = reference_item_id;
               // Resolve to an explicit index rather than passing -1 to the API.
               // The API resolves -1 against a snapshot taken before the batch,
               // so multiple last_child moves to the same parent would all resolve
               // to the same position and reverse. Using the mutable child count
               // gives each move a distinct sequential index.
-              const siblings = childrenMap.get(reference_node_id) ?? [];
+              const siblings = childrenMap.get(reference_item_id) ?? [];
               targetIndex = siblings.length;
             } else {
               // "after" or "before": find the parent of the reference node.
-              const refParentInfo = parentMap.get(reference_node_id);
+              const refParentInfo = parentMap.get(reference_item_id);
               if (!refParentInfo) {
-                throw new ToolInputError("NodeNotFound", "Could not find parent of reference node.");
+                throw new ToolInputError("NodeNotFound", "Could not find parent of reference item.");
               }
 
               targetParentId = refParentInfo.parentId;
               targetIndex = position === "after" ? refParentInfo.index + 1 : refParentInfo.index;
             }
 
-            if (node_id === targetParentId || isDescendant(node_id, targetParentId)) {
-              throw new ToolInputError("InvalidInput", "Cannot move a node into one of its own descendants.");
+            if (item_id === targetParentId || isDescendant(item_id, targetParentId)) {
+              throw new ToolInputError("InvalidInput", "Cannot move an item into one of its own descendants.");
             }
 
             // The API uses post-removal indexing: it removes the node first,
@@ -368,12 +368,12 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             // parent and the node is earlier than the target, the removal
             // shifts the target index down by 1, so we must compensate.
             let apiIndex = targetIndex;
-            const movedNodeInfo = parentMap.get(node_id);
+            const movedNodeInfo = parentMap.get(item_id);
             if (movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < apiIndex) {
               apiIndex--;
             }
 
-            allChanges.push({ action: "move", node_id, parent_id: targetParentId, index: apiIndex });
+            allChanges.push({ action: "move", node_id: item_id, parent_id: targetParentId, index: apiIndex });
 
             // Update mutable state so subsequent moves see this move's effect.
             if (movedNodeInfo) {
@@ -392,7 +392,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             const insertAt = movedNodeInfo && movedNodeInfo.parentId === targetParentId && movedNodeInfo.index < targetIndex
               ? targetIndex - 1
               : targetIndex;
-            newSiblings.splice(insertAt, 0, node_id);
+            newSiblings.splice(insertAt, 0, item_id);
 
             // Rebuild parentMap for the new parent's children.
             for (let i = 0; i < newSiblings.length; i++) {
@@ -405,11 +405,11 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         },
       );
 
-      const nodeIds = moves.map((m) => m.node_id);
+      const itemIds = moves.map((m) => m.item_id);
       const data: Record<string, unknown> = {
         file_id,
         moved_count: moves.length,
-        node_ids: nodeIds,
+        item_ids: itemIds,
       };
       if (guard.versionWarning) data.version_warning = guard.versionWarning;
 

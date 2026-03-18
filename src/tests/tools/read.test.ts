@@ -516,7 +516,7 @@ describe("read_document", () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
     expect(result.file_id).toBe("doc1");
     expect(result.title).toBe("Test Document");
-    expect(result.node).toBeDefined();
+    expect(result.item).toBeDefined();
   });
 
   test("node tree has correct structure", async () => {
@@ -524,30 +524,30 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
-    expect(node.node_id).toBe("root");
+    const node = result.item as Record<string, unknown>;
+    expect(node.item_id).toBe("root");
     expect(node.content).toBe("Test Document");
     expect(node.child_count).toBe(3);
     const children = node.children as Record<string, unknown>[];
     expect(children).toHaveLength(3);
   });
 
-  test("starting from specific node_id", async () => {
+  test("starting from specific item_id", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
-      node_id: "n1",
+      item_id: "n1",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
-    expect(node.node_id).toBe("n1");
+    const node = result.item as Record<string, unknown>;
+    expect(node.item_id).toBe("n1");
     expect(node.content).toBe("First item");
     expect((node.children as Record<string, unknown>[]).length).toBe(2);
   });
 
-  test("invalid node_id returns error", async () => {
+  test("invalid item_id returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "read_document", {
       file_id: "doc1",
-      node_id: "nonexistent",
+      item_id: "nonexistent",
     });
     expect(err.error).toBe("NodeNotFound");
   });
@@ -567,14 +567,14 @@ describe("read_document", () => {
     expect(typeof result.title).toBe("string");
   });
 
-  test("every node includes node_id, content, child_count, children", async () => {
+  test("every node includes item_id, content, child_count, children", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
     });
 
     function checkNodeFields(node: Record<string, unknown>) {
-      expect(typeof node.node_id).toBe("string");
+      expect(typeof node.item_id).toBe("string");
       expect(typeof node.content).toBe("string");
       expect(typeof node.child_count).toBe("number");
       expect(Array.isArray(node.children)).toBe(true);
@@ -586,7 +586,7 @@ describe("read_document", () => {
         checkNodeFields(child);
       }
     }
-    checkNodeFields(result.node as Record<string, unknown>);
+    checkNodeFields(result.item as Record<string, unknown>);
   });
 
   test("optional fields omitted when default values", async () => {
@@ -594,11 +594,11 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     // n1a has no note, no checkbox, no heading, no color.
     const n1a = rootChildren
       .flatMap((c) => (c.children as Record<string, unknown>[]) || [])
-      .find((c) => c.node_id === "n1a")!;
+      .find((c) => c.item_id === "n1a")!;
     expect(n1a).toBeDefined();
     // note should be omitted (empty string in source).
     expect(n1a.note).toBeUndefined();
@@ -615,14 +615,14 @@ describe("read_document", () => {
       max_depth: 10,
       include_notes: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
     const n1Children = n1.children as Record<string, unknown>[];
     // n1b has a note.
-    const n1b = n1Children.find((c) => c.node_id === "n1b")!;
+    const n1b = n1Children.find((c) => c.item_id === "n1b")!;
     expect(n1b.note).toBe("A note on child B");
     // n1a has no note.
-    const n1a = n1Children.find((c) => c.node_id === "n1a")!;
+    const n1a = n1Children.find((c) => c.item_id === "n1a")!;
     expect(n1a.note).toBeUndefined();
   });
 
@@ -631,12 +631,12 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     // n3 has show_checkbox: true in MCP output.
-    const n3 = rootChildren.find((c) => c.node_id === "n3")!;
+    const n3 = rootChildren.find((c) => c.item_id === "n3")!;
     expect(n3.show_checkbox).toBe(true);
     // n1 does not have show_checkbox.
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1.show_checkbox).toBeUndefined();
   });
 
@@ -645,9 +645,9 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     // n3 has checked: true.
-    const n3 = rootChildren.find((c) => c.node_id === "n3")!;
+    const n3 = rootChildren.find((c) => c.item_id === "n3")!;
     expect(n3.checked).toBe(true);
   });
 
@@ -661,11 +661,11 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.heading).toBe("h2");
     // n2 has no heading set.
-    const n2Result = rootChildren.find((c) => c.node_id === "n2")!;
+    const n2Result = rootChildren.find((c) => c.item_id === "n2")!;
     expect(n2Result.heading).toBeUndefined();
   });
 
@@ -679,11 +679,11 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n2Result = rootChildren.find((c) => c.node_id === "n2")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n2Result = rootChildren.find((c) => c.item_id === "n2")!;
     expect(n2Result.color).toBe("yellow");
     // n1 has no color.
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.color).toBeUndefined();
   });
 
@@ -692,7 +692,7 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 0,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     expect(node.content).toBe("Test Document");
   });
 
@@ -704,8 +704,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 0,
     });
-    const node = result.node as Record<string, unknown>;
-    expect(node.node_id).toBe("root");
+    const node = result.item as Record<string, unknown>;
+    expect(node.item_id).toBe("root");
     expect(node.children).toEqual([]);
     expect(node.child_count).toBe(3);
     expect(node.depth_limited).toBe(true);
@@ -716,18 +716,18 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 1,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
     expect(children).toHaveLength(3);
 
     // n1 has children but they should be omitted at depth 1.
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.children).toEqual([]);
     expect(n1.child_count).toBe(2);
     expect(n1.depth_limited).toBe(true);
 
     // n3 is a leaf at depth 1: no depth_limited.
-    const n3 = children.find((c) => c.node_id === "n3")!;
+    const n3 = children.find((c) => c.item_id === "n3")!;
     expect(n3.children).toEqual([]);
     expect(n3.child_count).toBe(0);
     expect(n3.depth_limited).toBeUndefined();
@@ -738,9 +738,9 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 100,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect((n1.children as Record<string, unknown>[]).length).toBe(2);
   });
 
@@ -749,9 +749,9 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: null,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect((n1.children as Record<string, unknown>[]).length).toBe(2);
     // No depth_limited anywhere since depth is unlimited.
     expect(n1.depth_limited).toBeUndefined();
@@ -776,11 +776,11 @@ describe("read_document", () => {
     });
 
     // Walk down to the deepest node to confirm nothing was depth-limited.
-    const current = result.node as Record<string, unknown>;
+    const current = result.item as Record<string, unknown>;
     function findChild(node: Record<string, unknown>, id: string): Record<string, unknown> | null {
       const children = node.children as Record<string, unknown>[];
       for (const child of children) {
-        if (child.node_id === id) return child;
+        if (child.item_id === id) return child;
         const found = findChild(child, id);
         if (found) return found;
       }
@@ -805,13 +805,13 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 2,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
     const n1Children = n1.children as Record<string, unknown>[];
     // Children are at depth 2, so they should be present.
     expect(n1Children.length).toBe(2);
     // But grandchildren of n1 (great-grandchild at depth 3) should not be.
-    const n1aResult = n1Children.find((c) => c.node_id === "n1a")!;
+    const n1aResult = n1Children.find((c) => c.item_id === "n1a")!;
     expect(n1aResult.children).toEqual([]);
     expect(n1aResult.child_count).toBe(1);
     expect(n1aResult.depth_limited).toBe(true);
@@ -822,8 +822,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 1,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1.depth_limited).toBe(true);
     expect(n1.child_count).toBe(2);
     expect(n1.children).toEqual([]);
@@ -834,8 +834,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 1,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n3 = rootChildren.find((c) => c.node_id === "n3")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n3 = rootChildren.find((c) => c.item_id === "n3")!;
     expect(n3.children).toEqual([]);
     expect(n3.child_count).toBe(0);
     expect(n3.depth_limited).toBeUndefined();
@@ -844,7 +844,7 @@ describe("read_document", () => {
   // ─── collapsed children filtering ────────────────────────────────
 
   test("starting node always shows children even when collapsed", async () => {
-    // Reading a collapsed node directly by node_id should always reveal its
+    // Reading a collapsed node directly by item_id should always reveal its
     // children, matching the Dynalist UI zoom behavior.
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -852,10 +852,10 @@ describe("read_document", () => {
 
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
-      node_id: "n1",
+      item_id: "n1",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     expect(node.collapsed).toBe(true);
     expect((node.children as Record<string, unknown>[]).length).toBe(2);
     expect(node.child_count).toBe(2);
@@ -871,8 +871,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
     expect(n1Result.child_count).toBe(2);
@@ -890,8 +890,8 @@ describe("read_document", () => {
       max_depth: 10,
       include_collapsed_children: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect((n1Result.children as Record<string, unknown>[]).length).toBe(2);
     expect(n1Result.child_count).toBe(2);
@@ -907,8 +907,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 1,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
     // Collapsed takes precedence over depth_limited.
@@ -920,8 +920,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 1,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1.collapsed).toBeUndefined();
     expect(n1.depth_limited).toBe(true);
     expect(n1.children).toEqual([]);
@@ -933,8 +933,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 1,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n3 = rootChildren.find((c) => c.node_id === "n3")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n3 = rootChildren.find((c) => c.item_id === "n3")!;
     expect(n3.children).toEqual([]);
     expect(n3.child_count).toBe(0);
     expect(n3.depth_limited).toBeUndefined();
@@ -949,8 +949,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     // n1 has 2 children, even though they are hidden.
     expect(n1Result.child_count).toBe(2);
     expect(n1Result.children).toEqual([]);
@@ -971,8 +971,8 @@ describe("read_document", () => {
       max_depth: 10,
       include_collapsed_children: false,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     // Outer collapsed node hides children, so inner is not visible.
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
@@ -995,11 +995,11 @@ describe("read_document", () => {
       max_depth: 10,
       include_collapsed_children: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect((n1Result.children as Record<string, unknown>[]).length).toBe(2);
-    const n1aResult = (n1Result.children as Record<string, unknown>[]).find((c) => c.node_id === "n1a")!;
+    const n1aResult = (n1Result.children as Record<string, unknown>[]).find((c) => c.item_id === "n1a")!;
     expect(n1aResult.collapsed).toBe(true);
     expect((n1aResult.children as Record<string, unknown>[]).length).toBe(1);
   });
@@ -1014,8 +1014,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 5,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
     expect(n1Result.depth_limited).toBeUndefined();
@@ -1033,8 +1033,8 @@ describe("read_document", () => {
       max_depth: 10,
       include_collapsed_children: false,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
     expect(n1Result.depth_limited).toBeUndefined();
@@ -1053,8 +1053,8 @@ describe("read_document", () => {
       max_depth: 1,
       include_collapsed_children: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
     expect(n1Result.child_count).toBe(2);
@@ -1072,8 +1072,8 @@ describe("read_document", () => {
       max_depth: 2,
       include_collapsed_children: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     // Children at depth 2 ARE shown.
     expect((n1Result.children as Record<string, unknown>[]).length).toBe(2);
   });
@@ -1090,8 +1090,8 @@ describe("read_document", () => {
       max_depth: 10,
       include_collapsed_children: false,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.child_count).toBe(2);
     expect(n1Result.children).toEqual([]);
@@ -1108,8 +1108,8 @@ describe("read_document", () => {
       max_depth: 1,
       include_collapsed_children: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
     expect(n1Result.depth_limited).toBe(true);
@@ -1130,9 +1130,9 @@ describe("read_document", () => {
       max_depth: 2,
       include_collapsed_children: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
-    const n1aResult = (n1Result.children as Record<string, unknown>[]).find((c) => c.node_id === "n1a")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
+    const n1aResult = (n1Result.children as Record<string, unknown>[]).find((c) => c.item_id === "n1a")!;
     // n1a is at depth 2, which is the limit, and it has children.
     expect(n1aResult.depth_limited).toBe(true);
     expect(n1aResult.children).toEqual([]);
@@ -1155,7 +1155,7 @@ describe("read_document", () => {
         checkNoNotes(child);
       }
     }
-    checkNoNotes(result.node as Record<string, unknown>);
+    checkNoNotes(result.item as Record<string, unknown>);
   });
 
   test("include_checked: false filters out checked nodes", async () => {
@@ -1164,10 +1164,10 @@ describe("read_document", () => {
       max_depth: 10,
       include_checked: false,
     });
-    const rootNode = result.node as Record<string, unknown>;
+    const rootNode = result.item as Record<string, unknown>;
     const children = rootNode.children as Record<string, unknown>[];
     // n3 is checked and should be filtered out.
-    const n3 = children.find((c) => c.node_id === "n3");
+    const n3 = children.find((c) => c.item_id === "n3");
     expect(n3).toBeUndefined();
   });
 
@@ -1179,9 +1179,9 @@ describe("read_document", () => {
       max_depth: 10,
       include_notes: true,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
-    const n1b = (n1.children as Record<string, unknown>[]).find((c) => c.node_id === "n1b")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
+    const n1b = (n1.children as Record<string, unknown>[]).find((c) => c.item_id === "n1b")!;
     expect(n1b.note).toBe("A note on child B");
   });
 
@@ -1191,9 +1191,9 @@ describe("read_document", () => {
       max_depth: 10,
       include_notes: false,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
-    const n1b = (n1.children as Record<string, unknown>[]).find((c) => c.node_id === "n1b")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
+    const n1b = (n1.children as Record<string, unknown>[]).find((c) => c.item_id === "n1b")!;
     // Should have no note field at all, not just empty string.
     expect(n1b.note).toBeUndefined();
   });
@@ -1212,18 +1212,18 @@ describe("read_document", () => {
       max_depth: 10,
       include_checked: false,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     // n3 should be filtered out.
-    expect(rootChildren.find((c) => c.node_id === "n3")).toBeUndefined();
+    expect(rootChildren.find((c) => c.item_id === "n3")).toBeUndefined();
     // n3a should also not appear anywhere.
     function findNode(node: Record<string, unknown>, id: string): boolean {
-      if (node.node_id === id) return true;
+      if (node.item_id === id) return true;
       for (const child of (node.children as Record<string, unknown>[]) || []) {
         if (findNode(child, id)) return true;
       }
       return false;
     }
-    expect(findNode(result.node as Record<string, unknown>, "n3a")).toBe(false);
+    expect(findNode(result.item as Record<string, unknown>, "n3a")).toBe(false);
   });
 
   // ─── Section 4g: size warnings ─────────────────────────────────────
@@ -1246,7 +1246,7 @@ describe("read_document", () => {
     expect(result.warning).toBeDefined();
     const warning = result.warning as string;
     expect(warning).toContain("max_depth");
-    expect(warning).toContain("node_id");
+    expect(warning).toContain("item_id");
   });
 
   test("document under warning threshold: no warning", async () => {
@@ -1255,7 +1255,7 @@ describe("read_document", () => {
       max_depth: 10,
     });
     expect(result.warning).toBeUndefined();
-    expect(result.node).toBeDefined();
+    expect(result.item).toBeDefined();
   });
 
   test("bypass_warning true on result between warning and max threshold: succeeds", async () => {
@@ -1280,7 +1280,7 @@ describe("read_document", () => {
       max_depth: 10,
       bypass_warning: true,
     });
-    expect(second.node).toBeDefined();
+    expect(second.item).toBeDefined();
     expect(second.warning).toBeUndefined();
   });
 
@@ -1327,8 +1327,8 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1Result = rootChildren.find((c) => c.item_id === "n1")!;
     expect(n1Result.child_count).toBe(2);
     expect(n1Result.children).toEqual([]);
   });
@@ -1338,7 +1338,7 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 0,
     });
-    const root = result.node as Record<string, unknown>;
+    const root = result.item as Record<string, unknown>;
     expect(root.child_count).toBe(3);
     expect(root.children).toEqual([]);
   });
@@ -1349,7 +1349,7 @@ describe("read_document", () => {
       max_depth: 10,
       include_checked: false,
     });
-    const root = result.node as Record<string, unknown>;
+    const root = result.item as Record<string, unknown>;
     // child_count reflects the actual count in the source (3), not the
     // filtered count. The buildNodeTree implementation uses childIds.length
     // which is 3 regardless of checked filtering.
@@ -1363,9 +1363,9 @@ describe("read_document", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
-    const n1 = rootChildren.find((c) => c.node_id === "n1")!;
-    const n1a = (n1.children as Record<string, unknown>[]).find((c) => c.node_id === "n1a")!;
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
+    const n1a = (n1.children as Record<string, unknown>[]).find((c) => c.item_id === "n1a")!;
     expect(n1a.child_count).toBe(0);
     expect(n1a.children).toEqual([]);
   });
@@ -1383,7 +1383,7 @@ describe("search_in_document", () => {
     expect(result.count).toBeGreaterThan(0);
     const matches = result.matches as Record<string, unknown>[];
     for (const m of matches) {
-      expect(m.node_id).toBeDefined();
+      expect(m.item_id).toBeDefined();
       expect(m.content).toBeDefined();
     }
   });
@@ -1404,10 +1404,10 @@ describe("search_in_document", () => {
       parent_levels: "immediate",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1a")!;
+    const match = matches.find((m) => m.item_id === "n1a")!;
     expect(match.parents).toBeDefined();
     const parents = match.parents as Record<string, unknown>[];
-    expect(parents[0].node_id).toBe("n1");
+    expect(parents[0].item_id).toBe("n1");
   });
 
   test("query echoed back", async () => {
@@ -1438,7 +1438,7 @@ describe("search_in_document", () => {
     });
     expect(result.count).toBeGreaterThanOrEqual(1);
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "n1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "n1")).toBe(true);
   });
 
   test("no matches: returns count 0 and empty matches array", async () => {
@@ -1459,7 +1459,7 @@ describe("search_in_document", () => {
     });
     expect(result.count).toBeGreaterThanOrEqual(1);
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "n1b")).toBe(true);
+    expect(matches.some((m) => m.item_id === "n1b")).toBe(true);
   });
 
   test("match in note only: NOT found when search_notes false", async () => {
@@ -1470,7 +1470,7 @@ describe("search_in_document", () => {
     });
     const matches = result.matches as Record<string, unknown>[];
     // "note on child" only appears in the note of n1b, not in any content.
-    expect(matches.some((m) => m.node_id === "n1b")).toBe(false);
+    expect(matches.some((m) => m.item_id === "n1b")).toBe(false);
   });
 
   test("multiple matches in same document", async () => {
@@ -1491,7 +1491,7 @@ describe("search_in_document", () => {
       parent_levels: "none",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1a")!;
+    const match = matches.find((m) => m.item_id === "n1a")!;
     expect(match.parents).toBeUndefined();
   });
 
@@ -1502,10 +1502,10 @@ describe("search_in_document", () => {
       parent_levels: "immediate",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1a")!;
+    const match = matches.find((m) => m.item_id === "n1a")!;
     const parents = match.parents as Record<string, unknown>[];
     expect(parents).toHaveLength(1);
-    expect(parents[0].node_id).toBe("n1");
+    expect(parents[0].item_id).toBe("n1");
   });
 
   test("parent_levels all: full ancestor chain returned", async () => {
@@ -1515,13 +1515,13 @@ describe("search_in_document", () => {
       parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1a")!;
+    const match = matches.find((m) => m.item_id === "n1a")!;
     const parents = match.parents as Record<string, unknown>[];
     // n1a -> n1 -> root, so 2 parents.
     expect(parents).toHaveLength(2);
     // Nearest parent first.
-    expect(parents[0].node_id).toBe("n1");
-    expect(parents[1].node_id).toBe("root");
+    expect(parents[0].item_id).toBe("n1");
+    expect(parents[1].item_id).toBe("root");
   });
 
   test("parent array ordered with nearest parent first", async () => {
@@ -1531,9 +1531,9 @@ describe("search_in_document", () => {
       parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const match = matches.find((m) => m.node_id === "n1a")!;
+    const match = matches.find((m) => m.item_id === "n1a")!;
     const parents = match.parents as Record<string, unknown>[];
-    expect(parents[0].node_id).toBe("n1");
+    expect(parents[0].item_id).toBe("n1");
   });
 
   test("match on root node: no parents regardless of parent_levels", async () => {
@@ -1543,7 +1543,7 @@ describe("search_in_document", () => {
       parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const rootMatch = matches.find((m) => m.node_id === "root");
+    const rootMatch = matches.find((m) => m.item_id === "root");
     expect(rootMatch).toBeDefined();
     // Root has no parent, so parents should be undefined (no parents found).
     expect(rootMatch!.parents).toBeUndefined();
@@ -1591,7 +1591,7 @@ describe("search_in_document", () => {
       query: "Child A",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const n1a = matches.find((m) => m.node_id === "n1a")!;
+    const n1a = matches.find((m) => m.item_id === "n1a")!;
     expect(n1a).toBeDefined();
     // These should be omitted for plain nodes, consistent with read_document.
     expect(n1a.checked).toBeUndefined();
@@ -1600,14 +1600,14 @@ describe("search_in_document", () => {
     expect(n1a.color).toBeUndefined();
   });
 
-  test("each match includes node_id, content", async () => {
+  test("each match includes item_id, content", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "First",
     });
     const matches = result.matches as Record<string, unknown>[];
     for (const match of matches) {
-      expect(typeof match.node_id).toBe("string");
+      expect(typeof match.item_id).toBe("string");
       expect(typeof match.content).toBe("string");
     }
   });
@@ -1620,8 +1620,8 @@ describe("search_in_document", () => {
     });
     const matches = result.matches as Record<string, unknown>[];
     // n1b has a note, n1a does not.
-    const n1b = matches.find((m) => m.node_id === "n1b");
-    const n1a = matches.find((m) => m.node_id === "n1a");
+    const n1b = matches.find((m) => m.item_id === "n1b");
+    const n1a = matches.find((m) => m.item_id === "n1a");
     if (n1b) {
       expect(n1b.note).toBe("A note on child B");
     }
@@ -1639,8 +1639,8 @@ describe("search_in_document", () => {
       query: "^Child",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "n1a")).toBe(true);
-    expect(matches.some((m) => m.node_id === "n1b")).toBe(true);
+    expect(matches.some((m) => m.item_id === "n1a")).toBe(true);
+    expect(matches.some((m) => m.item_id === "n1b")).toBe(true);
     expect(matches.every((m) => (m.content as string).match(/^Child/i))).toBe(true);
   });
 
@@ -1649,7 +1649,7 @@ describe("search_in_document", () => {
       file_id: "doc1",
       query: "Child A|Child B",
     });
-    const nodeIds = (result.matches as Record<string, unknown>[]).map((m) => m.node_id);
+    const nodeIds = (result.matches as Record<string, unknown>[]).map((m) => m.item_id);
     expect(nodeIds).toContain("n1a");
     expect(nodeIds).toContain("n1b");
   });
@@ -1661,7 +1661,7 @@ describe("search_in_document", () => {
       case_sensitive: true,
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "n1a")).toBe(false);
+    expect(matches.some((m) => m.item_id === "n1a")).toBe(false);
   });
 
   test("case_sensitive false (default): uppercase pattern matches mixed-case content", async () => {
@@ -1671,7 +1671,7 @@ describe("search_in_document", () => {
       case_sensitive: false,
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "n1a")).toBe(true);
+    expect(matches.some((m) => m.item_id === "n1a")).toBe(true);
   });
 
   test("invalid regex returns error", async () => {
@@ -1757,7 +1757,7 @@ describe("get_recent_changes", () => {
     const matches = result.matches as Record<string, unknown>[];
     // n1 was created in the past, so it should not appear for type: created
     // in the recent time range.
-    expect(matches.some((m) => m.node_id === "n1")).toBe(false);
+    expect(matches.some((m) => m.item_id === "n1")).toBe(false);
   });
 
   test("type: both returns both created and modified", async () => {
@@ -1878,11 +1878,11 @@ describe("get_recent_changes", () => {
     });
     const matches = result.matches as Record<string, unknown>[];
     // n1a should have parent n1.
-    const n1a = matches.find((m) => m.node_id === "n1a");
+    const n1a = matches.find((m) => m.item_id === "n1a");
     if (n1a && n1a.parents) {
       const parents = n1a.parents as Record<string, unknown>[];
       expect(parents).toHaveLength(1);
-      expect(parents[0].node_id).toBe("n1");
+      expect(parents[0].item_id).toBe("n1");
     }
   });
 
@@ -1893,12 +1893,12 @@ describe("get_recent_changes", () => {
       parent_levels: "all",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const n1a = matches.find((m) => m.node_id === "n1a");
+    const n1a = matches.find((m) => m.item_id === "n1a");
     if (n1a && n1a.parents) {
       const parents = n1a.parents as Record<string, unknown>[];
       expect(parents).toHaveLength(2);
-      expect(parents[0].node_id).toBe("n1");
-      expect(parents[1].node_id).toBe("root");
+      expect(parents[0].item_id).toBe("n1");
+      expect(parents[1].item_id).toBe("root");
     }
   });
 
@@ -1936,14 +1936,14 @@ describe("get_recent_changes", () => {
     expect(typeof result.version).toBe("number");
   });
 
-  test("each match includes node_id, content, created, modified, change_type, url", async () => {
+  test("each match includes item_id, content, created, modified, change_type, url", async () => {
     const result = await callToolOk(ctx.mcpClient, "get_recent_changes", {
       file_id: "doc1",
       since: "1970-01-01",
     });
     const matches = result.matches as Record<string, unknown>[];
     for (const match of matches) {
-      expect(typeof match.node_id).toBe("string");
+      expect(typeof match.item_id).toBe("string");
       expect(typeof match.content).toBe("string");
       expect(typeof match.created).toBe("string");
       expect(typeof match.modified).toBe("string");
@@ -1960,7 +1960,7 @@ describe("get_recent_changes", () => {
       since: "1970-01-01",
     });
     const matches = result.matches as Record<string, unknown>[];
-    const n1a = matches.find((m) => m.node_id === "n1a")!;
+    const n1a = matches.find((m) => m.item_id === "n1a")!;
     expect(n1a).toBeDefined();
     // These should be omitted for plain nodes, consistent with read_document.
     expect(n1a.checked).toBeUndefined();
@@ -1976,11 +1976,11 @@ describe("get_recent_changes", () => {
     });
     const matches = result.matches as Record<string, unknown>[];
     // n1b has a note. Other nodes do not.
-    const n1b = matches.find((m) => m.node_id === "n1b");
+    const n1b = matches.find((m) => m.item_id === "n1b");
     if (n1b) {
       expect(n1b.note).toBe("A note on child B");
     }
-    const n1a = matches.find((m) => m.node_id === "n1a");
+    const n1a = matches.find((m) => m.item_id === "n1a");
     if (n1a) {
       expect(n1a.note).toBeUndefined();
     }
@@ -2015,9 +2015,9 @@ describe("check_document_versions", () => {
 
     // Edit the document.
     const version = await getVersion(ctx.mcpClient, "doc1");
-    await callToolOk(ctx.mcpClient, "edit_nodes", {
+    await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
-      nodes: [{ node_id: "n1", content: "Updated" }],
+      items: [{ item_id: "n1", content: "Updated" }],
       expected_version: version,
     });
 
@@ -2102,7 +2102,7 @@ describe("read_document config defaults: max_depth", () => {
 
     // Walk down the tree to depth 3. Node at depth 3 with children
     // should be depth_limited.
-    let node = result.node as Record<string, unknown>;
+    let node = result.item as Record<string, unknown>;
     for (let i = 0; i < 3; i++) {
       const children = node.children as Record<string, unknown>[];
       expect(children.length).toBeGreaterThan(0);
@@ -2130,7 +2130,7 @@ describe("read_document config defaults: max_depth", () => {
     });
 
     // With maxDepth: 2, node at depth 2 (a2) should be depth_limited.
-    const rootNode = result.node as Record<string, unknown>;
+    const rootNode = result.item as Record<string, unknown>;
     const a1 = (rootNode.children as Record<string, unknown>[])[0];
     const a2 = (a1.children as Record<string, unknown>[])[0];
     expect(a2.children).toEqual([]);
@@ -2153,12 +2153,12 @@ describe("read_document config defaults: max_depth", () => {
       file_id: "cfg_doc2",
       max_depth: 10,
     });
-    const rootNode = result.node as Record<string, unknown>;
+    const rootNode = result.item as Record<string, unknown>;
     const b1 = (rootNode.children as Record<string, unknown>[])[0];
     // b2 should be visible at depth 2 since explicit max_depth is 10.
     expect((b1.children as Record<string, unknown>[]).length).toBe(1);
     const b2 = (b1.children as Record<string, unknown>[])[0];
-    expect(b2.node_id).toBe("b2");
+    expect(b2.item_id).toBe("b2");
   });
 });
 
@@ -2186,7 +2186,7 @@ describe("read_document config defaults: include_notes", () => {
         checkNoNotes(child);
       }
     }
-    checkNoNotes(result.node as Record<string, unknown>);
+    checkNoNotes(result.item as Record<string, unknown>);
   });
 });
 
@@ -2210,7 +2210,7 @@ describe("read_document config defaults: include_checked", () => {
       max_depth: 10,
       include_checked: false,
     });
-    const root = result.node as Record<string, unknown>;
+    const root = result.item as Record<string, unknown>;
     // Root has 3 children in source (n1, n2, n3).
     expect(root.child_count).toBe(3);
     // But only 2 are rendered (n3 is checked and excluded).
@@ -2224,9 +2224,9 @@ describe("read_document config defaults: include_checked", () => {
       file_id: "doc1",
       max_depth: 10,
     });
-    const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     // n3 is checked and should be excluded via config default.
-    const n3 = rootChildren.find((c) => c.node_id === "n3");
+    const n3 = rootChildren.find((c) => c.item_id === "n3");
     expect(n3).toBeUndefined();
   });
 });
@@ -2240,7 +2240,7 @@ describe("read_document size warning content", () => {
     await cfgCtx.cleanup();
   });
 
-  test("warning includes suggestions for max_depth and node_id", async () => {
+  test("warning includes suggestions for max_depth and item_id", async () => {
 
     function bigSetup(server: DummyDynalistServer): void {
       const childIds: string[] = [];
@@ -2263,7 +2263,7 @@ describe("read_document size warning content", () => {
     expect(result.warning).toBeDefined();
     const warning = result.warning as string;
     expect(warning).toContain("max_depth");
-    expect(warning).toContain("node_id");
+    expect(warning).toContain("item_id");
   });
 
   test("size warning response includes file_id, title, and version", async () => {
@@ -2401,7 +2401,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(true);
   });
 
   test("until as ISO date string treated as end of day", async () => {
@@ -2415,7 +2415,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(true);
 
     // But "2025-03-10" as until should NOT include the node.
     const result2 = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
@@ -2424,7 +2424,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-10",
     });
     const matches2 = result2.matches as Record<string, unknown>[];
-    expect(matches2.some((m) => m.node_id === "t1")).toBe(false);
+    expect(matches2.some((m) => m.item_id === "t1")).toBe(false);
   });
 
   test("until as full ISO datetime: exact match", async () => {
@@ -2437,7 +2437,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11T12:00:00.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(true);
 
     // One second before should exclude it.
     const result2 = await callToolOk(cfgCtx.mcpClient, "get_recent_changes", {
@@ -2446,7 +2446,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11T11:59:59.000Z",
     });
     const matches2 = result2.matches as Record<string, unknown>[];
-    expect(matches2.some((m) => m.node_id === "t1")).toBe(false);
+    expect(matches2.some((m) => m.item_id === "t1")).toBe(false);
   });
 });
 
@@ -2497,18 +2497,18 @@ describe("get_recent_changes sorting by change_type", () => {
     });
     const matches = result.matches as Record<string, unknown>[];
     const filtered = matches.filter(
-      (m) => m.node_id === "sa" || m.node_id === "sb"
+      (m) => m.item_id === "sa" || m.item_id === "sb"
     );
     expect(filtered.length).toBe(2);
 
-    const sbIdx = filtered.findIndex((m) => m.node_id === "sb");
-    const saIdx = filtered.findIndex((m) => m.node_id === "sa");
+    const sbIdx = filtered.findIndex((m) => m.item_id === "sb");
+    const saIdx = filtered.findIndex((m) => m.item_id === "sa");
     // sb (modified more recently) should come before sa (created earlier).
     expect(sbIdx).toBeLessThan(saIdx);
 
     // Verify the change_types are as expected.
-    const sb = filtered.find((m) => m.node_id === "sb")!;
-    const sa = filtered.find((m) => m.node_id === "sa")!;
+    const sb = filtered.find((m) => m.item_id === "sb")!;
+    const sa = filtered.find((m) => m.item_id === "sa")!;
     expect(sb.change_type).toBe("modified");
     expect(sa.change_type).toBe("created");
   });
@@ -2632,7 +2632,7 @@ describe("get_recent_changes date parsing", () => {
       since: "2025-03-11",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(true);
   });
 
   test("date-only string for since excludes nodes from the previous day", async () => {
@@ -2644,7 +2644,7 @@ describe("get_recent_changes date parsing", () => {
       since: "2025-03-12",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(false);
   });
 
   test("date-only string for until is treated as end-of-day UTC", async () => {
@@ -2657,7 +2657,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(true);
   });
 
   test("date-only string for until on previous day excludes the node", async () => {
@@ -2670,7 +2670,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-10",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(false);
   });
 
   test("full ISO timestamp is parsed correctly", async () => {
@@ -2683,7 +2683,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11T12:00:00.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(true);
   });
 
   test("full ISO timestamp one second later excludes the node from since", async () => {
@@ -2694,7 +2694,7 @@ describe("get_recent_changes date parsing", () => {
       since: "2025-03-11T12:00:01.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(false);
   });
 
   test("full ISO datetime works for since and until", async () => {
@@ -2706,7 +2706,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11T12:00:00.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(true);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(true);
   });
 
   test("ISO datetime one second after the node excludes it from since", async () => {
@@ -2718,7 +2718,7 @@ describe("get_recent_changes date parsing", () => {
       until: "2025-03-11T12:01:00.000Z",
     });
     const matches = result.matches as Record<string, unknown>[];
-    expect(matches.some((m) => m.node_id === "t1")).toBe(false);
+    expect(matches.some((m) => m.item_id === "t1")).toBe(false);
   });
 
   test("invalid date format for since returns error", async () => {
@@ -2766,9 +2766,9 @@ describe("read_document field omission", () => {
       file_id: "omit_doc",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.note).toBeUndefined();
   });
 
@@ -2785,9 +2785,9 @@ describe("read_document field omission", () => {
       max_depth: 10,
       include_notes: true,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.note).toBe("Important note");
   });
 
@@ -2803,9 +2803,9 @@ describe("read_document field omission", () => {
       file_id: "heading_doc",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.heading).toBeUndefined();
   });
 
@@ -2821,9 +2821,9 @@ describe("read_document field omission", () => {
       file_id: "heading_doc2",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.heading).toBe("h1");
   });
 
@@ -2839,9 +2839,9 @@ describe("read_document field omission", () => {
       file_id: "color_doc",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.color).toBeUndefined();
   });
 
@@ -2857,9 +2857,9 @@ describe("read_document field omission", () => {
       file_id: "color_doc2",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.color).toBe("red");
   });
 
@@ -2876,9 +2876,9 @@ describe("read_document field omission", () => {
       file_id: "cb_doc",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.show_checkbox).toBeUndefined();
     expect(n1.checked).toBeUndefined();
   });
@@ -2895,9 +2895,9 @@ describe("read_document field omission", () => {
       file_id: "cb_doc2",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.show_checkbox).toBe(true);
     expect(n1.checked).toBe(true);
   });
@@ -2921,9 +2921,9 @@ describe("read_document field omission", () => {
       max_depth: 10,
       include_notes: true,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.note).toBe("A note");
     expect(n1.heading).toBe("h2");
     expect(n1.color).toBe("yellow");
@@ -2944,9 +2944,9 @@ describe("read_document field omission", () => {
       file_id: "no_fields_doc",
       max_depth: 10,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.note).toBeUndefined();
     expect(n1.heading).toBeUndefined();
     expect(n1.color).toBeUndefined();
@@ -2967,9 +2967,9 @@ describe("read_document field omission", () => {
       max_depth: 10,
       include_notes: false,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     expect(n1.note).toBeUndefined();
   });
 
@@ -2986,9 +2986,9 @@ describe("read_document field omission", () => {
       max_depth: 10,
       include_notes: true,
     });
-    const node = result.node as Record<string, unknown>;
+    const node = result.item as Record<string, unknown>;
     const children = node.children as Record<string, unknown>[];
-    const n1 = children.find((c) => c.node_id === "n1")!;
+    const n1 = children.find((c) => c.item_id === "n1")!;
     // Whitespace-only notes should be omitted (buildNodeTree checks node.note.trim()).
     expect(n1.note).toBeUndefined();
   });

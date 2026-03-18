@@ -690,10 +690,10 @@ describe("config reloading between tool invocations", () => {
     ctx = await createTestContext(standardSetup);
 
     const version = await getVersion(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
+    const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_version: version,
-      nodes: [{ node_id: "n1", content: "Updated" }],
+      items: [{ item_id: "n1", content: "Updated" }],
     });
     expect(result.file_id).toBe("doc1");
 
@@ -708,10 +708,10 @@ describe("config reloading between tool invocations", () => {
 
     // The next write tool invocation should see the read-only policy and refuse.
     const version2 = await getVersion(ctx.mcpClient, "doc1");
-    const err = await callToolError(ctx.mcpClient, "edit_nodes", {
+    const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_version: version2,
-      nodes: [{ node_id: "n1", content: "Should fail" }],
+      items: [{ item_id: "n1", content: "Should fail" }],
     });
     expect(err.error).toBe("Forbidden");
     expect(err.message).toBe("Document is read-only per access policy.");
@@ -727,9 +727,9 @@ describe("config reloading between tool invocations", () => {
     const result1 = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    const node1 = result1.node as Record<string, unknown>;
+    const node1 = result1.item as Record<string, unknown>;
     const children1 = node1.children as Record<string, unknown>[];
-    expect(children1.some((c) => c.node_id === "n3")).toBe(true);
+    expect(children1.some((c) => c.item_id === "n3")).toBe(true);
 
     // Change readDefaults after registration. Since readDefaults are startup-only
     // and baked into schema defaults at registration time, this should NOT affect
@@ -746,18 +746,18 @@ describe("config reloading between tool invocations", () => {
     const result2 = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
     });
-    const node2 = result2.node as Record<string, unknown>;
+    const node2 = result2.item as Record<string, unknown>;
     const children2 = node2.children as Record<string, unknown>[];
-    expect(children2.some((c) => c.node_id === "n3")).toBe(true);
+    expect(children2.some((c) => c.item_id === "n3")).toBe(true);
 
     // Explicit parameter override still works.
     const result3 = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       include_checked: false,
     });
-    const node3 = result3.node as Record<string, unknown>;
+    const node3 = result3.item as Record<string, unknown>;
     const children3 = node3.children as Record<string, unknown>[];
-    expect(children3.some((c) => c.node_id === "n3")).toBe(false);
+    expect(children3.some((c) => c.item_id === "n3")).toBe(false);
   });
 
   test("sizeWarning threshold change takes effect on next read", async () => {
@@ -771,7 +771,7 @@ describe("config reloading between tool invocations", () => {
       max_depth: 10,
     });
     expect(result1.warning).toBeUndefined();
-    expect(result1.node).toBeDefined();
+    expect(result1.item).toBeDefined();
 
     // Lower thresholds so the same read triggers a warning.
     setTestConfig({

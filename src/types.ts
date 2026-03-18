@@ -21,7 +21,7 @@ export type DynalistApiResponse<T> = T & { _code: string; _msg: string };
  * structure but includes truncation signals (depth_limited, child_count).
  */
 export interface OutputNode {
-  node_id: string;
+  item_id: string;
   content: string;
   note?: string;
   checked?: boolean;

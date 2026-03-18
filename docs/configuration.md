@@ -57,9 +57,9 @@ Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_
 | `access.default` | `"allow"`, `"read"`, `"deny"` | `"allow"` | Default policy for files not matched by any rule |
 | `access.rules` | object[] | `[]` | Access control rules (see [Access control](access-control.md)) |
 | `readDefaults.maxDepth` | number \| null | `3` | Default max depth for `read_document`. `null` = unlimited |
-| `readDefaults.includeCollapsedChildren` | boolean | `false` | Default for including collapsed nodes' children |
-| `readDefaults.includeNotes` | boolean | `true` | Default for including node notes in responses |
-| `readDefaults.includeChecked` | boolean | `true` | Default for including checked/completed nodes |
+| `readDefaults.includeCollapsedChildren` | boolean | `false` | Default for including collapsed items' children |
+| `readDefaults.includeNotes` | boolean | `true` | Default for including item notes in responses |
+| `readDefaults.includeChecked` | boolean | `true` | Default for including checked/completed items |
 | `sizeWarning.warningTokenThreshold` | number | `5000` | Token count that triggers a size warning |
 | `sizeWarning.maxTokenThreshold` | number | `24500` | Token count above which results are blocked entirely |
 | `cache.ttlSeconds` | number | `300` | File tree cache TTL in seconds |

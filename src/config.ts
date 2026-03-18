@@ -37,11 +37,11 @@ const ReadDefaultsSchema = z.object({
   maxDepth: z.number().nullable().default(3)
     .describe("Default max depth for `read_document`. `null` = unlimited"),
   includeCollapsedChildren: z.boolean().default(false)
-    .describe("Default for including collapsed nodes' children"),
+    .describe("Default for including collapsed items' children"),
   includeNotes: z.boolean().default(true)
-    .describe("Default for including node notes in responses"),
+    .describe("Default for including item notes in responses"),
   includeChecked: z.boolean().default(true)
-    .describe("Default for including checked/completed nodes"),
+    .describe("Default for including checked/completed items"),
 }).strict();
 
 const SizeWarningSchema = z.object({

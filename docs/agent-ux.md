@@ -65,29 +65,29 @@ Every mutation tool shares a confirmation directive telling the agent to present
 Large documents can overwhelm an agent's context window or produce responses too long for the user to read. The server manages this at multiple levels:
 
 - **Size warnings.** Read and search tools estimate token count from the serialized output. If the result exceeds a configurable threshold, the tool returns a warning instead of the content, along with suggestions for narrowing the query. The agent can opt in to the full result on a subsequent call, but the parameter description prevents agents from preemptively bypassing the safety net.
-- **Depth and visibility controls.** Document reads support limiting tree traversal depth and excluding collapsed children. These controls are orthogonal, and the tool descriptions explain how hidden children are signaled differently (depth-limited vs. collapsed) so the agent knows how to drill deeper when needed. The default depth is intentionally low (3) to keep initial reads token-efficient. Agents are expected to drill into depth-limited nodes as the primary exploration pattern, rather than requesting unlimited depth up front.
+- **Depth and visibility controls.** Document reads support limiting tree traversal depth and excluding collapsed children. These controls are orthogonal, and the tool descriptions explain how hidden children are signaled differently (depth-limited vs. collapsed) so the agent knows how to drill deeper when needed. The default depth is intentionally low (3) to keep initial reads token-efficient. Agents are expected to drill into depth-limited items as the primary exploration pattern, rather than requesting unlimited depth up front.
 - **Configurable defaults.** Operators can tune default depth, note inclusion, and other payload-size knobs in the config file without requiring the agent to specify parameters on every call.
 - **Sparse output.** Optional fields (notes, heading, color) are omitted from output when empty or at their default value, reducing payload size for typical documents.
 
 ## Property ordering
 
-Response objects place nested structures (`children`, `parents`) as the final property so that scalar metadata stays visually close to the node's primary content. This matters because agents consume serialized JSON, and property order determines what the agent "sees" near each node's identity.
+Response objects place nested structures (`children`, `parents`) as the final property so that scalar metadata stays visually close to the item's primary content. This matters because agents consume serialized JSON, and property order determines what the agent "sees" near each item's identity.
 
-When a recursive structure like `children` appears before metadata, deeply nested trees push metadata arbitrarily far from the content it describes:
+When a recursive structure like `children` appears before metadata, deeply nested trees push metadata arbitrarily far from the item it describes:
 
 ```json
 {
-  "node_id": "abc",
+  "item_id": "abc",
   "content": "Project plan",
   "child_count": 1,
   "children": [
     {
-      "node_id": "def",
+      "item_id": "def",
       "content": "Phase 1",
       "child_count": 1,
       "children": [
         {
-          "node_id": "ghi",
+          "item_id": "ghi",
           "content": "Research",
           "child_count": 0,
           "children": []
@@ -102,25 +102,25 @@ When a recursive structure like `children` appears before metadata, deeply neste
 }
 ```
 
-The root node's `note` and `heading` are 17 lines away from its `content`. An agent scanning the JSON may not associate them. With metadata before the nested structure:
+The root item's `note` and `heading` are 17 lines away from its `content`. An agent scanning the JSON may not associate them. With metadata before the nested structure:
 
 ```json
 {
-  "node_id": "abc",
+  "item_id": "abc",
   "content": "Project plan",
   "note": "Q2 initiative",
   "heading": "h1",
   "child_count": 1,
   "children": [
     {
-      "node_id": "def",
+      "item_id": "def",
       "content": "Phase 1",
       "note": "Due next Friday",
       "color": "red",
       "child_count": 1,
       "children": [
         {
-          "node_id": "ghi",
+          "item_id": "ghi",
           "content": "Research",
           "child_count": 0,
           "children": []
@@ -131,17 +131,17 @@ The root node's `note` and `heading` are 17 lines away from its `content`. An ag
 }
 ```
 
-Every node's metadata is immediately adjacent to its content, regardless of tree depth. This applies to all recursive output schemas (`outputNodeSchema`, `fileTreeFolderSchema`) and flat schemas with nested arrays (`searchMatchSchema`, `changeMatchSchema`). Input schemas follow the same convention so agents see a consistent shape when constructing requests.
+Every item's metadata is immediately adjacent to its content, regardless of tree depth. This applies to all recursive output schemas (`outputNodeSchema`, `fileTreeFolderSchema`) and flat schemas with nested arrays (`searchMatchSchema`, `changeMatchSchema`). Input schemas follow the same convention so agents see a consistent shape when constructing requests.
 
 ## Compositional patterns
 
 The Dynalist API does not have an "ancestors" endpoint, and several common tasks require combining multiple tool calls. Rather than building monolithic tools, the instructions teach agents how to compose the existing primitives:
 
 - **Parent chain.** Search within a document with full parent levels to get the ancestor chain without a separate read call.
-- **Sibling context.** Read a document starting from the parent node with depth 1.
-- **Expanding collapsed sections.** Read starting from the collapsed node (the starting node always expands), or re-request with collapsed children included.
-- **Drilling into depth-limited nodes.** Read starting from the depth-limited node to zoom into the subtree.
-- **File vs. node management.** The instructions distinguish file-tree tools from node-tree tools to prevent agents from confusing file IDs with node IDs.
+- **Sibling context.** Read a document starting from the parent item with depth 1.
+- **Expanding collapsed sections.** Read starting from the collapsed item (the starting item always expands), or re-request with collapsed children included.
+- **Drilling into depth-limited items.** Read starting from the depth-limited item to zoom into the subtree.
+- **File vs. item management.** The instructions distinguish file-tree tools from item-tree tools to prevent agents from confusing file IDs with item IDs.
 
 ## Version tracking workflow
 
@@ -157,7 +157,7 @@ Dynalist's checkbox semantics are subtle: items can be checked with or without a
 
 ## Partial insert recovery
 
-Large tree inserts are batched by depth level. If a batch fails mid-way, some nodes exist but not all. The error response includes enough metadata (counts and the first created node ID) for the agent to inspect the partial result and help the user recover rather than silently failing.
+Large tree inserts are batched by depth level. If a batch fails mid-way, some items exist but not all. The error response includes enough metadata (counts and the first created item ID) for the agent to inspect the partial result and help the user recover rather than silently failing.
 
 ## Description architecture
 
@@ -166,7 +166,7 @@ The text that reaches agents is factored into three levels to avoid duplication 
 | Level | Location | Role | Example |
 |---|---|---|---|
 | MCP instructions | `instructions.ts` | Cross-tool workflow patterns, system concepts | "Read a document before writing to obtain the version." |
-| Tool description | Each tool's `description` field | What the tool does and when to use it | "Edit one or more nodes in a document." |
+| Tool description | Each tool's `description` field | What the tool does and when to use it | "Edit one or more items in a document." |
 | Parameter description | Zod `.describe()` strings | What a parameter means, valid values, edge cases | "Only set true after receiving a size warning." |
 
 Commonly repeated strings are factored into `descriptions.ts` as shared constants so wording changes propagate to all tools at once. Inline value meanings (enum values, position options) are intentionally repeated at every usage site so agents do not need to cross-reference a central definition.

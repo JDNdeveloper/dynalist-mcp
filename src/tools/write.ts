@@ -1,5 +1,5 @@
 /**
- * Write tools: send_to_inbox, edit_nodes, insert_nodes.
+ * Write tools: send_to_inbox, edit_items, insert_items.
  */
 
 import { z } from "zod";
@@ -18,7 +18,7 @@ import {
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import {
-  FILE_ID_DESCRIPTION, NODE_ID_DESCRIPTION,
+  FILE_ID_DESCRIPTION, ITEM_ID_DESCRIPTION,
   VERSION_WARNING_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION,
   CHECKED_DESCRIPTION,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
@@ -60,8 +60,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Send an item to the Dynalist inbox. Target is the user's configured inbox. " +
-        "Returns the inbox document's file_id and created node_id. " +
-        "For specific documents or hierarchical content, use insert_nodes.",
+        "Returns the inbox document's file_id and created item_id. " +
+        "For specific documents or hierarchical content, use insert_items.",
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
@@ -74,7 +74,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        node_id: z.string().describe(NODE_ID_DESCRIPTION),
+        item_id: z.string().describe(ITEM_ID_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({ content, note, show_checkbox, heading, color, checked }: { content: string; note?: string; show_checkbox?: boolean; heading?: HeadingValue; color?: ColorValue; checked?: boolean }) => {
@@ -108,48 +108,48 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
       return makeResponse({
         file_id: response.file_id,
-        node_id: response.node_id,
+        item_id: response.node_id,
       });
     })
   );
 
   server.registerTool(
-    "edit_nodes",
+    "edit_items",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Edit one or more nodes in a document. Only specified fields are updated; " +
+        "Edit one or more items in a document. Only specified fields are updated; " +
         "omitted fields are unchanged.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        nodes: z.array(z.object({
-          node_id: z.string().describe("Node ID to edit"),
+        items: z.array(z.object({
+          item_id: z.string().describe("Item ID to edit"),
           content: z.string().optional().describe(`New content text. ${CONTENT_MULTILINE_GUIDANCE}`),
           note: z.string().optional().describe(`New note text. ${MULTILINE_GUIDANCE} Set to '' to clear.`),
           checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
           show_checkbox: z.boolean().optional().describe(
-            `Whether to show a checkbox on this node. ${SHOW_CHECKBOX_DESCRIPTION}`
+            `Whether to show a checkbox on this item. ${SHOW_CHECKBOX_DESCRIPTION}`
           ),
           heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
           color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
-        }).strict()).describe("Array of node edits to apply."),
+        }).strict()).describe("Array of item edits to apply."),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        edited_count: z.number().describe("Number of nodes edited"),
-        node_ids: z.array(z.string()).describe("IDs of all edited nodes"),
+        edited_count: z.number().describe("Number of items edited"),
+        item_ids: z.array(z.string()).describe("IDs of all edited items"),
         version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      nodes,
+      items,
       expected_version,
     }: {
       file_id: string;
-      nodes: Array<{
-        node_id: string;
+      items: Array<{
+        item_id: string;
         content?: string;
         note?: string;
         checked?: boolean;
@@ -159,8 +159,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       }>;
       expected_version: number;
     }) => {
-      if (nodes.length === 0) {
-        return makeErrorResponse("InvalidInput", "No nodes to edit (empty array).");
+      if (items.length === 0) {
+        return makeErrorResponse("InvalidInput", "No items to edit (empty array).");
       }
 
       const config = getConfig();
@@ -170,10 +170,10 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      const changes: EditDocumentChange[] = nodes.map((entry) => {
+      const changes: EditDocumentChange[] = items.map((entry) => {
         const change: EditDocumentChange = {
           action: "edit",
-          node_id: entry.node_id,
+          node_id: entry.item_id,
         };
 
         // Only include fields that are explicitly set.
@@ -188,7 +188,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       });
 
       // Validate that each entry has at least one mutable field.
-      for (const entry of nodes) {
+      for (const entry of items) {
         const hasMutable =
           entry.content !== undefined ||
           entry.note !== undefined ||
@@ -197,19 +197,19 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           entry.heading !== undefined ||
           entry.color !== undefined;
         if (!hasMutable) {
-          return makeErrorResponse("InvalidInput", `Node '${entry.node_id}' has no fields to edit.`);
+          return makeErrorResponse("InvalidInput", `Item '${entry.item_id}' has no fields to edit.`);
         }
       }
 
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedVersion: expected_version, store },
         async () => {
-          // Pre-validate that all node IDs exist in the document.
+          // Pre-validate that all item IDs exist in the document.
           const doc = await store.read(file_id);
           const nodeMap = buildNodeMap(doc.nodes);
-          for (const entry of nodes) {
-            if (!nodeMap.has(entry.node_id)) {
-              throw new ToolInputError("NodeNotFound", `Node '${entry.node_id}' not found in document.`);
+          for (const entry of items) {
+            if (!nodeMap.has(entry.item_id)) {
+              throw new ToolInputError("NodeNotFound", `Item '${entry.item_id}' not found in document.`);
             }
           }
 
@@ -218,11 +218,11 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         },
       );
 
-      const nodeIds = nodes.map((entry) => entry.node_id);
+      const itemIds = items.map((entry) => entry.item_id);
       const data: Record<string, unknown> = {
         file_id,
-        edited_count: nodes.length,
-        node_ids: nodeIds,
+        edited_count: items.length,
+        item_ids: itemIds,
       };
       if (guard.versionWarning) data.version_warning = guard.versionWarning;
 
@@ -249,55 +249,55 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       ),
       heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
       color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
-      children: z.array(jsonInputNodeSchema).optional().describe("Child nodes"),
+      children: z.array(jsonInputNodeSchema).optional().describe("Child items"),
     }).strict()
   );
 
   server.registerTool(
-    "insert_nodes",
+    "insert_items",
     {
       description:
         `${CONFIRM_GUIDANCE} ` +
-        "Insert nodes into a document as a JSON tree. Supports nested children and " +
-        "per-node metadata.",
+        "Insert items into a document as a JSON tree. Supports nested children and " +
+        "per-item metadata.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        nodes: z.array(jsonInputNodeSchema).describe("Array of nodes to insert"),
+        items: z.array(jsonInputNodeSchema).describe("Array of items to insert"),
         position: z.enum(["first_child", "last_child", "after", "before"])
           .describe(
             "Insertion target. 'last_child' (most common): append under parent. " +
             "'first_child': prepend under parent. " +
-            "'after'/'before': sibling-relative placement (reference_node_id required)."
+            "'after'/'before': sibling-relative placement (reference_item_id required)."
           ),
-        reference_node_id: z.string().optional().describe(
-          "For first_child/last_child: the parent node. Omit for document root. " +
-          "For after/before: the sibling node (required). Cannot be the root node for after/before."
+        reference_item_id: z.string().optional().describe(
+          "For first_child/last_child: the parent item. Omit for document root. " +
+          "For after/before: the sibling item (required). Cannot be the root item for after/before."
         ),
         index: z.number().optional().describe(
           "Exact child index within the parent. 0 = first, -1 = last. " +
-          "Only valid with first_child/last_child. Cannot combine with reference_node_id for sibling positions."
+          "Only valid with first_child/last_child. Cannot combine with reference_item_id for sibling positions."
         ),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        total_created: z.number().describe("Total number of nodes created"),
-        root_node_ids: z.array(z.string()).describe("IDs of all top-level inserted nodes"),
+        total_created: z.number().describe("Total number of items created"),
+        root_item_ids: z.array(z.string()).describe("IDs of all top-level inserted items"),
         version_warning: z.string().optional().describe(VERSION_WARNING_DESCRIPTION),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      nodes,
+      items,
       position,
-      reference_node_id,
+      reference_item_id,
       index,
       expected_version,
     }: {
       file_id: string;
-      nodes: unknown[];
+      items: unknown[];
       position: string;
-      reference_node_id?: string;
+      reference_item_id?: string;
       index?: number;
       expected_version: number;
     }) => {
@@ -311,17 +311,17 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const isSiblingPosition = position === "after" || position === "before";
 
       // Validate parameter combinations.
-      if (isSiblingPosition && reference_node_id === undefined) {
-        return makeErrorResponse("InvalidInput", "after/before requires reference_node_id; root has no siblings.");
+      if (isSiblingPosition && reference_item_id === undefined) {
+        return makeErrorResponse("InvalidInput", "after/before requires reference_item_id; root has no siblings.");
       }
       if (isSiblingPosition && index !== undefined) {
         return makeErrorResponse("InvalidInput", "Cannot specify index with after/before positions.");
       }
 
       // Convert JSON input to ParsedNode tree (no doc read needed).
-      const tree = jsonInputToTree(nodes as JsonInputNode[]);
+      const tree = jsonInputToTree(items as JsonInputNode[]);
       if (tree.length === 0) {
-        return makeErrorResponse("InvalidInput", "No nodes to insert (empty array)");
+        return makeErrorResponse("InvalidInput", "No items to insert (empty array)");
       }
 
       const guard = await withVersionGuard(
@@ -335,24 +335,24 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             const doc = await store.read(file_id);
             const rootId = findRootNodeId(doc.nodes);
 
-            // The root node has no parent, so it cannot be used as a sibling reference.
-            if (reference_node_id === rootId) {
-              throw new ToolInputError("InvalidInput", "Cannot use root node as reference for after/before; root has no parent.");
+            // The root item has no parent, so it cannot be used as a sibling reference.
+            if (reference_item_id === rootId) {
+              throw new ToolInputError("InvalidInput", "Cannot use root item as reference for after/before; root has no parent.");
             }
 
             const parentMap = buildParentMap(doc.nodes);
-            const refInfo = parentMap.get(reference_node_id!);
+            const refInfo = parentMap.get(reference_item_id!);
 
             if (!refInfo) {
-              throw new ToolInputError("NodeNotFound", `Reference node '${reference_node_id}' not found in document.`);
+              throw new ToolInputError("NodeNotFound", `Reference item '${reference_item_id}' not found in document.`);
             }
 
             parentNodeId = refInfo.parentId;
             startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
           } else {
             // Child positioning (first_child / last_child / index).
-            // reference_node_id is the parent for child positions.
-            parentNodeId = reference_node_id;
+            // reference_item_id is the parent for child positions.
+            parentNodeId = reference_item_id;
 
             // The Dynalist API snapshots parent state before processing a batch,
             // so sending index -1 for every item in a batch causes them to all
@@ -367,7 +367,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
               doc = await store.read(file_id);
               const parentNode = doc.nodes.find(n => n.id === parentNodeId);
               if (!parentNode) {
-                throw new ToolInputError("NodeNotFound", `Parent node '${parentNodeId}' not found in document.`);
+                throw new ToolInputError("NodeNotFound", `Parent item '${parentNodeId}' not found in document.`);
               }
             }
 
@@ -375,7 +375,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
               startIndex = index;
             } else if (position === "first_child") {
               startIndex = 0;
-            } else if (nodes.length <= 1) {
+            } else if (items.length <= 1) {
               // Single item: index -1 is unambiguous, no read needed.
               startIndex = undefined;
             } else {
@@ -400,7 +400,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const data: Record<string, unknown> = {
         file_id,
         total_created: insertResult.totalCreated,
-        root_node_ids: insertResult.rootNodeIds,
+        root_item_ids: insertResult.rootNodeIds,
       };
       if (guard.versionWarning) data.version_warning = guard.versionWarning;
 

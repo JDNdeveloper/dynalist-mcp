@@ -6,7 +6,7 @@ The test suite spans three layers: an automated unit/integration suite that runs
 
 All automated tests run against `DummyDynalistServer`, an in-memory implementation of the `DynalistClient` interface. The dummy server replicates the real Dynalist API's behavioral quirks as documented in [dynalist-api-behavior.md](dynalist-api-behavior.md), including:
 
-- **Non-cascading deletes.** Deleting a node orphans its children rather than cascade-deleting them, matching the real API's behavior. This is critical for testing the `delete_nodes` tool's bottom-up deletion strategy.
+- **Non-cascading deletes.** Deleting a node orphans its children rather than cascade-deleting them, matching the real API's behavior. This is critical for testing the `delete_items` tool's bottom-up deletion strategy.
 - **Batch insert snapshot semantics.** Index `-1` resolves against a snapshot taken before the batch, not the live state. Multiple inserts to the same parent with `-1` all resolve to the same position, reversing their order. The dummy server snapshots `children.length` at batch start.
 - **Sequential batch move processing.** Each move in a batch sees the effects of prior moves, matching the real API.
 - **Post-removal indexing for moves.** The API removes a node before inserting at the target index. Same-parent moves where the node is earlier than the target require index compensation.
@@ -26,7 +26,7 @@ The behavioral rules the dummy server implements were discovered through exhaust
 
 1. **Orphaned children on delete.** The API's `action: "delete"` only removes the specified node. Children become orphaned: present in the `nodes` array but unreachable from the tree. The web UI does not have this problem because it uses a separate diff-based sync protocol that recursively removes all descendants. See the [Dynalist forum report](https://talk.dynalist.io/t/api-node-deletion-orphans-the-child-nodes/10071).
 
-2. **Account corruption on root move.** Moving the root node via the API corrupts the entire account. The API does not reject the request; instead, all subsequent API calls across all documents return `LockFail`. The `move_nodes` tool now validates and rejects root-node moves on the client side. See the [Dynalist forum report](https://talk.dynalist.io/t/api-move-action-on-root-node-breaks-account/10074).
+2. **Account corruption on root move.** Moving the root node via the API corrupts the entire account. The API does not reject the request; instead, all subsequent API calls across all documents return `LockFail`. The `move_items` tool now validates and rejects root-node moves on the client side. See the [Dynalist forum report](https://talk.dynalist.io/t/api-move-action-on-root-node-breaks-account/10074).
 
 ## Test architecture
 
@@ -71,15 +71,15 @@ Automated tests verify tool logic against the dummy server, but cannot catch iss
 
 A [comprehensive test plan](live-test-plan.md) covers 13 areas across ~120 test cases, designed for an agent (typically Claude with Opus or Sonnet) connected to a live test Dynalist account via MCP. The test plan includes a "How to run" section describing how to execute the tests as isolated parallel subagents, each in its own sub-root folder under a single test root. Test areas include:
 
-- `insert_nodes` positioning (child positions, sibling positions, explicit index, multi-item ordering, nested trees).
+- `insert_items` positioning (child positions, sibling positions, explicit index, multi-item ordering, nested trees).
 - String enum round-trips for heading and color across insert, edit, and inbox tools.
-- `delete_nodes` edge cases (promote children, multi-node deduplication, root node rejection).
-- `move_nodes` edge cases (all four positions, sequential move semantics, same-parent reordering, circular move prevention).
+- `delete_items` edge cases (promote children, multi-item deduplication, root item rejection).
+- `move_items` edge cases (all four positions, sequential move semantics, same-parent reordering, circular move prevention).
 - Version guard behavior (stale version rejection, concurrent edit warnings).
-- `read_document` depth and collapsed interaction, node filtering, size warnings.
+- `read_document` depth and collapsed interaction, item filtering, size warnings.
 - `search_in_document` with parent levels, note searching, child inclusion.
 - File management (create, rename, move documents and folders).
-- `edit_nodes` partial updates and multi-node edits.
+- `edit_items` partial updates and multi-item edits.
 - `send_to_inbox` edge cases.
 - Error recovery (URL handling, invalid IDs).
 - `check_document_versions` and `get_recent_changes` edge cases.
@@ -90,11 +90,11 @@ MCP instructions and tool descriptions must be clear enough for any model to fol
 
 The harness spawns non-interactive Claude CLI sessions, each executing a natural-language prompt that requires the model to interpret tool descriptions, follow MCP instructions, and compose multi-step workflows. Tasks are organized into parallel pipelines, each operating in an isolated root folder to prevent cross-pipeline interference:
 
-- **Positioning pipeline.** Tests all `insert_nodes` position values: `first_child`, `last_child`, `after`, `before`, with and without `reference_node_id`.
+- **Positioning pipeline.** Tests all `insert_items` position values: `first_child`, `last_child`, `after`, `before`, with and without `reference_node_id`.
 - **Enums pipeline.** Tests heading/color string enum values on insert, edit, clear, and inbox. Tests nested tree insertion with metadata.
 - **Edit pipeline.** Tests content edits, note updates, checkbox toggling, and version guard compliance (passing `expected_version` from a prior read).
-- **Search pipeline.** Tests `search_in_document` with `parent_levels: "all"`, note searching, depth-limited node expansion, and URL-to-file-ID extraction.
-- **Delete/move pipeline.** Tests `delete_nodes` with promote, multi-node delete, `move_nodes` with after and first_child positioning.
+- **Search pipeline.** Tests `search_in_document` with `parent_levels: "all"`, note searching, depth-limited item expansion, and URL-to-file-ID extraction.
+- **Delete/move pipeline.** Tests `delete_items` with promote, multi-item delete, `move_items` with after and first_child positioning.
 - **File management pipeline.** Tests create, rename, and move operations for both documents and folders.
 
 A Sonnet coordinator creates the isolated root folders before the Haiku pipelines run and cleans up afterwards. Results are saved per-task with stdout, stderr, exit code, and elapsed time.
