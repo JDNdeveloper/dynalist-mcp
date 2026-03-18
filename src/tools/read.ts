@@ -305,12 +305,13 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         "Search for documents and folders by title. Does not search document content; " +
-        "use search_in_document for that. Case-insensitive; issue queries in lowercase.\n\n" +
+        "use search_in_document for that.\n\n" +
         "Each match has a type field ('document' or 'folder'). Document matches include " +
         "permission.",
       inputSchema: {
-        query: z.string().describe("Text to search for in document/folder names (case-insensitive)"),
+        query: z.string().describe("Regex pattern to match against document/folder names. Case-insensitive by default."),
         type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
+        case_sensitive: z.boolean().optional().default(false).describe("Case-sensitive matching."),
       },
       outputSchema: {
         count: z.number().describe(MATCH_COUNT_DESCRIPTION),
@@ -324,10 +325,16 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         })).describe("Matching documents and/or folders"),
       },
     },
-    wrapToolHandler(async ({ query, type }: { query: string; type: string }) => {
+    wrapToolHandler(async ({ query, type, case_sensitive }: { query: string; type: string; case_sensitive: boolean }) => {
       const config = getConfig();
       const response = await client.listFiles();
-      const queryLower = query.toLowerCase();
+
+      let regex: RegExp;
+      try {
+        regex = new RegExp(query, case_sensitive ? "" : "i");
+      } catch (e) {
+        return makeErrorResponse("InvalidInput", `Invalid regex pattern: ${(e as Error).message}`);
+      }
 
       // Build policies for all files to filter denied ones.
       const allIds = response.files.map((f) => f.id);
@@ -337,7 +344,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         .filter((f) => {
           if (policies.get(f.id) === "deny") return false;
           if (f.type === "root") return false;
-          const nameMatch = f.title?.toLowerCase().includes(queryLower);
+          const nameMatch = regex.test(f.title ?? "");
           const typeMatch = type === "all" || f.type === type;
           return nameMatch && typeMatch;
         })
@@ -489,12 +496,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     {
       description:
         "Search for text in a document. Returns matching nodes with metadata. " +
-        "Case-insensitive; issue queries in lowercase. " +
         "Use parent_levels for ancestor breadcrumbs without a separate read_document call.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        query: z.string().describe("Text to search for (case-insensitive)"),
+        query: z.string().describe("Regex pattern to match against node content and notes. Case-insensitive by default."),
         search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
+        case_sensitive: z.boolean().optional().default(false).describe("Case-sensitive matching."),
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       },
@@ -512,12 +519,14 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       file_id,
       query,
       search_notes,
+      case_sensitive,
       parent_levels,
       bypass_warning,
     }: {
       file_id: string;
       query: string;
       search_notes: boolean;
+      case_sensitive: boolean;
       parent_levels: ParentLevels;
       bypass_warning: boolean;
     }) => {
@@ -528,15 +537,21 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const accessError = requireAccess(policy, "read", false);
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
+      let regex: RegExp;
+      try {
+        regex = new RegExp(query, case_sensitive ? "" : "i");
+      } catch (e) {
+        return makeErrorResponse("InvalidInput", `Invalid regex pattern: ${(e as Error).message}`);
+      }
+
       const doc = await store.read(file_id);
       const nodeMap = buildNodeMap(doc.nodes);
       const parentMap = buildParentMap(doc.nodes);
-      const queryLower = query.toLowerCase();
 
       const matches = doc.nodes
         .filter((node) => {
-          const contentMatch = node.content?.toLowerCase().includes(queryLower);
-          const noteMatch = search_notes && node.note?.toLowerCase().includes(queryLower);
+          const contentMatch = regex.test(node.content ?? "");
+          const noteMatch = search_notes && regex.test(node.note ?? "");
           return contentMatch || noteMatch;
         })
         .map((node) => {

@@ -419,7 +419,7 @@ describe("list_documents", () => {
 // ─── search_documents ────────────────────────────────────────────────
 
 describe("search_documents", () => {
-  test("finds documents by name (case-insensitive)", async () => {
+  test("finds documents by name using literal string pattern", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "test" });
     expect(result.count).toBe(1);
     const matches = result.matches as Record<string, unknown>[];
@@ -471,10 +471,41 @@ describe("search_documents", () => {
   });
 
   test("empty query matches all files", async () => {
-    // In JS, "".includes("") is true, so every file title matches.
+    // Empty regex matches every string.
     const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "" });
     // standardSetup creates 3 docs + 2 folders = 5 total files.
     expect(result.count).toBeGreaterThanOrEqual(5);
+  });
+
+  test("regex anchor matches only titles starting with pattern", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "^Test" });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.every((m) => (m.title as string).startsWith("Test"))).toBe(true);
+  });
+
+  test("regex alternation matches multiple patterns", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "Folder A|Folder B" });
+    const titles = (result.matches as Record<string, unknown>[]).map((m) => m.title);
+    expect(titles).toContain("Folder A");
+    expect(titles).toContain("Folder B");
+  });
+
+  test("case_sensitive true: uppercase pattern does not match lowercase title", async () => {
+    // "TEST" should not match "Test Document" with case_sensitive enabled.
+    const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "TEST DOCUMENT", case_sensitive: true });
+    expect(result.count).toBe(0);
+  });
+
+  test("case_sensitive false (default): uppercase pattern matches mixed-case title", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "TEST DOCUMENT", case_sensitive: false });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.title === "Test Document")).toBe(true);
+  });
+
+  test("invalid regex returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "search_documents", { query: "[invalid" });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toMatch(/Invalid regex pattern/);
   });
 });
 
@@ -1388,7 +1419,7 @@ describe("search_in_document", () => {
   });
 
   test("empty query matches all nodes", async () => {
-    // In JS, "".includes("") is true, so every node matches.
+    // Empty regex matches every string.
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "",
@@ -1400,7 +1431,7 @@ describe("search_in_document", () => {
 
   // ─── Section 5a: additional basic behavior tests ───────────────────
 
-  test("case-insensitive matching", async () => {
+  test("regex matching is case-insensitive by default", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "FIRST ITEM",
@@ -1597,6 +1628,59 @@ describe("search_in_document", () => {
     if (n1a) {
       expect(n1a.note).toBeUndefined();
     }
+  });
+
+  // ─── Section 5f: regex behavior ─────────────────────────────────────
+
+  test("regex anchor matches only nodes starting with pattern", async () => {
+    // "^Child" should match "Child A" and "Child B" but not "Nested child".
+    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "^Child",
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "n1a")).toBe(true);
+    expect(matches.some((m) => m.node_id === "n1b")).toBe(true);
+    expect(matches.every((m) => (m.content as string).match(/^Child/i))).toBe(true);
+  });
+
+  test("regex alternation matches nodes with either pattern", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "Child A|Child B",
+    });
+    const nodeIds = (result.matches as Record<string, unknown>[]).map((m) => m.node_id);
+    expect(nodeIds).toContain("n1a");
+    expect(nodeIds).toContain("n1b");
+  });
+
+  test("case_sensitive true: uppercase pattern does not match mixed-case content", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "CHILD A",
+      case_sensitive: true,
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "n1a")).toBe(false);
+  });
+
+  test("case_sensitive false (default): uppercase pattern matches mixed-case content", async () => {
+    const result = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "CHILD A",
+      case_sensitive: false,
+    });
+    const matches = result.matches as Record<string, unknown>[];
+    expect(matches.some((m) => m.node_id === "n1a")).toBe(true);
+  });
+
+  test("invalid regex returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "[invalid",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toMatch(/Invalid regex pattern/);
   });
 });
 

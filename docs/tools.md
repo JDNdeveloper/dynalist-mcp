@@ -47,7 +47,7 @@ List documents and folders as a recursive tree.
 
 ### `search_documents`
 
-Search for documents and folders by title. Does not search document content; use search_in_document for that. Case-insensitive; issue queries in lowercase.
+Search for documents and folders by title. Does not search document content; use search_in_document for that.
 
 Each match has a type field ('document' or 'folder'). Document matches include permission.
 
@@ -55,8 +55,9 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `query` | string | yes |  | Text to search for in document/folder names (case-insensitive) |
+| `query` | string | yes |  | Regex pattern to match against document/folder names. Case-insensitive by default. |
 | `type` | `"all"`, `"document"`, `"folder"` | no | "all" | Filter by type: 'document', 'folder', or 'all' |
+| `case_sensitive` | boolean | no | false | Case-sensitive matching. |
 
 **Example input:**
 ```json
@@ -159,15 +160,16 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 
 ### `search_in_document`
 
-Search for text in a document. Returns matching nodes with metadata. Case-insensitive; issue queries in lowercase. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
+Search for text in a document. Returns matching nodes with metadata. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
 
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
-| `query` | string | yes |  | Text to search for (case-insensitive) |
+| `query` | string | yes |  | Regex pattern to match against node content and notes. Case-insensitive by default. |
 | `search_notes` | boolean | no | true | Also search in notes |
+| `case_sensitive` | boolean | no | false | Case-sensitive matching. |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 

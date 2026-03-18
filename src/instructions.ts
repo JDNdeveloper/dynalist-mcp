@@ -51,8 +51,8 @@ Non-text metadata properties:
 
 ## Compositional patterns
 
-- **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with the node's text \
-(or a unique substring) and parent_levels: "all" to get the full ancestor chain. \
+- **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with a regex pattern \
+matching the node's text and parent_levels: "all" to get the full ancestor chain. \
 Fallback: read_document with just file_id, then search the tree for the target node_id.
 - **Sibling context**: Call read_document with the parent's node_id and max_depth: 1.
 - **Expanding collapsed sections**: If a node has collapsed: true and children_count > 0 but empty children, \
