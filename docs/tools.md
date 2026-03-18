@@ -115,7 +115,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 | `file_id` | string | yes |  | Document file ID |
 | `node_id` | string | no |  | Starting node. Omit for document root. |
 | `max_depth` | number \| null | no | 3 | Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. |
-| `include_collapsed_children` | boolean | no | false | Include collapsed nodes' children. When false, collapsed nodes show children_count but empty children. |
+| `include_collapsed_children` | boolean | no | false | Include collapsed nodes' children. When false, collapsed nodes show child_count but empty children. |
 | `include_notes` | boolean | no | true | Include node notes. |
 | `include_checked` | boolean | no | true | Include checked/completed nodes. |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
@@ -147,7 +147,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
   "node": {
     "node_id": "n_item789",
     "content": "Buy groceries",
-    "children_count": 3,
+    "child_count": 3,
     "children": []
   }
 }

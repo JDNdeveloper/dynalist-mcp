@@ -355,7 +355,7 @@ export function buildNodeTree(
   if (atMaxDepth && childrenCount > 0 && !collapsedHidesChildren) output.depth_limited = true;
 
   // Nested structure always last.
-  output.children_count = childrenCount;
+  output.child_count = childrenCount;
   output.children = outputChildren;
 
   return output;

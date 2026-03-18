@@ -49,7 +49,7 @@ Non-text metadata properties:
 
 - **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with a regex pattern matching the node's text and parent_levels: "all" to get the full ancestor chain. Fallback: read_document with just file_id, then search the tree for the target node_id.
 - **Sibling context**: Call read_document with the parent's node_id and max_depth: 1.
-- **Expanding collapsed sections**: If a node has collapsed: true and children_count > 0 but empty children, pass the node's node_id to read_document (the starting node always expands), or re-request with include_collapsed_children: true.
+- **Expanding collapsed sections**: If a node has collapsed: true and child_count > 0 but empty children, pass the node's node_id to read_document (the starting node always expands), or re-request with include_collapsed_children: true.
 - **Drilling into depth-limited nodes**: Drilling into depth-limited nodes is the primary pattern for exploring documents. If a node has depth_limited: true, call read_document with that node's node_id to zoom into the subtree.
 - **File vs node management**: File tools (create_document, move_document, etc.) operate on the file tree. Node tools (insert_nodes, edit_nodes, etc.) operate within a document. Do not confuse file IDs with node IDs.
 

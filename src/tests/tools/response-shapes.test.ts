@@ -137,7 +137,7 @@ describe("read_document response shape", () => {
     const node = data.node as Record<string, unknown>;
     expect(typeof node.node_id).toBe("string");
     expect(typeof node.content).toBe("string");
-    expect(typeof node.children_count).toBe("number");
+    expect(typeof node.child_count).toBe("number");
     expect(Array.isArray(node.children)).toBe(true);
   });
 

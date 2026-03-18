@@ -18,7 +18,7 @@ export type DynalistApiResponse<T> = T & { _code: string; _msg: string };
 
 /**
  * A node in the read_document output tree. Mirrors the Dynalist node
- * structure but includes truncation signals (depth_limited, children_count).
+ * structure but includes truncation signals (depth_limited, child_count).
  */
 export interface OutputNode {
   node_id: string;
@@ -30,7 +30,7 @@ export interface OutputNode {
   color?: string;
   collapsed?: boolean;
   depth_limited?: true;
-  children_count: number;
+  child_count: number;
   children: OutputNode[];
 }
 

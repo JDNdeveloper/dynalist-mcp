@@ -155,7 +155,7 @@ describe("list_documents", () => {
     const folderA = files.find((f) => f.file_id === "folder_a");
     expect(folderA).toBeDefined();
     expect(folderA!.depth_limited).toBe(true);
-    expect(folderA!.children_count).toBe(1);
+    expect(folderA!.child_count).toBe(1);
     expect(folderA!.children).toEqual([]);
 
     // inbox_doc should be present as a top-level document.
@@ -191,7 +191,7 @@ describe("list_documents", () => {
     const nested = folderAChildren.find((c) => c.file_id === "folder_nested");
     expect(nested).toBeDefined();
     expect(nested!.depth_limited).toBe(true);
-    expect(nested!.children_count).toBe(1);
+    expect(nested!.child_count).toBe(1);
     expect(nested!.children).toEqual([]);
   });
 
@@ -260,14 +260,14 @@ describe("list_documents", () => {
 
   // ─── depth_limited signaling ──────────────────────────────────────
 
-  test("depth_limited and children_count omitted when not applicable", async () => {
+  test("depth_limited and child_count omitted when not applicable", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const files = result.files as Record<string, unknown>[];
-    // Documents should not have depth_limited or children_count.
+    // Documents should not have depth_limited or child_count.
     const inbox = findFile(files, "inbox_doc");
     expect(inbox).toBeDefined();
     expect(inbox!.depth_limited).toBeUndefined();
-    expect(inbox!.children_count).toBeUndefined();
+    expect(inbox!.child_count).toBeUndefined();
 
     // Non-depth-limited folders should not have depth_limited.
     const folderA = findFile(files, "folder_a");
@@ -298,7 +298,7 @@ describe("list_documents", () => {
     const nested = files.find((f) => f.file_id === "folder_nested");
     expect(nested).toBeDefined();
     expect(nested!.depth_limited).toBe(true);
-    expect(nested!.children_count).toBe(1);
+    expect(nested!.child_count).toBe(1);
     expect(nested!.children).toEqual([]);
 
     // nested_doc should not appear anywhere.
@@ -355,7 +355,7 @@ describe("list_documents", () => {
     const level3 = level2Children.find((c) => c.file_id === "level3");
     expect(level3).toBeDefined();
     expect(level3!.depth_limited).toBe(true);
-    expect(level3!.children_count).toBe(1);
+    expect(level3!.child_count).toBe(1);
     expect(level3!.children).toEqual([]);
 
     // deep_doc should not be reachable.
@@ -527,7 +527,7 @@ describe("read_document", () => {
     const node = result.node as Record<string, unknown>;
     expect(node.node_id).toBe("root");
     expect(node.content).toBe("Test Document");
-    expect(node.children_count).toBe(3);
+    expect(node.child_count).toBe(3);
     const children = node.children as Record<string, unknown>[];
     expect(children).toHaveLength(3);
   });
@@ -567,7 +567,7 @@ describe("read_document", () => {
     expect(typeof result.title).toBe("string");
   });
 
-  test("every node includes node_id, content, children_count, children", async () => {
+  test("every node includes node_id, content, child_count, children", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
@@ -576,7 +576,7 @@ describe("read_document", () => {
     function checkNodeFields(node: Record<string, unknown>) {
       expect(typeof node.node_id).toBe("string");
       expect(typeof node.content).toBe("string");
-      expect(typeof node.children_count).toBe("number");
+      expect(typeof node.child_count).toBe("number");
       expect(Array.isArray(node.children)).toBe(true);
       // collapsed is omitted when false.
       if ("collapsed" in node) {
@@ -707,7 +707,7 @@ describe("read_document", () => {
     const node = result.node as Record<string, unknown>;
     expect(node.node_id).toBe("root");
     expect(node.children).toEqual([]);
-    expect(node.children_count).toBe(3);
+    expect(node.child_count).toBe(3);
     expect(node.depth_limited).toBe(true);
   });
 
@@ -723,13 +723,13 @@ describe("read_document", () => {
     // n1 has children but they should be omitted at depth 1.
     const n1 = children.find((c) => c.node_id === "n1")!;
     expect(n1.children).toEqual([]);
-    expect(n1.children_count).toBe(2);
+    expect(n1.child_count).toBe(2);
     expect(n1.depth_limited).toBe(true);
 
     // n3 is a leaf at depth 1: no depth_limited.
     const n3 = children.find((c) => c.node_id === "n3")!;
     expect(n3.children).toEqual([]);
-    expect(n3.children_count).toBe(0);
+    expect(n3.child_count).toBe(0);
     expect(n3.depth_limited).toBeUndefined();
   });
 
@@ -813,7 +813,7 @@ describe("read_document", () => {
     // But grandchildren of n1 (great-grandchild at depth 3) should not be.
     const n1aResult = n1Children.find((c) => c.node_id === "n1a")!;
     expect(n1aResult.children).toEqual([]);
-    expect(n1aResult.children_count).toBe(1);
+    expect(n1aResult.child_count).toBe(1);
     expect(n1aResult.depth_limited).toBe(true);
   });
 
@@ -825,7 +825,7 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1 = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1.depth_limited).toBe(true);
-    expect(n1.children_count).toBe(2);
+    expect(n1.child_count).toBe(2);
     expect(n1.children).toEqual([]);
   });
 
@@ -837,7 +837,7 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n3 = rootChildren.find((c) => c.node_id === "n3")!;
     expect(n3.children).toEqual([]);
-    expect(n3.children_count).toBe(0);
+    expect(n3.child_count).toBe(0);
     expect(n3.depth_limited).toBeUndefined();
   });
 
@@ -858,7 +858,7 @@ describe("read_document", () => {
     const node = result.node as Record<string, unknown>;
     expect(node.collapsed).toBe(true);
     expect((node.children as Record<string, unknown>[]).length).toBe(2);
-    expect(node.children_count).toBe(2);
+    expect(node.child_count).toBe(2);
   });
 
   test("collapsed node hides children by default", async () => {
@@ -875,7 +875,7 @@ describe("read_document", () => {
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
-    expect(n1Result.children_count).toBe(2);
+    expect(n1Result.child_count).toBe(2);
     // No depth_limited because collapsed is the cause.
     expect(n1Result.depth_limited).toBeUndefined();
   });
@@ -894,7 +894,7 @@ describe("read_document", () => {
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect((n1Result.children as Record<string, unknown>[]).length).toBe(2);
-    expect(n1Result.children_count).toBe(2);
+    expect(n1Result.child_count).toBe(2);
   });
 
   test("collapsed node at max_depth: collapsed takes precedence (no depth_limited)", async () => {
@@ -925,7 +925,7 @@ describe("read_document", () => {
     expect(n1.collapsed).toBeUndefined();
     expect(n1.depth_limited).toBe(true);
     expect(n1.children).toEqual([]);
-    expect(n1.children_count).toBe(2);
+    expect(n1.child_count).toBe(2);
   });
 
   test("non-collapsed leaf at max_depth: no depth_limited", async () => {
@@ -936,11 +936,11 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n3 = rootChildren.find((c) => c.node_id === "n3")!;
     expect(n3.children).toEqual([]);
-    expect(n3.children_count).toBe(0);
+    expect(n3.child_count).toBe(0);
     expect(n3.depth_limited).toBeUndefined();
   });
 
-  test("children_count always matches actual children regardless of visibility", async () => {
+  test("child_count always matches actual children regardless of visibility", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
     n1.collapsed = true;
@@ -952,7 +952,7 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     // n1 has 2 children, even though they are hidden.
-    expect(n1Result.children_count).toBe(2);
+    expect(n1Result.child_count).toBe(2);
     expect(n1Result.children).toEqual([]);
   });
 
@@ -976,7 +976,7 @@ describe("read_document", () => {
     // Outer collapsed node hides children, so inner is not visible.
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
-    expect(n1Result.children_count).toBe(2);
+    expect(n1Result.child_count).toBe(2);
   });
 
   test("nested collapsed with include_collapsed_children true: both visible with children", async () => {
@@ -1057,7 +1057,7 @@ describe("read_document", () => {
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
     expect(n1Result.children).toEqual([]);
-    expect(n1Result.children_count).toBe(2);
+    expect(n1Result.child_count).toBe(2);
     // Since include_collapsed_children makes collapsed transparent, depth_limited is the cause.
     expect(n1Result.depth_limited).toBe(true);
   });
@@ -1093,7 +1093,7 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
     expect(n1Result.collapsed).toBe(true);
-    expect(n1Result.children_count).toBe(2);
+    expect(n1Result.child_count).toBe(2);
     expect(n1Result.children).toEqual([]);
     expect(n1Result.depth_limited).toBeUndefined();
   });
@@ -1136,7 +1136,7 @@ describe("read_document", () => {
     // n1a is at depth 2, which is the limit, and it has children.
     expect(n1aResult.depth_limited).toBe(true);
     expect(n1aResult.children).toEqual([]);
-    expect(n1aResult.children_count).toBe(1);
+    expect(n1aResult.child_count).toBe(1);
   });
 
   // ─── Notes and checked filtering ─────────────────────────────────
@@ -1316,9 +1316,9 @@ describe("read_document", () => {
     expect(warning).toContain("too large");
   });
 
-  // ─── Section 4h: children_count invariant ──────────────────────────
+  // ─── Section 4h: child_count invariant ──────────────────────────
 
-  test("children_count correct when children hidden by collapsed state", async () => {
+  test("child_count correct when children hidden by collapsed state", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
     n1.collapsed = true;
@@ -1329,36 +1329,36 @@ describe("read_document", () => {
     });
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1Result = rootChildren.find((c) => c.node_id === "n1")!;
-    expect(n1Result.children_count).toBe(2);
+    expect(n1Result.child_count).toBe(2);
     expect(n1Result.children).toEqual([]);
   });
 
-  test("children_count correct when children hidden by depth limit", async () => {
+  test("child_count correct when children hidden by depth limit", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 0,
     });
     const root = result.node as Record<string, unknown>;
-    expect(root.children_count).toBe(3);
+    expect(root.child_count).toBe(3);
     expect(root.children).toEqual([]);
   });
 
-  test("children_count correct when children hidden by include_checked false", async () => {
+  test("child_count correct when children hidden by include_checked false", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
       include_checked: false,
     });
     const root = result.node as Record<string, unknown>;
-    // children_count reflects the actual count in the source (3), not the
+    // child_count reflects the actual count in the source (3), not the
     // filtered count. The buildNodeTree implementation uses childIds.length
     // which is 3 regardless of checked filtering.
-    expect(root.children_count).toBe(3);
+    expect(root.child_count).toBe(3);
     // But only 2 children are rendered (n3 is checked and excluded).
     expect((root.children as Record<string, unknown>[]).length).toBe(2);
   });
 
-  test("children_count 0 on leaf nodes", async () => {
+  test("child_count 0 on leaf nodes", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
@@ -1366,7 +1366,7 @@ describe("read_document", () => {
     const rootChildren = (result.node as Record<string, unknown>).children as Record<string, unknown>[];
     const n1 = rootChildren.find((c) => c.node_id === "n1")!;
     const n1a = (n1.children as Record<string, unknown>[]).find((c) => c.node_id === "n1a")!;
-    expect(n1a.children_count).toBe(0);
+    expect(n1a.child_count).toBe(0);
     expect(n1a.children).toEqual([]);
   });
 });
@@ -2199,8 +2199,8 @@ describe("read_document config defaults: include_checked", () => {
     await cfgCtx.cleanup();
   });
 
-  test("include_checked false: children_count on parent reflects original count, not filtered count", async () => {
-    // This documents actual behavior: children_count uses the raw
+  test("include_checked false: child_count on parent reflects original count, not filtered count", async () => {
+    // This documents actual behavior: child_count uses the raw
     // children array length (3) even though the checked node n3 is
     // filtered out of the rendered children.
     cfgCtx = await createTestContext(standardSetup);
@@ -2212,7 +2212,7 @@ describe("read_document config defaults: include_checked", () => {
     });
     const root = result.node as Record<string, unknown>;
     // Root has 3 children in source (n1, n2, n3).
-    expect(root.children_count).toBe(3);
+    expect(root.child_count).toBe(3);
     // But only 2 are rendered (n3 is checked and excluded).
     expect((root.children as Record<string, unknown>[]).length).toBe(2);
   });

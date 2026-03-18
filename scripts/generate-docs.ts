@@ -318,7 +318,7 @@ function exampleNumber(name: string): number {
   // Counts match auto-generated array lengths (1 element each).
   if (name === "count" || name === "edited_count" || name === "moved_count" || name === "deleted_count" || name === "total_created") return 1;
   if (name === "promoted_children") return 1;
-  if (name === "children_count") return 3;
+  if (name === "child_count") return 3;
   if (name === "max_depth") return 3;
   if (name === "index") return 0;
   throw new Error(`No example number for field '${name}'. Add it to exampleNumber() in generate-docs.ts.`);

@@ -68,7 +68,7 @@ const outputNodeSchema: z.ZodType<{
   color?: string;
   collapsed?: boolean;
   depth_limited?: true;
-  children_count: number;
+  child_count: number;
   children: unknown[];
 }> = z.lazy(() =>
   z.object({
@@ -79,7 +79,7 @@ const outputNodeSchema: z.ZodType<{
     depth_limited: z.literal(true).optional().describe(
       "Present when max_depth cut off traversal. Call read_document with this node_id to expand."
     ),
-    children_count: z.number().describe("Total direct children, regardless of visibility"),
+    child_count: z.number().describe("Total direct children, regardless of visibility"),
     children: z.array(outputNodeSchema).describe("Child nodes. Empty when depth-limited or collapse-hidden."),
   }).strict()
 );
@@ -127,7 +127,7 @@ const fileTreeFolderSchema: z.ZodType<{
   title: string;
   type: "folder";
   depth_limited?: true;
-  children_count?: number;
+  child_count?: number;
   children: unknown[];
 }> = z.lazy(() =>
   z.object({
@@ -137,7 +137,7 @@ const fileTreeFolderSchema: z.ZodType<{
     depth_limited: z.literal(true).optional().describe(
       "Present when max_depth cut off traversal. Call list_documents with this folder's file_id to expand."
     ),
-    children_count: z.number().optional().describe(
+    child_count: z.number().optional().describe(
       "Direct children count. Present only when depth_limited is true."
     ),
     children: z.array(fileTreeEntrySchema).describe(
@@ -268,7 +268,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
                 title: child.title,
                 type: "folder",
                 depth_limited: true,
-                children_count: visibleChildCount,
+                child_count: visibleChildCount,
                 children: [],
               };
               result.push(entry);
@@ -391,7 +391,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         ),
         include_collapsed_children: z.boolean().optional().default(readDefaults.includeCollapsedChildren).describe(
           "Include collapsed nodes' children. When false, collapsed nodes show " +
-          "children_count but empty children."
+          "child_count but empty children."
         ),
         include_notes: z.boolean().optional().default(readDefaults.includeNotes).describe(
           "Include node notes."
