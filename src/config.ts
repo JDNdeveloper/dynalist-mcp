@@ -17,7 +17,7 @@ const AccessRuleSchema = z.object({
     .transform((p) => p.normalize("NFC")),
   policy: z.enum(["allow", "read", "deny"]),
   id: z.string().optional(),
-});
+}).strict();
 
 const AccessSchema = z.object({
   default: z.enum(["allow", "read", "deny"]).default("allow")
@@ -31,7 +31,7 @@ const AccessSchema = z.object({
       },
       { message: "Duplicate path entries in access rules." },
     ),
-});
+}).strict();
 
 const ReadDefaultsSchema = z.object({
   maxDepth: z.number().nullable().default(3)
@@ -42,19 +42,19 @@ const ReadDefaultsSchema = z.object({
     .describe("Default for including node notes in responses"),
   includeChecked: z.boolean().default(true)
     .describe("Default for including checked/completed nodes"),
-});
+}).strict();
 
 const SizeWarningSchema = z.object({
   warningTokenThreshold: z.number().default(5000)
     .describe("Token count that triggers a size warning"),
   maxTokenThreshold: z.number().default(24500)
     .describe("Token count above which results are blocked entirely"),
-});
+}).strict();
 
 const CacheSchema = z.object({
   ttlSeconds: z.number().default(300)
     .describe("File tree cache TTL in seconds"),
-});
+}).strict();
 
 // Exported for codegen introspection by scripts/generate-docs.ts.
 export const ConfigSchema = z.object({
@@ -68,7 +68,7 @@ export const ConfigSchema = z.object({
     .describe("Log verbosity"),
   logFile: z.string().optional()
     .describe("File path to write logs to (in addition to stderr)"),
-});
+}).strict();
 
 export type AccessRule = z.infer<typeof AccessRuleSchema>;
 export type Config = z.infer<typeof ConfigSchema>;

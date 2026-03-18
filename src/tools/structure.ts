@@ -234,7 +234,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             "'after'/'before': sibling of reference (same parent). " +
             "'first_child'/'last_child': child of reference."
           ),
-        })).describe("Array of moves to apply sequentially."),
+        }).strict()).describe("Array of moves to apply sequentially."),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {

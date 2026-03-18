@@ -136,7 +136,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           ),
           heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
           color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
-        })).describe("Array of node edits to apply."),
+        }).strict()).describe("Array of node edits to apply."),
         expected_version: z.number().describe(EXPECTED_VERSION_DESCRIPTION),
       },
       outputSchema: {
@@ -254,7 +254,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
       color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
       children: z.array(jsonInputNodeSchema).optional().describe("Child nodes"),
-    })
+    }).strict()
   );
 
   server.registerTool(

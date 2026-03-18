@@ -33,7 +33,7 @@ import { NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "./node-metadata";
 const nodeSummarySchema = z.object({
   node_id: z.string().describe(NODE_ID_DESCRIPTION),
   content: z.string().describe("Node text content"),
-});
+}).strict();
 
 // Shared optional metadata fields present on output nodes and match objects.
 const nodeMetadataFields = {
@@ -81,7 +81,7 @@ const outputNodeSchema: z.ZodType<{
     ),
     children_count: z.number().describe("Total direct children, regardless of visibility"),
     children: z.array(outputNodeSchema).describe("Child nodes. Empty when depth-limited or collapse-hidden."),
-  })
+  }).strict()
 );
 
 // Match object for search_in_document results.
@@ -92,7 +92,7 @@ const searchMatchSchema = z.object({
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
   ),
-});
+}).strict();
 
 // Match object for get_recent_changes results.
 const changeMatchSchema = z.object({
@@ -106,7 +106,7 @@ const changeMatchSchema = z.object({
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
   ),
-});
+}).strict();
 
 // Document entry in the list_documents file tree.
 const fileTreeDocumentSchema = z.object({
@@ -119,7 +119,7 @@ const fileTreeDocumentSchema = z.object({
   access_policy: z.enum(["read"]).optional().describe(
     "Access policy if restricted. Omitted when unrestricted."
   ),
-});
+}).strict();
 
 // Recursive folder entry in the list_documents file tree.
 const fileTreeFolderSchema: z.ZodType<{
@@ -143,7 +143,7 @@ const fileTreeFolderSchema: z.ZodType<{
     children: z.array(fileTreeEntrySchema).describe(
       "Child documents and folders. Empty when depth-limited or folder is empty."
     ),
-  })
+  }).strict()
 );
 
 // Union of document and folder entries.
@@ -322,7 +322,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           type: z.enum(["document", "folder"]).describe("Whether this is a document or folder"),
           permission: z.enum(["none", "read", "edit", "manage", "owner"]).optional().describe("Permission level (documents only)"),
           access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
-        })).describe("Matching documents and/or folders"),
+        }).strict()).describe("Matching documents and/or folders"),
       },
     },
     wrapToolHandler(async ({ query, type, case_sensitive }: { query: string; type: string; case_sensitive: boolean }) => {

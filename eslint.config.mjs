@@ -22,6 +22,13 @@ export default tseslint.config(
             "CallExpression[callee.object.name='z'][callee.property.name='any']",
           message: "z.any() is banned. Use a typed Zod schema instead.",
         },
+        {
+          selector:
+            "CallExpression[callee.object.name='z'][callee.property.name='object']" +
+            ":not(MemberExpression[property.name='strict'] > " +
+            "CallExpression[callee.object.name='z'][callee.property.name='object'])",
+          message: "z.object() must be immediately chained with .strict() to reject unknown keys.",
+        },
       ],
       "prefer-const": "error",
       eqeqeq: ["error", "always"],
