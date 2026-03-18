@@ -83,7 +83,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
       // Access check: requires write (allow) policy.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "write", config.readOnly);
+      const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       // Reject deleting the root node (literal "root" string check, no read needed).
@@ -275,7 +275,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
       // Access check: only document-level policy is checked for within-document moves.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "write", config.readOnly);
+      const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const guard = await withVersionGuard(

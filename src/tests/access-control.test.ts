@@ -12,7 +12,6 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
   return {
     readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
     sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-    readOnly: false,
     cache: { ttlSeconds: 300 },
     logLevel: "warn",
     ...overrides,
@@ -37,55 +36,37 @@ function setupServer(): { server: DummyDynalistServer; client: MockDynalistClien
 
 describe("requireAccess", () => {
   test("allow policy permits read and write", () => {
-    expect(requireAccess("allow", "read", false)).toBeNull();
-    expect(requireAccess("allow", "write", false)).toBeNull();
+    expect(requireAccess("allow", "read")).toBeNull();
+    expect(requireAccess("allow", "write")).toBeNull();
   });
 
   test("read policy permits read but blocks write", () => {
-    expect(requireAccess("read", "read", false)).toBeNull();
-    const err = requireAccess("read", "write", false);
+    expect(requireAccess("read", "read")).toBeNull();
+    const err = requireAccess("read", "write");
     expect(err).not.toBeNull();
-    expect(err!.error).toBe("ReadOnly");
+    expect(err!.error).toBe("Forbidden");
   });
 
   test("deny policy blocks both read and write", () => {
-    const readErr = requireAccess("deny", "read", false);
+    const readErr = requireAccess("deny", "read");
     expect(readErr).not.toBeNull();
     expect(readErr!.error).toBe("NotFound");
 
-    const writeErr = requireAccess("deny", "write", false);
+    const writeErr = requireAccess("deny", "write");
     expect(writeErr).not.toBeNull();
     expect(writeErr!.error).toBe("NotFound");
   });
 
-  test("readOnly mode blocks write even on allow policy", () => {
-    const err = requireAccess("allow", "write", true);
-    expect(err).not.toBeNull();
-    expect(err!.error).toBe("ReadOnly");
-  });
-
   test("deny error message is generic (indistinguishable from NotFound)", () => {
-    const err = requireAccess("deny", "read", false)!;
+    const err = requireAccess("deny", "read")!;
     expect(err.error).toBe("NotFound");
     expect(err.message).toBe("Document not found or access denied.");
   });
 
-  test("ReadOnly error message says 'read-only per access policy'", () => {
-    const err = requireAccess("read", "write", false)!;
-    expect(err.error).toBe("ReadOnly");
+  test("Forbidden error message says 'read-only per access policy'", () => {
+    const err = requireAccess("read", "write")!;
+    expect(err.error).toBe("Forbidden");
     expect(err.message).toBe("Document is read-only per access policy.");
-  });
-
-  test("global readOnly blocks write even when policy is allow", () => {
-    const err = requireAccess("allow", "write", true);
-    expect(err).not.toBeNull();
-    expect(err!.error).toBe("ReadOnly");
-    expect(err!.message).toBe("Server is in read-only mode.");
-  });
-
-  test("global readOnly error message says 'Server is in read-only mode.'", () => {
-    const err = requireAccess("allow", "write", true)!;
-    expect(err.message).toBe("Server is in read-only mode.");
   });
 });
 
@@ -1084,7 +1065,7 @@ describe("cache invalidation", () => {
 
     try {
       // Write an initial config to establish a baseline version.
-      writeAndLoad({ readOnly: false });
+      writeAndLoad({ logLevel: "warn" });
 
       const config = makeConfig({
         access: {
@@ -1103,7 +1084,7 @@ describe("cache invalidation", () => {
       folderA.children!.push("ds");
 
       // Bump the config version by writing and loading a new config.
-      writeAndLoad({ readOnly: true });
+      writeAndLoad({ logLevel: "debug" });
 
       // The AccessController should detect the version change, invalidate
       // its cache, and refetch the file tree with the updated paths.

@@ -90,7 +90,6 @@ function updateTestConfig(overrides: Record<string, unknown>) {
   setTestConfig({
     readDefaults: { maxDepth: 5, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
     sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-    readOnly: false,
     cache: { ttlSeconds: 300 },
     logLevel: "warn",
     ...ACL_CONFIG,
@@ -223,7 +222,7 @@ describe("get_recent_changes with ACL", () => {
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("edit_nodes with ACL", () => {
-  test("denied document returns NotFound (not ReadOnly)", async () => {
+  test("denied document returns NotFound (not Forbidden)", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "denied_doc",
       expected_version: 1,
@@ -232,13 +231,13 @@ describe("edit_nodes with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy document returns ReadOnly error", async () => {
+  test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "readonly_doc",
       expected_version: 1,
       nodes: [{ node_id: "rn1", content: "hacked" }],
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document edit succeeds", async () => {
@@ -268,14 +267,14 @@ describe("insert_nodes with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy document returns ReadOnly error", async () => {
+  test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_nodes", {
       file_id: "readonly_doc",
       expected_version: 1,
       nodes: [{ content: "hacked" }],
       position: "last_child",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document insert succeeds", async () => {
@@ -305,13 +304,13 @@ describe("delete_nodes with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy document returns ReadOnly error", async () => {
+  test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_nodes", {
       file_id: "readonly_doc",
       expected_version: 1,
       node_ids: ["rn1"],
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document delete succeeds", async () => {
@@ -340,13 +339,13 @@ describe("move_nodes with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy document returns ReadOnly error", async () => {
+  test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_nodes", {
       file_id: "readonly_doc",
       expected_version: 1,
       moves: [{ node_id: "rn1a", reference_node_id: "rn1", position: "first_child" }],
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document move succeeds", async () => {
@@ -366,27 +365,7 @@ describe("move_nodes with ACL", () => {
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("send_to_inbox with ACL", () => {
-  test("global readOnly blocks inbox with correct message", async () => {
-    updateTestConfig({
-      readOnly: true,
-      access: {
-        default: "deny",
-        rules: [
-          { path: "/Denied Folder/**", policy: "deny" },
-          { path: "/ReadOnly Folder/**", policy: "read" },
-          { path: "/Allowed Folder/**", policy: "allow" },
-          { path: "/Inbox", policy: "allow" },
-        ],
-      },
-    });
-    const err = await callToolError(ctx.mcpClient, "send_to_inbox", {
-      content: "Test item",
-    });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
-  });
-
-  test("readOnly false (default) succeeds", async () => {
+  test("default access policy succeeds", async () => {
     const result = await callToolOk(ctx.mcpClient, "send_to_inbox", {
       content: "Inbox item",
     });
@@ -417,7 +396,7 @@ describe("send_to_inbox with ACL", () => {
     const err = await callToolError(ctx.mcpClient, "send_to_inbox", {
       content: "Should be blocked",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("global read rule blocks inbox even with allow default", async () => {
@@ -432,7 +411,7 @@ describe("send_to_inbox with ACL", () => {
     const err = await callToolError(ctx.mcpClient, "send_to_inbox", {
       content: "Should be blocked",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("explicit inbox allow overrides global read rule", async () => {
@@ -810,12 +789,12 @@ describe("create_document with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy folder returns ReadOnly", async () => {
+  test("read-policy folder returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "create_document", {
       parent_folder_id: "readonly_folder",
       title: "Hacked Doc",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy folder succeeds", async () => {
@@ -837,12 +816,12 @@ describe("create_folder with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy folder returns ReadOnly", async () => {
+  test("read-policy folder returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "create_folder", {
       parent_folder_id: "readonly_folder",
       title: "Hacked Folder",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy folder succeeds", async () => {
@@ -864,12 +843,12 @@ describe("rename_document with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy document returns ReadOnly", async () => {
+  test("read-policy document returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "rename_document", {
       file_id: "readonly_doc",
       title: "Hacked Title",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy document succeeds", async () => {
@@ -891,12 +870,12 @@ describe("rename_folder with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy folder returns ReadOnly", async () => {
+  test("read-policy folder returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "rename_folder", {
       file_id: "readonly_folder",
       title: "Hacked Name",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow-policy folder succeeds", async () => {
@@ -918,12 +897,12 @@ describe("move_document with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy source returns ReadOnly", async () => {
+  test("read-policy source returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "readonly_doc",
       parent_folder_id: "allowed_folder",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("deny-policy destination returns NotFound", async () => {
@@ -934,12 +913,12 @@ describe("move_document with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy destination returns ReadOnly", async () => {
+  test("read-policy destination returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
       parent_folder_id: "readonly_folder",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow source + allow destination succeeds", async () => {
@@ -979,12 +958,12 @@ describe("move_folder with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy source returns ReadOnly", async () => {
+  test("read-policy source returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "readonly_folder",
       parent_folder_id: "allowed_folder",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("deny-policy destination returns NotFound", async () => {
@@ -995,12 +974,12 @@ describe("move_folder with ACL", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("read-policy destination returns ReadOnly", async () => {
+  test("read-policy destination returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "allowed_folder",
       parent_folder_id: "readonly_folder",
     });
-    expect(err.error).toBe("ReadOnly");
+    expect(err.error).toBe("Forbidden");
   });
 
   test("allow source + allow destination succeeds", async () => {
@@ -1030,39 +1009,33 @@ describe("move_folder with ACL", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3o. Global readOnly: true overrides
+// 3o. access.default: "read" blocks all writes
 // ═══════════════════════════════════════════════════════════════════════
 
-describe("global readOnly: true overrides", () => {
-  // Helper to switch to a readOnly config while keeping ACL rules.
-  function writeReadOnlyConfig() {
+describe("access.default 'read' blocks all writes", () => {
+  // Helper to switch to a read-only-equivalent config.
+  function writeReadDefaultConfig() {
     updateTestConfig({
-      readOnly: true,
       access: {
-        default: "deny",
-        rules: [
-          { path: "/Denied Folder/**", policy: "deny" },
-          { path: "/ReadOnly Folder/**", policy: "read" },
-          { path: "/Allowed Folder/**", policy: "allow" },
-          { path: "/Inbox", policy: "allow" },
-        ],
+        default: "read",
+        rules: [],
       },
     });
   }
 
-  test("readOnly blocks write on allow-policy document", async () => {
-    writeReadOnlyConfig();
+  test("blocks write on any document", async () => {
+    writeReadDefaultConfig();
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "allowed_doc",
       expected_version: 1,
       nodes: [{ node_id: "an1", content: "hacked" }],
     });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
+    expect(err.error).toBe("Forbidden");
+    expect(err.message).toBe("Document is read-only per access policy.");
   });
 
-  test("readOnly permits read on allow-policy document", async () => {
-    writeReadOnlyConfig();
+  test("permits read on any document", async () => {
+    writeReadDefaultConfig();
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "allowed_doc",
       max_depth: 10,
@@ -1070,105 +1043,33 @@ describe("global readOnly: true overrides", () => {
     expect(result.file_id).toBe("allowed_doc");
   });
 
-  test("readOnly blocks send_to_inbox", async () => {
-    writeReadOnlyConfig();
+  test("blocks send_to_inbox", async () => {
+    writeReadDefaultConfig();
     const err = await callToolError(ctx.mcpClient, "send_to_inbox", {
       content: "Test",
     });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
+    expect(err.error).toBe("Forbidden");
+    expect(err.message).toBe("Document is read-only per access policy.");
   });
 
-  test("readOnly blocks create_document", async () => {
-    writeReadOnlyConfig();
+  test("blocks create_document", async () => {
+    writeReadDefaultConfig();
     const err = await callToolError(ctx.mcpClient, "create_document", {
       parent_folder_id: "allowed_folder",
       title: "New",
     });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
+    expect(err.error).toBe("Forbidden");
+    expect(err.message).toBe("Document is read-only per access policy.");
   });
 
-  test("readOnly blocks create_folder", async () => {
-    writeReadOnlyConfig();
+  test("blocks create_folder", async () => {
+    writeReadDefaultConfig();
     const err = await callToolError(ctx.mcpClient, "create_folder", {
       parent_folder_id: "allowed_folder",
       title: "New",
     });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
-  });
-
-  test("readOnly blocks rename_document", async () => {
-    writeReadOnlyConfig();
-    const err = await callToolError(ctx.mcpClient, "rename_document", {
-      file_id: "allowed_doc",
-      title: "Nope",
-    });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
-  });
-
-  test("readOnly blocks rename_folder", async () => {
-    writeReadOnlyConfig();
-    const err = await callToolError(ctx.mcpClient, "rename_folder", {
-      file_id: "allowed_folder",
-      title: "Nope",
-    });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
-  });
-
-  test("readOnly blocks move_document", async () => {
-    writeReadOnlyConfig();
-    const err = await callToolError(ctx.mcpClient, "move_document", {
-      file_id: "allowed_doc",
-      parent_folder_id: "allowed_folder",
-    });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
-  });
-
-  test("readOnly blocks move_folder", async () => {
-    writeReadOnlyConfig();
-    const err = await callToolError(ctx.mcpClient, "move_folder", {
-      file_id: "allowed_folder",
-      parent_folder_id: "allowed_folder",
-    });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
-  });
-
-  test("readOnly blocks move_nodes on allow-policy document", async () => {
-    writeReadOnlyConfig();
-    const err = await callToolError(ctx.mcpClient, "move_nodes", {
-      file_id: "allowed_doc",
-      expected_version: 1,
-      moves: [{ node_id: "an1a", reference_node_id: "root", position: "last_child" }],
-    });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
-  });
-
-  test("readOnly error message is distinct from per-policy ReadOnly message", async () => {
-    // Per-policy ReadOnly message.
-    const policyErr = await callToolError(ctx.mcpClient, "edit_nodes", {
-      file_id: "readonly_doc",
-      expected_version: 1,
-      nodes: [{ node_id: "rn1", content: "hacked" }],
-    });
-
-    // Global readOnly message.
-    writeReadOnlyConfig();
-    const globalErr = await callToolError(ctx.mcpClient, "edit_nodes", {
-      file_id: "allowed_doc",
-      expected_version: 1,
-      nodes: [{ node_id: "an1", content: "hacked" }],
-    });
-
-    expect(policyErr.message).not.toBe(globalErr.message);
-    expect(globalErr.message).toBe("Server is in read-only mode.");
-    expect(policyErr.message).toContain("read-only per access policy");
+    expect(err.error).toBe("Forbidden");
+    expect(err.message).toBe("Document is read-only per access policy.");
   });
 });
 

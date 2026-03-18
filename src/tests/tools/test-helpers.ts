@@ -38,7 +38,6 @@ export async function createTestContext(
   setTestConfig({
     readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
     sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-    readOnly: false,
     cache: { ttlSeconds: 300 },
     logLevel: "warn",
     ...config,

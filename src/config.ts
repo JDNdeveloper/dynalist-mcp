@@ -61,8 +61,6 @@ export const ConfigSchema = z.object({
   access: AccessSchema.optional(),
   readDefaults: ReadDefaultsSchema.default({}),
   sizeWarning: SizeWarningSchema.default({}),
-  readOnly: z.boolean().default(false)
-    .describe("Reject all write operations when true"),
   cache: CacheSchema.default({}),
   logLevel: z.enum(["error", "warn", "info", "debug"]).default("warn")
     .describe("Log verbosity"),

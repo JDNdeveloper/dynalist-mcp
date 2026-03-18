@@ -50,7 +50,7 @@ function checkGlobalWriteBlock(
   const globalRule = access.rules.find(r => r.path === "/**" || r.path === "/*");
   const effectivePolicy: Policy = globalRule?.policy ?? access.default;
 
-  return requireAccess(effectivePolicy, "write", false);
+  return requireAccess(effectivePolicy, "write");
 }
 
 export function registerWriteTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
@@ -79,10 +79,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     },
     wrapToolHandler(async ({ content, note, show_checkbox, heading, color, checked }: { content: string; note?: string; show_checkbox?: boolean; heading?: HeadingValue; color?: ColorValue; checked?: boolean }) => {
       const config = getConfig();
-
-      if (config.readOnly) {
-        return makeErrorResponse("ReadOnly", "Server is in read-only mode.");
-      }
 
       // The Dynalist inbox API does not expose the inbox file_id without
       // actually sending an item, so we cannot resolve the inbox document's
@@ -171,7 +167,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
       // Access check: requires write (allow) policy.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "write", config.readOnly);
+      const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const changes: EditDocumentChange[] = nodes.map((entry) => {
@@ -309,7 +305,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
       // Access check: requires write (allow) policy.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "write", config.readOnly);
+      const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const isSiblingPosition = position === "after" || position === "before";

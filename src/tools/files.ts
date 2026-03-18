@@ -51,7 +51,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check: creating requires allow on the parent folder.
       const parentPolicy = await ac.getPolicy(parent_folder_id, config);
-      const accessError = requireAccess(parentPolicy, "write", config.readOnly);
+      const accessError = requireAccess(parentPolicy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const response = await client.editFiles([{
@@ -110,7 +110,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check: creating requires allow on the parent folder.
       const parentPolicy = await ac.getPolicy(parent_folder_id, config);
-      const accessError = requireAccess(parentPolicy, "write", config.readOnly);
+      const accessError = requireAccess(parentPolicy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const response = await client.editFiles([{
@@ -160,7 +160,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check: renaming requires allow policy on the file.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "write", config.readOnly);
+      const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const response = await client.editFiles([{
@@ -204,7 +204,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check: renaming requires allow policy on the folder.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "write", config.readOnly);
+      const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const response = await client.editFiles([{
@@ -258,11 +258,11 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check: moving requires allow on both source and destination.
       const sourcePolicy = await ac.getPolicy(file_id, config);
-      const sourceError = requireAccess(sourcePolicy, "write", config.readOnly);
+      const sourceError = requireAccess(sourcePolicy, "write");
       if (sourceError) return makeErrorResponse(sourceError.error, sourceError.message);
 
       const destPolicy = await ac.getPolicy(parent_folder_id, config);
-      const destError = requireAccess(destPolicy, "write", config.readOnly);
+      const destError = requireAccess(destPolicy, "write");
       if (destError) return makeErrorResponse(destError.error, destError.message);
 
       // Verify the file is a document, not a folder.
@@ -327,11 +327,11 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check: moving requires allow on both source and destination.
       const sourcePolicy = await ac.getPolicy(file_id, config);
-      const sourceError = requireAccess(sourcePolicy, "write", config.readOnly);
+      const sourceError = requireAccess(sourcePolicy, "write");
       if (sourceError) return makeErrorResponse(sourceError.error, sourceError.message);
 
       const destPolicy = await ac.getPolicy(parent_folder_id, config);
-      const destError = requireAccess(destPolicy, "write", config.readOnly);
+      const destError = requireAccess(destPolicy, "write");
       if (destError) return makeErrorResponse(destError.error, destError.message);
 
       // Verify the file is a folder, not a document.

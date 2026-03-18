@@ -95,6 +95,15 @@ Multiple files can have the same title, resulting in the same path. If a non-ID-
 
 ## Examples
 
+**Global read-only mode.** Prevent all write operations while allowing reads:
+```json
+{
+  "access": {
+    "default": "read"
+  }
+}
+```
+
 **Work machine allowlist.** Only allow access to specific folders:
 ```json
 {

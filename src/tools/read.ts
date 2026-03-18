@@ -431,7 +431,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "read", false);
+      const accessError = requireAccess(policy, "read");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const effectiveMaxDepth = max_depth === undefined ? config.readDefaults.maxDepth : max_depth;
@@ -534,7 +534,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "read", false);
+      const accessError = requireAccess(policy, "read");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       let regex: RegExp;
@@ -660,7 +660,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
       // Access check.
       const policy = await ac.getPolicy(file_id, config);
-      const accessError = requireAccess(policy, "read", false);
+      const accessError = requireAccess(policy, "read");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const parseTimestamp = (val: string, endOfDay: boolean = false): number => {

@@ -617,7 +617,6 @@ function generateExampleConfig(): Record<string, unknown> {
     },
     readDefaults: defaults.readDefaults,
     sizeWarning: defaults.sizeWarning,
-    readOnly: defaults.readOnly,
     cache: defaults.cache,
     logLevel: defaults.logLevel,
     logFile: "/tmp/dynalist-mcp.log",

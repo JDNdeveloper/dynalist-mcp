@@ -545,16 +545,12 @@ export class AccessController {
 export function requireAccess(
   policy: Policy,
   level: "read" | "write",
-  readOnly: boolean,
 ): { error: string; message: string } | null {
   if (policy === "deny") {
     return { error: "NotFound", message: "Document not found or access denied." };
   }
-  if (level === "write" && readOnly) {
-    return { error: "ReadOnly", message: "Server is in read-only mode." };
-  }
   if (level === "write" && policy === "read") {
-    return { error: "ReadOnly", message: "Document is read-only per access policy." };
+    return { error: "Forbidden", message: "Document is read-only per access policy." };
   }
   return null;
 }

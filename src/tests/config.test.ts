@@ -65,18 +65,17 @@ describe("config loading", () => {
     expect(config.readDefaults.includeChecked).toBe(true);
     expect(config.sizeWarning.warningTokenThreshold).toBe(5000);
     expect(config.sizeWarning.maxTokenThreshold).toBe(24500);
-    expect(config.readOnly).toBe(false);
     expect(config.cache.ttlSeconds).toBe(300);
     expect(config.logLevel).toBe("warn");
   });
 
   test("partial config fills missing fields with defaults", () => {
-    writeTestConfig({ readOnly: true });
+    writeTestConfig({ logLevel: "debug" });
     const config = getConfig();
-    expect(config.readOnly).toBe(true);
+    expect(config.logLevel).toBe("debug");
     // Other fields should be defaults.
     expect(config.readDefaults.maxDepth).toBe(3);
-    expect(config.logLevel).toBe("warn");
+    expect(config.cache.ttlSeconds).toBe(300);
   });
 
   test("full config is parsed correctly", () => {
@@ -92,7 +91,6 @@ describe("config loading", () => {
         includeChecked: false,
       },
       sizeWarning: { warningTokenThreshold: 1000, maxTokenThreshold: 5000 },
-      readOnly: true,
       cache: { ttlSeconds: 60 },
       logLevel: "debug",
     });
@@ -104,7 +102,6 @@ describe("config loading", () => {
     expect(config.readDefaults.includeNotes).toBe(false);
     expect(config.readDefaults.includeChecked).toBe(false);
     expect(config.sizeWarning.warningTokenThreshold).toBe(1000);
-    expect(config.readOnly).toBe(true);
     expect(config.cache.ttlSeconds).toBe(60);
     expect(config.logLevel).toBe("debug");
   });
@@ -286,16 +283,9 @@ describe("config global settings", () => {
     delete process.env.DYNALIST_MCP_CONFIG;
   });
 
-  test("readOnly defaults to false", () => {
-    writeTestConfig({});
-    const config = getConfig();
-    expect(config.readOnly).toBe(false);
-  });
-
-  test("readOnly true is respected", () => {
+  test("readOnly is rejected by strict schema", () => {
     writeTestConfig({ readOnly: true });
-    const config = getConfig();
-    expect(config.readOnly).toBe(true);
+    expect(() => getConfig()).toThrow(ConfigError);
   });
 
   test("logLevel defaults to warn", () => {
@@ -461,25 +451,25 @@ describe("config reload behavior", () => {
   });
 
   test("file deleted after initial load reverts to defaults", () => {
-    writeTestConfig({ readOnly: true });
+    writeTestConfig({ logLevel: "debug" });
     const config1 = getConfig();
-    expect(config1.readOnly).toBe(true);
+    expect(config1.logLevel).toBe("debug");
 
     // Delete the config file.
     unlinkSync(TEST_CONFIG_PATH);
     const config2 = getConfig();
-    expect(config2.readOnly).toBe(false);
+    expect(config2.logLevel).toBe("warn");
     expect(config2.readDefaults.maxDepth).toBe(3);
   });
 
   test("file modified causes new config to be loaded", () => {
-    writeTestConfig({ readOnly: false });
+    writeTestConfig({ logLevel: "warn" });
     const config1 = getConfig();
-    expect(config1.readOnly).toBe(false);
+    expect(config1.logLevel).toBe("warn");
 
-    writeTestConfig({ readOnly: true });
+    writeTestConfig({ logLevel: "debug" });
     const config2 = getConfig();
-    expect(config2.readOnly).toBe(true);
+    expect(config2.logLevel).toBe("debug");
   });
 
   test("file unchanged with same mtime returns cached config", () => {
@@ -493,11 +483,11 @@ describe("config reload behavior", () => {
   });
 
   test("config version incremented on reload", () => {
-    writeTestConfig({ readOnly: false });
+    writeTestConfig({ logLevel: "warn" });
     getConfig();
     const v1 = getConfigVersion();
 
-    writeTestConfig({ readOnly: true });
+    writeTestConfig({ logLevel: "debug" });
     getConfig();
     const v2 = getConfigVersion();
 
@@ -515,9 +505,9 @@ describe("config reload behavior", () => {
   });
 
   test("invalid config after valid config throws ConfigError", () => {
-    writeTestConfig({ readOnly: true });
+    writeTestConfig({ logLevel: "debug" });
     const config1 = getConfig();
-    expect(config1.readOnly).toBe(true);
+    expect(config1.logLevel).toBe("debug");
 
     // Write invalid config.
     writeTestConfig({ logLevel: "banana" });
@@ -534,9 +524,9 @@ describe("config reloading between tool invocations", () => {
     await ctx.cleanup();
   });
 
-  test("readOnly change is picked up on next tool invocation", async () => {
-    // Start with readOnly: false, so writes succeed.
-    ctx = await createTestContext(standardSetup, { readOnly: false });
+  test("access default change is picked up on next tool invocation", async () => {
+    // Start with no access restrictions, so writes succeed.
+    ctx = await createTestContext(standardSetup);
 
     const version = await getVersion(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_nodes", {
@@ -546,25 +536,24 @@ describe("config reloading between tool invocations", () => {
     });
     expect(result.file_id).toBe("doc1");
 
-    // Switch to readOnly: true via setTestConfig.
+    // Switch to access.default: "read" via setTestConfig.
     setTestConfig({
       readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
       sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-
-      readOnly: true,
+      access: { default: "read", rules: [] },
       cache: { ttlSeconds: 300 },
       logLevel: "warn",
     });
 
-    // The next write tool invocation should see readOnly and refuse.
+    // The next write tool invocation should see the read-only policy and refuse.
     const version2 = await getVersion(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "edit_nodes", {
       file_id: "doc1",
       expected_version: version2,
       nodes: [{ node_id: "n1", content: "Should fail" }],
     });
-    expect(err.error).toBe("ReadOnly");
-    expect(err.message).toBe("Server is in read-only mode.");
+    expect(err.error).toBe("Forbidden");
+    expect(err.message).toBe("Document is read-only per access policy.");
   });
 
   test("readDefaults change affects read_document behavior", async () => {
@@ -585,8 +574,6 @@ describe("config reloading between tool invocations", () => {
     setTestConfig({
       readDefaults: { maxDepth: 10, includeCollapsedChildren: false, includeNotes: true, includeChecked: false },
       sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-
-      readOnly: false,
       cache: { ttlSeconds: 300 },
       logLevel: "warn",
     });
@@ -617,8 +604,6 @@ describe("config reloading between tool invocations", () => {
     setTestConfig({
       readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
       sizeWarning: { warningTokenThreshold: 1, maxTokenThreshold: 24500 },
-
-      readOnly: false,
       cache: { ttlSeconds: 300 },
       logLevel: "warn",
     });

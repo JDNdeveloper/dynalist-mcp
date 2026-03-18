@@ -9,7 +9,6 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 - **17 tools** for reading, writing, searching, and organizing documents.
 - **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
 - **Configurable defaults** for read depth, collapsed nodes, notes, checked items, size warnings, and more.
-- **Read-only mode** to prevent all write operations.
 - **Structured responses** with JSON (`structuredContent`) on success and plain text on errors, for broad client compatibility.
 - **Native-feeling output** via MCP instructions that guide agents to render outlines, show diff previews before writes, and handle large documents gracefully.
 - **Concurrent edit detection** so writes against stale data are caught before or immediately after they happen.
@@ -174,7 +173,19 @@ This server uses MCP stdio transport: it runs as a local subprocess of the MCP c
 
 ### LLM access risks
 
-While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). The LLM could read sensitive content, modify or delete nodes, or exfiltrate data by including it in responses. Use the access control system and `readOnly` mode to limit exposure.
+While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). The LLM could read sensitive content, modify or delete nodes, or exfiltrate data by including it in responses. Use the access control system to limit exposure.
+
+To enforce global read-only mode (all reads allowed, all writes blocked):
+
+```json
+{
+  "access": {
+    "default": "read"
+  }
+}
+```
+
+See [docs/access-control.md](docs/access-control.md) for more granular options.
 
 ### Access control limitations
 
@@ -182,7 +193,7 @@ The access control system is best-effort and should not be relied upon as a hard
 
 1. **Content leakage**: content within allowed documents may contain links or references to denied documents, exposing their IDs or titles. The ACL system does not scrub content.
 2. **Cache staleness**: the file tree cache (default 5 minutes TTL) means external renames/moves may cause rules to match incorrectly until the cache refreshes.
-3. **Inbox bypass**: the `send_to_inbox` tool cannot check per-document access because the inbox file ID is unknown until after sending. It respects `readOnly` mode and is blocked when the global access policy is not writable, but narrower deny rules cannot prevent inbox writes.
+3. **Inbox bypass**: the `send_to_inbox` tool cannot check per-document access because the inbox file ID is unknown until after sending. It is blocked when the global access policy is not writable, but narrower deny rules cannot prevent inbox writes.
 
 Users who need strict isolation should use separate Dynalist accounts rather than relying solely on ACLs.
 
