@@ -1,6 +1,6 @@
 {
   "name": "dynalist-mcp",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "description": "MCP server for Dynalist.io - read, write, search, and organize outliner content",
   "type": "module",
   "main": "src/index.ts",
