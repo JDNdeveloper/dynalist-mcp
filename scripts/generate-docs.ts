@@ -38,6 +38,11 @@ function zodDef(schema: ZodTypeAny): ZodInternalDef {
 
 // ─── Zod introspection ──────────────────────────────────────────────
 
+interface FieldVariant {
+  label: string;
+  fields: FieldInfo[];
+}
+
 interface FieldInfo {
   name: string;
   type: string;
@@ -45,6 +50,7 @@ interface FieldInfo {
   default_: string | undefined;
   description: string;
   children?: FieldInfo[];
+  childVariants?: FieldVariant[];
 }
 
 /**
@@ -161,71 +167,129 @@ function zodTypeString(schema: ZodTypeAny, depth: number = 0): string {
 }
 
 /**
- * Extract fields from a Zod object schema (the Record<string, ZodType> format
- * used by MCP's inputSchema/outputSchema).
+ * Extract fields from the top-level MCP Record<string, ZodType> format.
  */
 function extractFields(schemaMap: Record<string, ZodTypeAny>): FieldInfo[] {
   return Object.entries(schemaMap).map(([name, schema]) => {
     const { inner, optional, default_ } = unwrap(schema);
-    const description = findDescription(schema);
-
     const field: FieldInfo = {
       name: `\`${name}\``,
       type: zodTypeString(schema),
       required: !optional,
       default_,
-      description,
+      description: findDescription(schema),
     };
-
-    // Extract nested object fields for arrays, lazy schemas, and inline objects.
-    const innerDef = zodDef(inner);
-    if (innerDef?.typeName === "ZodArray") {
-      const elemSchema = innerDef.type;
-      const elemUnwrapped = unwrap(elemSchema);
-      const elemDef = zodDef(elemUnwrapped.inner);
-      if (elemDef?.typeName === "ZodObject") {
-        field.children = extractObjectFields(elemUnwrapped.inner);
-      } else if (elemDef?.typeName === "ZodLazy") {
-        // Recursive schema (e.g. outputNodeSchema, jsonInputNodeSchema).
-        const resolved = elemDef.getter();
-        const resolvedDef = zodDef(resolved);
-        if (resolvedDef?.typeName === "ZodObject") {
-          field.children = extractObjectFields(resolved);
-        }
-      }
-    } else if (innerDef?.typeName === "ZodLazy") {
-      // Non-array lazy schema (e.g. read_document's item field).
-      const resolved = innerDef.getter();
-      const resolvedDef = zodDef(resolved);
-      if (resolvedDef?.typeName === "ZodObject") {
-        field.children = extractObjectFields(resolved);
-      }
-    } else if (innerDef?.typeName === "ZodObject") {
-      field.children = extractObjectFields(inner);
-    }
-
+    populateNestedFields(field, inner, new Set());
     return field;
   });
 }
 
 /**
- * Extract fields from a ZodObject (not the MCP Record format).
+ * Extract fields from a ZodObject, recursively populating children.
+ * The `seen` set tracks resolved ZodLazy schemas to prevent infinite
+ * recursion on self-referencing types (e.g. outputNodeSchema).
  */
-function extractObjectFields(schema: ZodTypeAny): FieldInfo[] {
+function extractObjectFields(schema: ZodTypeAny, seen: Set<ZodTypeAny>): FieldInfo[] {
   const def = zodDef(schema);
   if (def?.typeName !== "ZodObject") return [];
   const shape = def.shape();
   return Object.entries(shape).map(([name, fieldSchema]) => {
     const s = fieldSchema as ZodTypeAny;
-    const { optional, default_ } = unwrap(s);
-    return {
+    const { inner, optional, default_ } = unwrap(s);
+    const field: FieldInfo = {
       name: `\`${name}\``,
       type: zodTypeString(s),
       required: !optional,
       default_,
       description: findDescription(s),
     };
+    populateNestedFields(field, inner, seen);
+    return field;
   });
+}
+
+/**
+ * Populate `children` or `childVariants` on a field based on its inner
+ * schema type. Handles arrays (including union elements), lazy schemas,
+ * and inline objects. No-op for scalar types.
+ */
+function populateNestedFields(field: FieldInfo, inner: ZodTypeAny, seen: Set<ZodTypeAny>): void {
+  const innerDef = zodDef(inner);
+  if (innerDef?.typeName === "ZodArray") {
+    populateArrayElementFields(field, innerDef.type, seen);
+  } else if (innerDef?.typeName === "ZodLazy") {
+    field.children = extractLazyFields(inner, innerDef, seen);
+  } else if (innerDef?.typeName === "ZodObject") {
+    field.children = extractObjectFields(inner, seen);
+  }
+}
+
+/**
+ * Populate a field's children from its array element schema. For union
+ * elements, populates `childVariants` with separate variant tables.
+ */
+function populateArrayElementFields(field: FieldInfo, elemSchema: ZodTypeAny, seen: Set<ZodTypeAny>): void {
+  const elemUnwrapped = unwrap(elemSchema);
+  const elemDef = zodDef(elemUnwrapped.inner);
+  if (elemDef?.typeName === "ZodObject") {
+    field.children = extractObjectFields(elemUnwrapped.inner, seen);
+  } else if (elemDef?.typeName === "ZodLazy") {
+    field.children = extractLazyFields(elemUnwrapped.inner, elemDef, seen);
+  } else if (elemDef?.typeName === "ZodUnion") {
+    field.childVariants = extractUnionVariants(elemDef.options as ZodTypeAny[], seen);
+  }
+}
+
+/**
+ * Resolve a ZodLazy schema and extract its fields if it is an object.
+ * Skips schemas already in `seen` to prevent infinite recursion.
+ */
+function extractLazyFields(lazySchema: ZodTypeAny, lazyDef: ZodInternalDef, seen: Set<ZodTypeAny>): FieldInfo[] | undefined {
+  if (seen.has(lazySchema)) return undefined;
+  seen.add(lazySchema);
+  const resolved = lazyDef.getter();
+  const resolvedDef = zodDef(resolved);
+  if (resolvedDef?.typeName === "ZodObject") {
+    return extractObjectFields(resolved, seen);
+  }
+  return undefined;
+}
+
+/**
+ * Extract each union variant's fields as a separate labeled group.
+ * Labels are derived from ZodLiteral fields (discriminators) when present.
+ */
+function extractUnionVariants(options: ZodTypeAny[], seen: Set<ZodTypeAny>): FieldVariant[] | undefined {
+  const variants: FieldVariant[] = [];
+  for (const option of options) {
+    const unwrapped = unwrap(option);
+    const optDef = zodDef(unwrapped.inner);
+    let fields: FieldInfo[] | undefined;
+    if (optDef?.typeName === "ZodObject") {
+      fields = extractObjectFields(unwrapped.inner, seen);
+    } else if (optDef?.typeName === "ZodLazy") {
+      fields = extractLazyFields(unwrapped.inner, optDef, seen);
+    }
+    if (fields && fields.length > 0) {
+      variants.push({ label: findDiscriminatorLabel(fields), fields });
+    }
+  }
+  return variants.length > 0 ? variants : undefined;
+}
+
+/**
+ * Find a discriminator label from a variant's fields by looking for a
+ * ZodLiteral type (e.g. `"document"` or `"folder"`). Falls back to the
+ * field list's first required field's type string.
+ */
+function findDiscriminatorLabel(fields: FieldInfo[]): string {
+  for (const f of fields) {
+    // ZodLiteral types render as quoted strings like `"document"`.
+    if (f.type.startsWith('"') && f.type.endsWith('"')) {
+      return f.type.slice(1, -1);
+    }
+  }
+  return "variant";
 }
 
 // ─── Example generation ─────────────────────────────────────────────
@@ -258,7 +322,7 @@ function generateExample(name: string, schema: ZodTypeAny, depth: number = 0): u
       return vals.find(v => v !== "none" && v !== "all") ?? vals[0];
     }
     case "ZodArray": {
-      if (depth > 1) return [];
+      if (depth > 3) return [];
       const elem = generateExample(name, def.type, depth + 1);
       return [elem];
     }
@@ -267,8 +331,9 @@ function generateExample(name: string, schema: ZodTypeAny, depth: number = 0): u
       const obj: Record<string, unknown> = {};
       for (const [key, fieldSchema] of Object.entries(shape)) {
         const { optional } = unwrap(fieldSchema as ZodTypeAny);
-        // Skip some optional fields in examples for brevity.
-        if (optional && depth > 0 && !["content", "item_id", "position", "reference_item_id"].includes(key)) continue;
+        // Include all optional fields at the first two nesting levels (depth <= 2).
+        // Beyond that, skip optional fields except semantically-required ones.
+        if (optional && depth > 2 && !["content", "item_id", "position", "reference_item_id"].includes(key)) continue;
         obj[key] = generateExample(key, fieldSchema as ZodTypeAny, depth + 1);
       }
       return obj;
@@ -282,7 +347,7 @@ function generateExample(name: string, schema: ZodTypeAny, depth: number = 0): u
       return generateExample(name, options[0], depth + 1);
     }
     case "ZodLazy": {
-      if (depth < 2) {
+      if (depth < 5) {
         return generateExample(name, def.getter(), depth + 1);
       }
       return {};
@@ -447,6 +512,31 @@ function renderOutputTable(fields: FieldInfo[]): string {
   return rows.join("\n");
 }
 
+/**
+ * Recursively render sub-tables for fields with children or childVariants.
+ */
+function renderSubTables(lines: string[], fields: FieldInfo[], renderFn: (fields: FieldInfo[]) => string): void {
+  for (const f of fields) {
+    if (f.childVariants) {
+      const parentLabel = f.name.replace(/`/g, "");
+      for (const variant of f.childVariants) {
+        lines.push("");
+        lines.push(`**\`${parentLabel}\` ${variant.label} element fields:**`);
+        lines.push("");
+        lines.push(renderFn(variant.fields));
+      }
+    } else if (f.children && f.children.length > 0) {
+      const label = f.name.replace(/`/g, "");
+      const suffix = f.type.endsWith("[]") ? " element" : "";
+      lines.push("");
+      lines.push(`**\`${label}\`${suffix} fields:**`);
+      lines.push("");
+      lines.push(renderFn(f.children));
+      renderSubTables(lines, f.children, renderFn);
+    }
+  }
+}
+
 function generateToolsMarkdown(): string {
   const toolMap = new Map(capturedTools.map(t => [t.name, t]));
   const lines: string[] = [];
@@ -454,6 +544,8 @@ function generateToolsMarkdown(): string {
   lines.push("<!-- Generated by scripts/generate-docs.ts. Do not edit by hand. -->");
   lines.push("");
   lines.push("# Tools Reference");
+  lines.push("");
+  lines.push("Examples are auto-generated to demonstrate response shape and available properties. Some examples may contain logically contradictory field combinations (e.g. `depth_limited: true` alongside `children`).");
 
   for (const category of CATEGORIES) {
     lines.push("");
@@ -481,17 +573,8 @@ function generateToolsMarkdown(): string {
         lines.push("");
         lines.push(renderFieldTable(inputFields, true));
 
-        // Render sub-object tables.
-        for (const f of inputFields) {
-          if (f.children && f.children.length > 0) {
-            lines.push("");
-            const label = f.name.replace(/`/g, "");
-            const suffix = f.type.endsWith("[]") ? " element" : "";
-            lines.push(`**\`${label}\`${suffix} fields:**`);
-            lines.push("");
-            lines.push(renderFieldTable(f.children, false));
-          }
-        }
+        // Render sub-object tables recursively.
+        renderSubTables(lines, inputFields, (fields) => renderFieldTable(fields, false));
       }
 
       // Example input.
@@ -517,17 +600,8 @@ function generateToolsMarkdown(): string {
       lines.push("");
       lines.push(renderOutputTable(outputFields));
 
-      // Render nested output sub-tables.
-      for (const f of outputFields) {
-        if (f.children && f.children.length > 0) {
-          const label = f.name.replace(/`/g, "");
-          const suffix = f.type.endsWith("[]") ? " element" : "";
-          lines.push("");
-          lines.push(`**\`${label}\`${suffix} fields:**`);
-          lines.push("");
-          lines.push(renderOutputTable(f.children));
-        }
-      }
+      // Render nested output sub-tables recursively.
+      renderSubTables(lines, outputFields, renderOutputTable);
 
       // Example output. Skip warning/sync_warning since they represent
       // error-path responses, not the normal success shape.

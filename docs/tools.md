@@ -2,6 +2,8 @@
 
 # Tools Reference
 
+Examples are auto-generated to demonstrate response shape and available properties. Some examples may contain logically contradictory field combinations (e.g. `depth_limited: true` alongside `children`).
+
 ## Read tools
 
 ### `list_documents`
@@ -29,6 +31,27 @@ List documents and folders as a recursive tree.
 | `count` | number | yes | Total number of documents in the result |
 | `files` | object \| object (recursive)[] | yes | Recursive file tree of intermixed documents and folders. |
 
+**`files` document element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `file_id` | string | yes | Document file ID |
+| `title` | string | yes | Document title |
+| `type` | "document" | yes | File type |
+| `permission` | `"none"`, `"read"`, `"edit"`, `"manage"`, `"owner"` | yes | Permission level for this document |
+| `access_policy` | `"read"` | no | Access policy if restricted. Omitted when unrestricted. |
+
+**`files` folder element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `file_id` | string | yes | Folder file ID |
+| `title` | string | yes | Folder title |
+| `type` | "folder" | yes | File type |
+| `depth_limited` | true | no | Present when max_depth cut off traversal. Call list_documents with this folder's file_id to expand. |
+| `child_count` | number | no | Direct children count. Present only when depth_limited is true. |
+| `children` | object \| object (recursive)[] | no | Child documents and folders. Omitted when depth-limited. |
+
 **Example response:**
 ```json
 {
@@ -38,7 +61,8 @@ List documents and folders as a recursive tree.
       "file_id": "f_abc123",
       "title": "Project Notes",
       "type": "document",
-      "permission": "read"
+      "permission": "read",
+      "access_policy": "read"
     }
   ]
 }
@@ -92,7 +116,9 @@ Each match has a type field ('document' or 'folder'). Document matches include p
     {
       "file_id": "f_abc123",
       "title": "Project Notes",
-      "type": "document"
+      "type": "document",
+      "permission": "read",
+      "access_policy": "read"
     }
   ]
 }
@@ -164,7 +190,21 @@ Leaf items (no children) omit child_count and children entirely.
   "sync_token": "a1b2c",
   "item": {
     "item_id": "n_item789",
-    "content": "Buy groceries"
+    "content": "Buy groceries",
+    "note": "Milk, eggs, bread",
+    "checked": true,
+    "show_checkbox": true,
+    "heading": "h1",
+    "color": "red",
+    "collapsed": false,
+    "depth_limited": true,
+    "child_count": 3,
+    "children": [
+      {
+        "item_id": "n_item789",
+        "content": "Buy groceries"
+      }
+    ]
   }
 }
 ```
@@ -217,6 +257,13 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
 | `parents` | object[] | no | Ancestor chain. Present when parent_levels is not 'none' and ancestors exist. |
 
+**`parents` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+
 **Example response:**
 ```json
 {
@@ -228,7 +275,18 @@ Search for text in a document. Returns matching items with metadata. Use parent_
   "matches": [
     {
       "item_id": "n_item789",
-      "content": "Buy groceries"
+      "content": "Buy groceries",
+      "note": "Milk, eggs, bread",
+      "checked": true,
+      "show_checkbox": true,
+      "heading": "h1",
+      "color": "red",
+      "parents": [
+        {
+          "item_id": "n_item789",
+          "content": "Buy groceries"
+        }
+      ]
     }
   ]
 }
@@ -287,6 +345,13 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 | `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
 | `parents` | object[] | no | Ancestor chain. Present when parent_levels is not 'none' and ancestors exist. |
 
+**`parents` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+
 **Example response:**
 ```json
 {
@@ -300,7 +365,19 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
       "content": "Buy groceries",
       "change_type": "created",
       "created": "2025-03-11T12:00:00.000Z",
-      "modified": "2025-03-11T14:30:00.000Z"
+      "modified": "2025-03-11T14:30:00.000Z",
+      "note": "Milk, eggs, bread",
+      "checked": true,
+      "show_checkbox": true,
+      "heading": "h1",
+      "color": "red",
+      "collapsed": false,
+      "parents": [
+        {
+          "item_id": "n_item789",
+          "content": "Buy groceries"
+        }
+      ]
     }
   ]
 }
@@ -415,7 +492,12 @@ Edit one or more items in a document. Only specified fields are updated; omitted
   "items": [
     {
       "item_id": "n_item789",
-      "content": "Buy groceries"
+      "content": "Buy groceries",
+      "note": "Milk, eggs, bread",
+      "checked": true,
+      "show_checkbox": true,
+      "heading": "h1",
+      "color": "red"
     }
   ],
   "expected_sync_token": "a1b2c"
@@ -475,7 +557,17 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
   "file_id": "f_abc123",
   "items": [
     {
-      "content": "Buy groceries"
+      "content": "Buy groceries",
+      "note": "Milk, eggs, bread",
+      "checked": true,
+      "show_checkbox": true,
+      "heading": "h1",
+      "color": "red",
+      "children": [
+        {
+          "content": "Buy groceries"
+        }
+      ]
     }
   ],
   "position": "first_child",

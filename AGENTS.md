@@ -136,6 +136,7 @@ Key rules:
 - **Schema defaults from config**: use `getStartupConfig()` before tool registration to capture startup-only values and set Zod `.default()` calls. Use `getConfig()` inside tool handlers for all runtime config access. Never call `getStartupConfig()` inside a handler.
 - **Cache invalidation**: file tree cache is invalidated after create/rename/move operations and on denial retries.
 - **Property ordering**: any property whose value is a nested structure (array of objects, recursive tree, etc.) must be the last property on its containing object, in both schemas and response construction. This keeps scalar metadata visually adjacent to the primary content in serialized JSON. See `docs/agent-ux.md` "Property ordering" for the full canonical field order, rationale, and examples.
+- **Union discriminators**: every variant in a `z.union()` must include a `z.literal()` field as a discriminator (e.g. `type: z.literal("document")`). `scripts/generate-docs.ts` uses the first literal field in each variant to label the per-variant sub-tables in `docs/tools.md`.
 
 ## When tools change
 
