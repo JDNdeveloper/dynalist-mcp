@@ -610,6 +610,66 @@ describe("delete_items", () => {
 
 // ─── partial write errors ────────────────────────────────────────────
 
+describe("delete_items subtree batching", () => {
+  test("subtree deletion with >200 nodes uses batching and succeeds", async () => {
+    // Create a parent with 201 children (202 total delete changes).
+    const childIds = Array.from({ length: 201 }, (_, i) => `bulk_${i}`);
+    const nodes = [
+      ctx.server.makeNode("root", "Test Document", ["bulk_parent"]),
+      ctx.server.makeNode("bulk_parent", "Parent", childIds),
+      ...childIds.map((id) => ctx.server.makeNode(id, `Child ${id}`, [])),
+    ];
+    ctx.server.addDocument("bulk_doc", "Bulk Doc", "folder_a", nodes);
+
+    const syncToken = await getSyncToken(ctx.mcpClient, "bulk_doc");
+    const result = await callToolOk(ctx.mcpClient, "delete_items", {
+      file_id: "bulk_doc",
+      item_ids: ["bulk_parent"],
+      expected_sync_token: syncToken,
+    });
+
+    // 201 children + 1 parent = 202 deleted.
+    expect(result.deleted_count).toBe(202);
+
+    // Verify document only has the root node left.
+    const doc = ctx.server.documents.get("bulk_doc")!;
+    expect(doc.nodes).toHaveLength(1);
+    expect(doc.nodes[0].id).toBe("root");
+  });
+
+  test("subtree deletion returns PartialWrite when second batch fails", async () => {
+    // Create a parent with 201 children (202 delete changes = 2 batches).
+    const childIds = Array.from({ length: 201 }, (_, i) => `bulk_${i}`);
+    const nodes = [
+      ctx.server.makeNode("root", "Test Document", ["bulk_parent"]),
+      ctx.server.makeNode("bulk_parent", "Parent", childIds),
+      ...childIds.map((id) => ctx.server.makeNode(id, `Child ${id}`, [])),
+    ];
+    ctx.server.addDocument("bulk_doc", "Bulk Doc", "folder_a", nodes);
+
+    // First editDocument batch succeeds, second fails.
+    ctx.server.failEditAfterNCalls(1);
+
+    const syncToken = await getSyncToken(ctx.mcpClient, "bulk_doc");
+    const result = await callTool(ctx.mcpClient, "delete_items", {
+      file_id: "bulk_doc",
+      item_ids: ["bulk_parent"],
+      expected_sync_token: syncToken,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseErrorContent(result);
+    expect(parsed.error).toBe("PartialWrite");
+    expect(parsed.file_id).toBe("bulk_doc");
+    expect(parsed.message).toContain("partial execution");
+
+    // First batch deleted 200 nodes. Remaining: root + bulk_parent + 1 child.
+    const doc = ctx.server.documents.get("bulk_doc")!;
+    expect(doc.nodes.length).toBeLessThan(204);
+    expect(doc.nodes.length).toBeGreaterThan(1);
+  });
+});
+
 describe("delete_items promote partial failure", () => {
   test("promote returns PartialWrite when delete call fails after successful move", async () => {
     // n1 has children n1a, n1b. The move call succeeds, but the delete

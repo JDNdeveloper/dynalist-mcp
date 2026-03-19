@@ -152,7 +152,7 @@ export class DynalistClient {
     this.token = token;
   }
 
-  private async request<T>(endpoint: string, body: Record<string, unknown> = {}): Promise<T> {
+  protected async request<T>(endpoint: string, body: Record<string, unknown> = {}): Promise<T> {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       const response = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",

@@ -1,6 +1,6 @@
 /**
  * Unit tests for DynalistClient.editDocument batching logic.
- * Mocks the private `request` method to avoid HTTP calls and verify
+ * Mocks the protected `request` method to avoid HTTP calls and verify
  * that large change sets are split into correct batches.
  */
 
@@ -17,7 +17,7 @@ function createClientWithMockedRequest() {
   const calls: Array<{ endpoint: string; body: Record<string, unknown> }> = [];
   let nodeCounter = 0;
 
-  // Replace the private `request` method with a controlled fake.
+  // Replace the protected `request` method with a controlled fake.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (client as any).request = async (endpoint: string, body: Record<string, unknown>) => {
     calls.push({ endpoint, body });

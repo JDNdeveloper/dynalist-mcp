@@ -571,9 +571,10 @@ export class DummyDynalistServer {
 }
 
 /**
- * DynalistClient subclass that delegates to a DummyDynalistServer.
- * Allows tools to receive a real DynalistClient type while using
- * in-memory state.
+ * DynalistClient subclass that routes through DummyDynalistServer at
+ * the transport level. Only the `request` method is overridden, so all
+ * higher-level client logic (batching in editDocument, retry on
+ * TooManyRequests, etc.) runs for real during integration tests.
  */
 export class MockDynalistClient extends DynalistClient {
   readonly server: DummyDynalistServer;
@@ -583,36 +584,34 @@ export class MockDynalistClient extends DynalistClient {
     this.server = server;
   }
 
-  override listFiles() {
-    return this.server.listFiles();
-  }
-
-  override readDocument(fileId: string) {
-    return this.server.readDocument(fileId);
-  }
-
-  override editDocument(fileId: string, changes: EditDocumentChange[]) {
-    return this.server.editDocument(fileId, changes);
-  }
-
-  override sendToInbox(options: {
-    content: string;
-    note?: string;
-    index?: number;
-    checked?: boolean;
-    checkbox?: boolean;
-    heading?: number;
-    color?: number;
-  }) {
-    return this.server.sendToInbox(options);
-  }
-
-  override editFiles(changes: FileEditChange[]) {
-    return this.server.editFiles(changes);
-  }
-
-  override checkForUpdates(fileIds: string[]) {
-    return this.server.checkForUpdates(fileIds);
+  protected override async request<T>(endpoint: string, body: Record<string, unknown> = {}): Promise<T> {
+    switch (endpoint) {
+      case "/file/list":
+        return await this.server.listFiles() as T;
+      case "/doc/read":
+        return await this.server.readDocument(body.file_id as string) as T;
+      case "/doc/edit":
+        return await this.server.editDocument(
+          body.file_id as string,
+          body.changes as EditDocumentChange[],
+        ) as T;
+      case "/inbox/add":
+        return await this.server.sendToInbox(body as {
+          content: string;
+          note?: string;
+          index?: number;
+          checked?: boolean;
+          checkbox?: boolean;
+          heading?: number;
+          color?: number;
+        }) as T;
+      case "/file/edit":
+        return await this.server.editFiles(body.changes as FileEditChange[]) as T;
+      case "/doc/check_for_updates":
+        return await this.server.checkForUpdates(body.file_ids as string[]) as T;
+      default:
+        throw new Error(`MockDynalistClient: unknown endpoint '${endpoint}'.`);
+    }
   }
 }
 
