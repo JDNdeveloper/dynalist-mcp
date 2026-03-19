@@ -69,8 +69,8 @@ const outputNodeSchema: z.ZodType<{
   color?: string;
   collapsed?: boolean;
   depth_limited?: true;
-  child_count: number;
-  children: unknown[];
+  child_count?: number;
+  children?: unknown[];
 }> = z.lazy(() =>
   z.object({
     item_id: z.string().describe(ITEM_ID_DESCRIPTION),
@@ -80,8 +80,8 @@ const outputNodeSchema: z.ZodType<{
     depth_limited: z.literal(true).optional().describe(
       "Present when max_depth cut off traversal. Call read_document with this item_id to expand."
     ),
-    child_count: z.number().describe("Total direct children, regardless of visibility"),
-    children: z.array(outputNodeSchema).describe("Child items. Empty when depth-limited or collapse-hidden."),
+    child_count: z.number().optional().describe("Total direct children. Omitted on leaf items (no children)."),
+    children: z.array(outputNodeSchema).optional().describe("Child items. Omitted on leaf items (no children). Empty when depth-limited or collapse-hidden."),
   }).strict()
 );
 
@@ -381,7 +381,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "collapsed items; include_collapsed_children does NOT bypass the depth limit.\n\n" +
         "The starting item always shows its children regardless of collapsed state.\n\n" +
         "Hidden children are signaled by depth_limited: true (max_depth cut off traversal). " +
-        "Call read_document with that item_id to expand.",
+        "Call read_document with that item_id to expand.\n\n" +
+        "Leaf items (no children) omit child_count and children entirely.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_id: z.string().optional().describe(

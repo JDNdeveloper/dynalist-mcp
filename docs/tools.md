@@ -108,6 +108,8 @@ The starting item always shows its children regardless of collapsed state.
 
 Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that item_id to expand.
 
+Leaf items (no children) omit child_count and children entirely.
+
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
@@ -146,9 +148,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
   "sync_token": "a1b2c",
   "item": {
     "item_id": "n_item789",
-    "content": "Buy groceries",
-    "child_count": 3,
-    "children": []
+    "content": "Buy groceries"
   }
 }
 ```

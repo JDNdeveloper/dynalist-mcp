@@ -88,9 +88,7 @@ When a recursive structure like `children` appears before metadata, deeply neste
       "children": [
         {
           "item_id": "ghi",
-          "content": "Research",
-          "child_count": 0,
-          "children": []
+          "content": "Research"
         }
       ],
       "note": "Due next Friday",
@@ -121,9 +119,7 @@ The root item's `note` and `heading` are 17 lines away from its `content`. An ag
       "children": [
         {
           "item_id": "ghi",
-          "content": "Research",
-          "child_count": 0,
-          "children": []
+          "content": "Research"
         }
       ]
     }

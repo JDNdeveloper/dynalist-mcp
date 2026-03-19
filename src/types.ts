@@ -30,8 +30,8 @@ export interface OutputNode {
   color?: string;
   collapsed?: boolean;
   depth_limited?: true;
-  child_count: number;
-  children: OutputNode[];
+  child_count?: number;
+  children?: OutputNode[];
 }
 
 /**

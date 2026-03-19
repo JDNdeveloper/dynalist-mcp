@@ -211,7 +211,7 @@ All tools that accept heading/color use string enums. Verify the full value spac
 
 The MCP API cannot set the collapsed state on nodes (it is UI-only), so collapsed-specific behavior cannot be tested here. These tests focus on `max_depth` behavior with non-collapsed nodes.
 
-- Read with `max_depth: 1`. Verify depth-1 nodes show `depth_limited: true`, `child_count` populated, `children: []`.
+- Read with `max_depth: 1`. Verify non-leaf depth-1 nodes show `depth_limited: true`, `child_count` populated, `children: []`. Leaf nodes at depth 1 omit both `child_count` and `children`.
 - Read with `max_depth: null` (unlimited). Verify full depth traversal, no `depth_limited` flags.
 - Read with `max_depth: 0`. Only the target node, no children at all.
 

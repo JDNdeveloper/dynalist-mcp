@@ -567,7 +567,7 @@ describe("read_document", () => {
     expect(typeof result.title).toBe("string");
   });
 
-  test("every node includes item_id, content, child_count, children", async () => {
+  test("every node includes item_id, content; child_count/children present on non-leaves only", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
@@ -576,14 +576,27 @@ describe("read_document", () => {
     function checkNodeFields(node: Record<string, unknown>) {
       expect(typeof node.item_id).toBe("string");
       expect(typeof node.content).toBe("string");
-      expect(typeof node.child_count).toBe("number");
-      expect(Array.isArray(node.children)).toBe(true);
+      const children = node.children as Record<string, unknown>[] | undefined;
+      if (children && children.length > 0) {
+        // Non-leaf: child_count and children present.
+        expect(typeof node.child_count).toBe("number");
+        expect(Array.isArray(node.children)).toBe(true);
+      } else if (node.child_count !== undefined) {
+        // Non-leaf with hidden children (depth-limited or collapsed).
+        expect(Array.isArray(node.children)).toBe(true);
+      } else {
+        // Leaf: both omitted.
+        expect(node.child_count).toBeUndefined();
+        expect(node.children).toBeUndefined();
+      }
       // collapsed is omitted when false.
       if ("collapsed" in node) {
         expect(node.collapsed).toBe(true);
       }
-      for (const child of node.children as Record<string, unknown>[]) {
-        checkNodeFields(child);
+      if (children) {
+        for (const child of children) {
+          checkNodeFields(child);
+        }
       }
     }
     checkNodeFields(result.item as Record<string, unknown>);
@@ -726,10 +739,10 @@ describe("read_document", () => {
     expect(n1.child_count).toBe(2);
     expect(n1.depth_limited).toBe(true);
 
-    // n3 is a leaf at depth 1: no depth_limited.
+    // n3 is a leaf at depth 1: child_count/children omitted, no depth_limited.
     const n3 = children.find((c) => c.item_id === "n3")!;
-    expect(n3.children).toEqual([]);
-    expect(n3.child_count).toBe(0);
+    expect(n3.children).toBeUndefined();
+    expect(n3.child_count).toBeUndefined();
     expect(n3.depth_limited).toBeUndefined();
   });
 
@@ -829,15 +842,15 @@ describe("read_document", () => {
     expect(n1.children).toEqual([]);
   });
 
-  test("non-collapsed leaf node at max_depth: no depth_limited flag", async () => {
+  test("non-collapsed leaf node at max_depth: no depth_limited flag, child fields omitted", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 1,
     });
     const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     const n3 = rootChildren.find((c) => c.item_id === "n3")!;
-    expect(n3.children).toEqual([]);
-    expect(n3.child_count).toBe(0);
+    expect(n3.children).toBeUndefined();
+    expect(n3.child_count).toBeUndefined();
     expect(n3.depth_limited).toBeUndefined();
   });
 
@@ -928,15 +941,15 @@ describe("read_document", () => {
     expect(n1.child_count).toBe(2);
   });
 
-  test("non-collapsed leaf at max_depth: no depth_limited", async () => {
+  test("non-collapsed leaf at max_depth: no depth_limited, child fields omitted", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 1,
     });
     const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     const n3 = rootChildren.find((c) => c.item_id === "n3")!;
-    expect(n3.children).toEqual([]);
-    expect(n3.child_count).toBe(0);
+    expect(n3.children).toBeUndefined();
+    expect(n3.child_count).toBeUndefined();
     expect(n3.depth_limited).toBeUndefined();
   });
 
@@ -1151,7 +1164,7 @@ describe("read_document", () => {
     // Walk tree to verify no node has a note field.
     function checkNoNotes(node: Record<string, unknown>) {
       expect(node.note).toBeUndefined();
-      for (const child of node.children as Record<string, unknown>[]) {
+      for (const child of (node.children ?? []) as Record<string, unknown>[]) {
         checkNoNotes(child);
       }
     }
@@ -1358,7 +1371,7 @@ describe("read_document", () => {
     expect((root.children as Record<string, unknown>[]).length).toBe(2);
   });
 
-  test("child_count 0 on leaf nodes", async () => {
+  test("leaf nodes omit child_count and children", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
@@ -1366,8 +1379,8 @@ describe("read_document", () => {
     const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
     const n1 = rootChildren.find((c) => c.item_id === "n1")!;
     const n1a = (n1.children as Record<string, unknown>[]).find((c) => c.item_id === "n1a")!;
-    expect(n1a.child_count).toBe(0);
-    expect(n1a.children).toEqual([]);
+    expect(n1a.child_count).toBeUndefined();
+    expect(n1a.children).toBeUndefined();
   });
 });
 
@@ -2184,7 +2197,7 @@ describe("read_document config defaults: include_notes", () => {
     // Walk the tree to confirm no node has a note field.
     function checkNoNotes(node: Record<string, unknown>) {
       expect(node.note).toBeUndefined();
-      for (const child of node.children as Record<string, unknown>[]) {
+      for (const child of (node.children ?? []) as Record<string, unknown>[]) {
         checkNoNotes(child);
       }
     }

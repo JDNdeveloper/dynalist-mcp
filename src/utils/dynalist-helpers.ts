@@ -354,9 +354,11 @@ export function buildNodeTree(
   // Only set on nodes that have children and are NOT being hidden by collapsed state alone.
   if (atMaxDepth && childrenCount > 0 && !collapsedHidesChildren) output.depth_limited = true;
 
-  // Nested structure always last.
-  output.child_count = childrenCount;
-  output.children = outputChildren;
+  // Nested structure always last. Omit both fields for true leaves to save tokens.
+  if (childrenCount > 0) {
+    output.child_count = childrenCount;
+    output.children = outputChildren;
+  }
 
   return output;
 }

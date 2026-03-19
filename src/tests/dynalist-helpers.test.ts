@@ -171,8 +171,11 @@ describe("buildNodeTree", () => {
 
     // B should appear as child of A, but A should not appear again under B.
     expect(tree!.children).toHaveLength(1);
-    expect(tree!.children[0].item_id).toBe("b");
-    expect(tree!.children[0].children).toHaveLength(0);
+    expect(tree!.children![0].item_id).toBe("b");
+    // B declares A as a child, so child_count is 1, but A was already visited
+    // so the rendered children array is empty.
+    expect(tree!.children![0].child_count).toBe(1);
+    expect(tree!.children![0].children).toEqual([]);
   });
 
   test("handles self-referencing node without infinite loop", () => {
