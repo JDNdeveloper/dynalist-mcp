@@ -89,7 +89,7 @@ Download the latest `.mcpb` file from the [releases page](https://github.com/JDN
 
 **Option B: Manual config**
 
-Add the same JSON as above to your Claude Desktop config file:
+Add the same JSON as the Claude Code config snippet to your Claude Desktop config file:
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
