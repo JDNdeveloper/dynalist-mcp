@@ -45,7 +45,6 @@ describe("move_items TOCTOU", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.item_ids).toEqual(["n1a"]);
   });
 
   test("no concurrent edit has no sync_warning", async () => {

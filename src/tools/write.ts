@@ -139,7 +139,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         edited_count: z.number().describe("Number of items edited"),
-        item_ids: z.array(z.string()).describe("IDs of all edited items"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
     },
@@ -219,11 +218,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         },
       );
 
-      const itemIds = items.map((entry) => entry.item_id);
       const data: Record<string, unknown> = {
         file_id,
         edited_count: items.length,
-        item_ids: itemIds,
       };
       if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 

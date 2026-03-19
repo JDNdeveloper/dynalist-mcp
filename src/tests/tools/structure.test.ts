@@ -1027,7 +1027,7 @@ describe("move_items", () => {
 
   // ─── Response shape ───────────────────────────────────────────────
 
-  test("response includes file_id, moved_count, and item_ids", async () => {
+  test("response includes file_id and moved_count", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "move_items", {
       file_id: "doc1",
@@ -1036,22 +1036,6 @@ describe("move_items", () => {
     });
     expect(result.file_id).toBe("doc1");
     expect(result.moved_count).toBe(1);
-    expect(result.item_ids).toEqual(["n3"]);
-  });
-
-  test("response shape for multi-move", async () => {
-    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
-    const result = await callToolOk(ctx.mcpClient, "move_items", {
-      file_id: "doc1",
-      moves: [
-        { item_id: "n1a", reference_item_id: "n3", position: "last_child" },
-        { item_id: "n1b", reference_item_id: "n3", position: "last_child" },
-      ],
-      expected_sync_token: syncToken,
-    });
-    expect(result.file_id).toBe("doc1");
-    expect(result.moved_count).toBe(2);
-    expect(result.item_ids).toEqual(["n1a", "n1b"]);
   });
 
   // ─── Nonexistent node validation ──────────────────────────────────

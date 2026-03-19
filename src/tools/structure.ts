@@ -251,7 +251,6 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moved_count: z.number().describe("Number of items moved"),
-        item_ids: z.array(z.string()).describe("IDs of all moved items"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
     },
@@ -419,11 +418,9 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         },
       );
 
-      const itemIds = moves.map((m) => m.item_id);
       const data: Record<string, unknown> = {
         file_id,
         moved_count: moves.length,
-        item_ids: itemIds,
       };
       if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 

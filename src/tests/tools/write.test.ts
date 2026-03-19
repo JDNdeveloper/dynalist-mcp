@@ -33,7 +33,6 @@ describe("edit_items", () => {
     });
     expect(result.file_id).toBe("doc1");
     expect(result.edited_count).toBe(1);
-    expect((result.item_ids as string[])).toEqual(["n1"]);
 
     // Verify the change persisted.
     const doc = ctx.server.documents.get("doc1")!;
@@ -52,7 +51,6 @@ describe("edit_items", () => {
       ],
     });
     expect(result.edited_count).toBe(2);
-    expect((result.item_ids as string[])).toEqual(["n1", "n2"]);
 
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.find((n) => n.id === "n1")!.content).toBe("First updated");
@@ -76,7 +74,6 @@ describe("edit_items", () => {
       ],
     });
     expect(result.edited_count).toBe(2);
-
     // Verify each node only got the fields specified.
     expect(n1.content).toBe(n1OriginalContent);
     expect(n1.heading).toBe(2);
@@ -435,7 +432,7 @@ describe("edit_items", () => {
 
   // ─── 10d: response shape ────────────────────────────────────────────
 
-  test("response includes file_id, edited_count, and item_ids", async () => {
+  test("response includes file_id and edited_count", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
@@ -445,7 +442,6 @@ describe("edit_items", () => {
 
     expect(result.file_id).toBe("doc1");
     expect(result.edited_count).toBe(1);
-    expect((result.item_ids as string[])).toEqual(["n1"]);
   });
 
   // ─── 10e: error codes ──────────────────────────────────────────────
@@ -504,8 +500,6 @@ describe("edit_items", () => {
       ],
     });
     expect(result.edited_count).toBe(2);
-    expect((result.item_ids as string[])).toEqual(["n1", "n1"]);
-
     // The Dynalist API processes changes sequentially, so the second
     // write should win.
     const doc = ctx.server.documents.get("doc1")!;

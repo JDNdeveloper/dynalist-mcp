@@ -510,17 +510,13 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `edited_count` | number | yes | Number of items edited |
-| `item_ids` | string[] | yes | IDs of all edited items |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "edited_count": 1,
-  "item_ids": [
-    "n_item789"
-  ]
+  "edited_count": 1
 }
 ```
 
@@ -686,17 +682,13 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `moved_count` | number | yes | Number of items moved |
-| `item_ids` | string[] | yes | IDs of all moved items |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "moved_count": 1,
-  "item_ids": [
-    "n_item789"
-  ]
+  "moved_count": 1
 }
 ```
 

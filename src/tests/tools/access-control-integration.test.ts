@@ -248,7 +248,6 @@ describe("edit_items with ACL", () => {
       items: [{ item_id: "an1", content: "Updated content" }],
     });
     expect(result.file_id).toBe("allowed_doc");
-    expect((result.item_ids as string[])).toEqual(["an1"]);
   });
 });
 
@@ -356,7 +355,6 @@ describe("move_items with ACL", () => {
       moves: [{ item_id: "an1a", reference_item_id: "root", position: "last_child" }],
     });
     expect(result.file_id).toBe("allowed_doc");
-    expect(result.item_ids).toEqual(["an1a"]);
   });
 });
 

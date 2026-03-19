@@ -269,7 +269,7 @@ describe("edit_items response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.edited_count).toBe("number");
-    expect(Array.isArray(data.item_ids)).toBe(true);
+    expect(data.item_ids).toBeUndefined();
   });
 
   test("error response for non-existent document has correct envelope", async () => {
@@ -423,7 +423,7 @@ describe("move_items response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.moved_count).toBe("number");
-    expect(Array.isArray(data.item_ids)).toBe(true);
+    expect(data.item_ids).toBeUndefined();
   });
 
   test("error response for self-referential move has correct envelope", async () => {

@@ -53,7 +53,7 @@ describe("edit_items version guard", () => {
       items: [{ item_id: "n1", content: "Updated" }],
       expected_sync_token: syncToken,
     });
-    expect((result.item_ids as string[])).toEqual(["n1"]);
+    expect(result.file_id).toBe("doc1");
     expect(result.sync_warning).toBeUndefined();
   });
 
@@ -210,7 +210,7 @@ describe("move_items version guard", () => {
       moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
       expected_sync_token: syncToken,
     });
-    expect(result.item_ids).toEqual(["n1a"]);
+    expect(result.file_id).toBe("doc1");
     expect(result.sync_warning).toBeUndefined();
   });
 
