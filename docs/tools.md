@@ -160,9 +160,9 @@ Leaf items (no children, not collapsed) omit child_count and children entirely. 
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `file_id` | string | no | Document file ID |
-| `title` | string | no | Document title |
-| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to mutating tools. |
+| `file_id` | string | yes | Document file ID |
+| `title` | string | yes | Document title |
+| `sync_token` | string | yes | Opaque sync token. Pass as expected_sync_token to mutating tools. |
 | `item` | object | no | Root of the item tree |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
@@ -196,7 +196,7 @@ Leaf items (no children, not collapsed) omit child_count and children entirely. 
     "show_checkbox": true,
     "heading": "h1",
     "color": "red",
-    "collapsed": false,
+    "collapsed": true,
     "depth_limited": true,
     "child_count": 3,
     "children": [
@@ -236,9 +236,9 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `file_id` | string | no | Document file ID |
-| `title` | string | no | Document title |
-| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to mutating tools. |
+| `file_id` | string | yes | Document file ID |
+| `title` | string | yes | Document title |
+| `sync_token` | string | yes | Opaque sync token. Pass as expected_sync_token to mutating tools. |
 | `count` | number | no | Number of matches found |
 | `query` | string | no | The search query that was used |
 | `matches` | object[] | no | Matching items |
@@ -321,9 +321,9 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `file_id` | string | no | Document file ID |
-| `title` | string | no | Document title |
-| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to mutating tools. |
+| `file_id` | string | yes | Document file ID |
+| `title` | string | yes | Document title |
+| `sync_token` | string | yes | Opaque sync token. Pass as expected_sync_token to mutating tools. |
 | `count` | number | no | Number of matches found |
 | `matches` | object[] | no | Changed items |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
@@ -371,7 +371,7 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
       "show_checkbox": true,
       "heading": "h1",
       "color": "red",
-      "collapsed": false,
+      "collapsed": true,
       "parents": [
         {
           "item_id": "n_item789",

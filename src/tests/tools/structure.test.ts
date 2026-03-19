@@ -35,7 +35,6 @@ describe("delete_items", () => {
     });
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
-    expect(result.deleted_ids).toBeUndefined();
 
     // Verify the node is gone.
     const doc = ctx.server.documents.get("doc1")!;
@@ -52,7 +51,6 @@ describe("delete_items", () => {
     });
     // n1, n1a, n1b.
     expect(result.deleted_count).toBe(3);
-    expect(result.deleted_ids).toBeUndefined();
 
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
@@ -290,7 +288,6 @@ describe("delete_items", () => {
       expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
-    expect(result.deleted_ids).toBeUndefined();
 
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();

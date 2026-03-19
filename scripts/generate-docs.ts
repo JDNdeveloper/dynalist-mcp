@@ -401,7 +401,7 @@ function exampleNumber(name: string): number {
 
 function exampleBoolean(name: string): boolean {
   if (name === "checked" || name === "bypass_warning" || name === "depth_limited") return true;
-  if (name === "collapsed") return false;
+  if (name === "collapsed") return true;
   if (name === "show_checkbox" || name === "search_notes") return true;
   if (name === "include_collapsed_children") return false;
   if (name === "include_notes" || name === "include_checked") return true;
