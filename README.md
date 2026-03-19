@@ -97,6 +97,21 @@ Add the same JSON as above to your Claude Desktop config file:
 
 - **Windows (legacy)**: `%APPDATA%\Claude\claude_desktop_config.json`
 
+## Agent skills
+
+You can create "skills" in Dynalist: items containing step-by-step instructions for how an agent can accomplish a task. You can then ask your agent to, for example, "follow my dynalist skill for weekly review".
+
+To use this, add a Dynalist URL pointing to your skills item or document in your agent instructions file (e.g. `CLAUDE.md`, `AGENTS.md`, or Claude Desktop system prompt):
+
+```markdown
+Dynalist skills: https://dynalist.io/d/...
+```
+
+Examples:
+
+- "Follow my dynalist skill for weekly review"
+- "Run my dynalist skill to plan the sprint"
+
 ## Documentation
 
 - [**Tools reference**](docs/tools.md): Parameter tables, response shapes, and examples for all tools. Generated from source schemas.
