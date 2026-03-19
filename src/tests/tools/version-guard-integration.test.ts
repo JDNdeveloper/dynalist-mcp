@@ -178,7 +178,7 @@ describe("delete_items version guard", () => {
       expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
-    expect(result.promoted_children).toBe(2);
+    expect(result.promoted_children_count).toBe(2);
     expect(result.sync_warning).toBeUndefined();
   });
 });

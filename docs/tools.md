@@ -624,9 +624,8 @@ Delete items and their subtrees from a document.
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `deleted_count` | number | yes | Number of items deleted |
-| `deleted_ids` | string[] | yes | IDs of all deleted items (targets and descendants). |
-| `promoted_children` | number | no | Number of direct children promoted to parent (only when children is 'promote') |
+| `deleted_count` | number | yes | Number of items deleted (targets and all descendants if children not promoted). |
+| `promoted_children_count` | number | no | Number of direct children promoted to parent (only when children is 'promote') |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**
@@ -634,10 +633,7 @@ Delete items and their subtrees from a document.
 {
   "file_id": "f_abc123",
   "deleted_count": 1,
-  "deleted_ids": [
-    "n_item789"
-  ],
-  "promoted_children": 1
+  "promoted_children_count": 1
 }
 ```
 

@@ -35,7 +35,7 @@ describe("delete_items", () => {
     });
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
-    expect(result.deleted_ids).toEqual(["n1a"]);
+    expect(result.deleted_ids).toBeUndefined();
 
     // Verify the node is gone.
     const doc = ctx.server.documents.get("doc1")!;
@@ -52,7 +52,7 @@ describe("delete_items", () => {
     });
     // n1, n1a, n1b.
     expect(result.deleted_count).toBe(3);
-    expect(new Set(result.deleted_ids as string[])).toEqual(new Set(["n1", "n1a", "n1b"]));
+    expect(result.deleted_ids).toBeUndefined();
 
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
@@ -247,14 +247,14 @@ describe("delete_items", () => {
     expect(n2.children).toEqual([]);
   });
 
-  test("bulk: promoted_children absent for subtree deletion", async () => {
+  test("bulk: promoted_children_count absent for subtree deletion", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["n1", "n2"],
       expected_sync_token: syncToken,
     });
-    expect(result.promoted_children).toBeUndefined();
+    expect(result.promoted_children_count).toBeUndefined();
   });
 
   // ─── State round-trip ──────────────────────────────────────────────
@@ -290,7 +290,7 @@ describe("delete_items", () => {
       expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
-    expect(result.deleted_ids).toEqual(["n1"]);
+    expect(result.deleted_ids).toBeUndefined();
 
     const doc = ctx.server.documents.get("doc1")!;
     expect(doc.nodes.find((n) => n.id === "n1")).toBeUndefined();
@@ -407,7 +407,7 @@ describe("delete_items", () => {
     expect(n1b.note).toBe("A note on child B");
   });
 
-  test("promoted_children count matches actual promoted count", async () => {
+  test("promoted_children_count count matches actual promoted count", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
@@ -415,10 +415,10 @@ describe("delete_items", () => {
       children: "promote",
       expected_sync_token: syncToken,
     });
-    expect(result.promoted_children).toBe(2);
+    expect(result.promoted_children_count).toBe(2);
   });
 
-  test("promoted_children is 0 for leaf with children promote", async () => {
+  test("promoted_children_count is 0 for leaf with children promote", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
@@ -427,10 +427,10 @@ describe("delete_items", () => {
       expected_sync_token: syncToken,
     });
     expect(result.deleted_count).toBe(1);
-    expect(result.promoted_children).toBe(0);
+    expect(result.promoted_children_count).toBe(0);
   });
 
-  test("promoted_children absent when children is 'delete'", async () => {
+  test("promoted_children_count absent when children is 'delete'", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
@@ -438,7 +438,7 @@ describe("delete_items", () => {
       children: "delete",
       expected_sync_token: syncToken,
     });
-    expect(result.promoted_children).toBeUndefined();
+    expect(result.promoted_children_count).toBeUndefined();
   });
 
   test("state round-trip: promote then read_document", async () => {
@@ -594,7 +594,7 @@ describe("delete_items", () => {
     expect(typeof result.deleted_count).toBe("number");
   });
 
-  test("response includes promoted_children when children were promoted", async () => {
+  test("response includes promoted_children_count when children were promoted", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
@@ -604,7 +604,7 @@ describe("delete_items", () => {
     });
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
-    expect(result.promoted_children).toBe(1);
+    expect(result.promoted_children_count).toBe(1);
   });
 });
 

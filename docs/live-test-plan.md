@@ -145,7 +145,7 @@ All tools that accept heading/color use string enums. Verify the full value spac
 ### 3a. Promote children
 
 - Create a parent with 3 children. Delete the parent with `children: "promote"`. Verify the 3 children are now siblings of where the parent was.
-- Delete a leaf node with `children: "promote"`. Verify `promoted_children: 0` in response.
+- Delete a leaf node with `children: "promote"`. Verify `promoted_children_count: 0` in response.
 - Attempt `children: "promote"` with 2 node_ids. Expect error.
 
 ### 3b. Multi-node delete

@@ -114,7 +114,7 @@ describe("delete_items TOCTOU", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.promoted_children).toBe(2);
+    expect(result.promoted_children_count).toBe(2);
   });
 
   test("no concurrent edit has no sync_warning", async () => {

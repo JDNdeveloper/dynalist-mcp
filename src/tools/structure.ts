@@ -42,9 +42,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        deleted_count: z.number().describe("Number of items deleted"),
-        deleted_ids: z.array(z.string()).describe("IDs of all deleted items (targets and descendants)."),
-        promoted_children: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
+        deleted_count: z.number().describe("Number of items deleted (targets and all descendants if children not promoted)."),
+        promoted_children_count: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
     },
@@ -93,7 +92,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
-        async (): Promise<{ result: { deleted_count: number; deleted_ids: string[]; promoted_children?: number }; apiCallCount: number }> => {
+        async (): Promise<{ result: { deleted_count: number; promoted_children_count?: number }; apiCallCount: number }> => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
           const nodeMap = buildNodeMap(doc.nodes);
@@ -149,7 +148,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
               }
 
               return {
-                result: { deleted_count: 1, deleted_ids: [node_id], promoted_children: promotedCount },
+                result: { deleted_count: 1, promoted_children_count: promotedCount },
                 apiCallCount: moveResponse.batches_sent + deleteResponse.batches_sent,
               };
             }
@@ -157,7 +156,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             // Leaf node (no children to promote). Just delete it.
             const response = await client.editDocument(file_id, [{ action: "delete", node_id }]);
             return {
-              result: { deleted_count: 1, deleted_ids: [node_id], promoted_children: 0 },
+              result: { deleted_count: 1, promoted_children_count: 0 },
               apiCallCount: response.batches_sent,
             };
           }
@@ -195,9 +194,6 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             collectSubtree(id);
           }
 
-          // Save the IDs before reversing for the response.
-          const deletedIds = [...allToDelete];
-
           // Delete in reverse (children before parents). This ordering makes the
           // operation idempotent on partial failure: if batching is interrupted
           // mid-way (rate limit exhaustion, server restart, etc.), only leaf nodes
@@ -209,7 +205,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
           const response = await editDocumentWithPartialGuard(client, file_id, changes);
           return {
-            result: { deleted_count: deletedIds.length, deleted_ids: deletedIds },
+            result: { deleted_count: allToDelete.length },
             apiCallCount: response.batches_sent,
           };
         },
@@ -218,10 +214,9 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const data: Record<string, unknown> = {
         file_id,
         deleted_count: guard.result.deleted_count,
-        deleted_ids: guard.result.deleted_ids,
       };
-      if (guard.result.promoted_children !== undefined) {
-        data.promoted_children = guard.result.promoted_children;
+      if (guard.result.promoted_children_count !== undefined) {
+        data.promoted_children_count = guard.result.promoted_children_count;
       }
       if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 

@@ -373,7 +373,7 @@ describe("delete_items response shape", () => {
     expect(typeof data.deleted_count).toBe("number");
   });
 
-  test("success response for deletion with promotion has promoted_children", async () => {
+  test("success response for deletion with promotion has promoted_children_count", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
@@ -385,7 +385,7 @@ describe("delete_items response shape", () => {
 
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.deleted_count).toBe("number");
-    expect(typeof data.promoted_children).toBe("number");
+    expect(typeof data.promoted_children_count).toBe("number");
   });
 
   test("error response for deleting root node has correct envelope", async () => {

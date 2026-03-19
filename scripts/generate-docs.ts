@@ -365,7 +365,6 @@ function exampleString(name: string): string {
   if (name === "item_id" || name === "item_ids") return "n_item789";
   if (name === "reference_item_id") return "n_sibling012";
   if (name === "root_file_id") return "f_root000";
-  if (name === "deleted_ids") return "n_item789";
   if (name === "root_item_ids") return "n_new001";
   // Content fields.
   if (name === "url") return "https://dynalist.io/d/f_abc123#z=n_item789";
@@ -393,7 +392,7 @@ function exampleNumber(name: string): number {
   if (name === "value") return 42;
   // Counts match auto-generated array lengths (1 element each).
   if (name === "count" || name === "edited_count" || name === "moved_count" || name === "deleted_count" || name === "total_created") return 1;
-  if (name === "promoted_children") return 1;
+  if (name === "promoted_children_count") return 1;
   if (name === "child_count") return 3;
   if (name === "max_depth") return 3;
   if (name === "index") return 0;
