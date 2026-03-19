@@ -195,8 +195,8 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 | `item_id` | string | yes | Item ID |
 | `content` | string | yes | Item text content |
 | `note` | string | no | Item note. Omitted when empty. |
-| `checked` | boolean | no | Checked (completed) state. Omitted when no checkbox. |
-| `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
 | `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
 | `parents` | object[] | no | Ancestor chain. Present when parent_levels is not 'none' and ancestors exist. |
@@ -264,8 +264,8 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 | `created` | string | yes | Creation timestamp (ISO 8601) |
 | `modified` | string | yes | Last modified timestamp (ISO 8601) |
 | `note` | string | no | Item note. Omitted when empty. |
-| `checked` | boolean | no | Checked (completed) state. Omitted when no checkbox. |
-| `show_checkbox` | boolean | no | Whether a checkbox is shown. Omitted when no checkbox. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
 | `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
 | `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |

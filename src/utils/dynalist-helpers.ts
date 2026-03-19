@@ -2,11 +2,10 @@
  * Shared helpers used across tool modules.
  */
 
-import type { DynalistNode } from "../dynalist-client";
+import type { DynalistNode, EditDocumentChange } from "../dynalist-client";
 import { DynalistClient, DynalistApiError } from "../dynalist-client";
 import { SyncTokenMismatchError } from "../version-guard";
 import { ConfigError } from "../config";
-import type { EditDocumentChange } from "../dynalist-client";
 import type { NodeSummary, OutputNode, InsertTreeOptions } from "../types";
 import { HEADING_TO_NUMBER, COLOR_TO_NUMBER, NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "../tools/node-metadata";
 import type { HeadingValue, ColorValue } from "../tools/node-metadata";
@@ -38,6 +37,26 @@ export interface LevelNode {
   color?: string;
   localIndex: number;
   parentLevelIndex: number;
+}
+
+/**
+ * Apply optional metadata fields from a DynalistNode onto an output object.
+ *
+ * Checkbox fields are always emitted as a pair or omitted together.
+ * If either is true, include both so agents see the full state.
+ */
+export function applyNodeMetadata(
+  target: OutputNode | Record<string, unknown>,
+  node: DynalistNode,
+  options?: { includeNotes?: boolean },
+): void {
+  if (options?.includeNotes && node.note && node.note.trim()) target.note = node.note;
+  if (node.checked || node.checkbox) {
+    target.checked = node.checked ?? false;
+    target.show_checkbox = node.checkbox ?? false;
+  }
+  if (node.heading !== undefined && node.heading > 0) target.heading = NUMBER_TO_HEADING[node.heading];
+  if (node.color !== undefined && node.color > 0) target.color = NUMBER_TO_COLOR[node.color];
 }
 
 /**
@@ -343,11 +362,9 @@ export function buildNodeTree(
   } as OutputNode;
 
   // Include optional metadata only when present.
-  if (options.includeNotes && node.note && node.note.trim()) output.note = node.note;
-  if (node.checked !== undefined) output.checked = node.checked;
-  if (node.checkbox !== undefined) output.show_checkbox = node.checkbox;
-  if (node.heading !== undefined && node.heading > 0) output.heading = NUMBER_TO_HEADING[node.heading];
-  if (node.color !== undefined && node.color > 0) output.color = NUMBER_TO_COLOR[node.color];
+  applyNodeMetadata(output, node, {
+    includeNotes: options.includeNotes,
+  });
   if (isCollapsed) output.collapsed = true;
 
   // Signal depth_limited when the depth limit caused children to be omitted.

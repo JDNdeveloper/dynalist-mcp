@@ -16,6 +16,7 @@ import {
   getAncestors,
   getPermissionLabel,
   buildNodeTree,
+  applyNodeMetadata,
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import type { ParentLevels } from "../utils/dynalist-helpers";
@@ -26,7 +27,6 @@ import {
   BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION,
 } from "./descriptions";
 import { makeSyncToken } from "../sync-token";
-import { NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "./node-metadata";
 
 // ─── Output schemas for read tools ──────────────────────────────────
 
@@ -39,8 +39,8 @@ const nodeSummarySchema = z.object({
 // Shared optional metadata fields present on output nodes and match objects.
 const nodeMetadataFields = {
   note: z.string().optional().describe("Item note. Omitted when empty."),
-  checked: z.boolean().optional().describe("Checked (completed) state. Omitted when no checkbox."),
-  show_checkbox: z.boolean().optional().describe("Whether a checkbox is shown. Omitted when no checkbox."),
+  checked: z.boolean().optional().describe("Checked (completed) state. False if not present."),
+  show_checkbox: z.boolean().optional().describe("Whether a checkbox is shown. False if not present."),
   heading: z.enum(["h1", "h2", "h3"]).optional().describe(
     "Heading level: 'h1', 'h2', 'h3'. Omitted when none."
   ),
@@ -557,11 +557,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           };
 
           // Include optional metadata only when present, in canonical order.
-          if (node.note && node.note.trim()) match.note = node.note;
-          if (node.checked !== undefined) match.checked = node.checked;
-          if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
-          if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
-          if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
+          applyNodeMetadata(match, node, { includeNotes: true });
 
           // Nested structure always last.
           if (parent_levels !== "none") {
@@ -703,11 +699,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           };
 
           // Include optional metadata only when present, in canonical order.
-          if (node.note && node.note.trim()) match.note = node.note;
-          if (node.checked !== undefined) match.checked = node.checked;
-          if (node.checkbox !== undefined) match.show_checkbox = node.checkbox;
-          if (node.heading !== undefined && node.heading > 0) match.heading = NUMBER_TO_HEADING[node.heading];
-          if (node.color !== undefined && node.color > 0) match.color = NUMBER_TO_COLOR[node.color];
+          applyNodeMetadata(match, node, { includeNotes: true });
           if (node.collapsed) match.collapsed = true;
 
           // Nested structure always last.

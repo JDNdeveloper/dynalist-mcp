@@ -30,6 +30,7 @@ export default tseslint.config(
           message: "z.object() must be immediately chained with .strict() to reject unknown keys.",
         },
       ],
+      "no-duplicate-imports": ["error", { allowSeparateTypeImports: true }],
       "prefer-const": "error",
       eqeqeq: ["error", "always"],
     },
