@@ -177,7 +177,7 @@ function extractFields(schemaMap: Record<string, ZodTypeAny>): FieldInfo[] {
       description,
     };
 
-    // Extract nested object fields for array-of-objects or inline objects.
+    // Extract nested object fields for arrays, lazy schemas, and inline objects.
     const innerDef = zodDef(inner);
     if (innerDef?.typeName === "ZodArray") {
       const elemSchema = innerDef.type;
@@ -193,6 +193,15 @@ function extractFields(schemaMap: Record<string, ZodTypeAny>): FieldInfo[] {
           field.children = extractObjectFields(resolved);
         }
       }
+    } else if (innerDef?.typeName === "ZodLazy") {
+      // Non-array lazy schema (e.g. read_document's item field).
+      const resolved = innerDef.getter();
+      const resolvedDef = zodDef(resolved);
+      if (resolvedDef?.typeName === "ZodObject") {
+        field.children = extractObjectFields(resolved);
+      }
+    } else if (innerDef?.typeName === "ZodObject") {
+      field.children = extractObjectFields(inner);
     }
 
     return field;
@@ -477,7 +486,8 @@ function generateToolsMarkdown(): string {
           if (f.children && f.children.length > 0) {
             lines.push("");
             const label = f.name.replace(/`/g, "");
-            lines.push(`**\`${label}\` element fields:**`);
+            const suffix = f.type.endsWith("[]") ? " element" : "";
+            lines.push(`**\`${label}\`${suffix} fields:**`);
             lines.push("");
             lines.push(renderFieldTable(f.children, false));
           }
@@ -511,8 +521,9 @@ function generateToolsMarkdown(): string {
       for (const f of outputFields) {
         if (f.children && f.children.length > 0) {
           const label = f.name.replace(/`/g, "");
+          const suffix = f.type.endsWith("[]") ? " element" : "";
           lines.push("");
-          lines.push(`**\`${label}\` element fields:**`);
+          lines.push(`**\`${label}\`${suffix} fields:**`);
           lines.push("");
           lines.push(renderOutputTable(f.children));
         }

@@ -140,6 +140,22 @@ Leaf items (no children) omit child_count and children entirely.
 | `item` | object | no | Root of the item tree |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
+**`item` fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `note` | string | no | Item note. Omitted when empty. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
+| `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
+| `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
+| `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
+| `depth_limited` | true | no | Present when max_depth cut off traversal. Call read_document with this item_id to expand. |
+| `child_count` | number | no | Direct child count. Omitted on non-collapsed leaf items. |
+| `children` | object[] | no | Child items. Omitted on leaf items and when children are hidden. |
+
 **Example response:**
 ```json
 {
