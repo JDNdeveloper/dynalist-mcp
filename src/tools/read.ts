@@ -81,10 +81,10 @@ const outputNodeSchema: z.ZodType<{
       "Present when max_depth cut off traversal. Call read_document with this item_id to expand."
     ),
     child_count: z.number().optional().describe(
-      "Direct child count. Omitted on non-collapsed leaf items."
+      "Direct child count. Omitted on leaf items (no children). Present on collapsed items even when 0."
     ),
     children: z.array(outputNodeSchema).optional().describe(
-      "Child items. Omitted on leaf items and when children are hidden."
+      "Child items. Omitted when depth-limited, collapsed, or filtered."
     ),
   }).strict()
 );
@@ -385,7 +385,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "The starting item always shows its children regardless of collapsed state.\n\n" +
         "Hidden children are signaled by depth_limited: true (max_depth cut off traversal). " +
         "Call read_document with that item_id to expand.\n\n" +
-        "Leaf items (no children) omit child_count and children entirely.",
+        "Leaf items (no children, not collapsed) omit child_count and children entirely. " +
+        "Collapsed items always include child_count, even if 0.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_id: z.string().optional().describe(

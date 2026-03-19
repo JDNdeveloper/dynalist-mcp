@@ -134,7 +134,7 @@ The starting item always shows its children regardless of collapsed state.
 
 Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that item_id to expand.
 
-Leaf items (no children) omit child_count and children entirely.
+Leaf items (no children, not collapsed) omit child_count and children entirely. Collapsed items always include child_count, even if 0.
 
 **Parameters:**
 
@@ -179,8 +179,8 @@ Leaf items (no children) omit child_count and children entirely.
 | `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
 | `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
 | `depth_limited` | true | no | Present when max_depth cut off traversal. Call read_document with this item_id to expand. |
-| `child_count` | number | no | Direct child count. Omitted on non-collapsed leaf items. |
-| `children` | object[] | no | Child items. Omitted on leaf items and when children are hidden. |
+| `child_count` | number | no | Direct child count. Omitted on leaf items (no children). Present on collapsed items even when 0. |
+| `children` | object[] | no | Child items. Omitted when depth-limited, collapsed, or filtered. |
 
 **Example response:**
 ```json

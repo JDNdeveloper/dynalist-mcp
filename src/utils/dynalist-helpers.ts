@@ -373,10 +373,10 @@ export function buildNodeTree(
   if (atMaxDepth && childrenCount > 0 && !collapsedHidesChildren) output.depth_limited = true;
 
   // Three item shapes based on child visibility:
-  // 1. Leaf (childrenCount === 0, not collapsed): omit both child_count and children.
-  // 2. Expanded (outputChildren non-empty): set both child_count and children.
-  // 3. Hidden (outputChildren empty, childrenCount > 0 or collapsed): set child_count, omit children.
-  //    Collapsed nodes always get child_count so agents know whether there are hidden children.
+  // 1. No child_count, no children: non-collapsed item with no children.
+  // 2. child_count and children: children are inline.
+  // 3. child_count, no children: depth-limited, collapsed, or all children filtered out.
+  //    Collapsed items always get child_count, even when 0.
   if (outputChildren.length > 0) {
     output.child_count = childrenCount;
     output.children = outputChildren;

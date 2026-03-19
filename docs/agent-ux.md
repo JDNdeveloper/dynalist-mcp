@@ -67,7 +67,36 @@ Large documents can overwhelm an agent's context window or produce responses too
 - **Size warnings.** Read and search tools estimate token count from the serialized output. If the result exceeds a configurable threshold, the tool returns a warning instead of the content, along with suggestions for narrowing the query. The agent can opt in to the full result on a subsequent call, but the parameter description prevents agents from preemptively bypassing the safety net.
 - **Depth and visibility controls.** Document reads support limiting tree traversal depth and excluding collapsed children. These controls are orthogonal, and the tool descriptions explain how hidden children are signaled differently (depth-limited vs. collapsed) so the agent knows how to drill deeper when needed. The default depth is intentionally low (3) to keep initial reads token-efficient. Agents are expected to drill into depth-limited items as the primary exploration pattern, rather than requesting unlimited depth up front.
 - **Configurable defaults.** Operators can tune default depth, note inclusion, and other payload-size knobs in the config file without requiring the agent to specify parameters on every call.
-- **Sparse output.** Optional fields (notes, heading, color) are omitted from output when empty or at their default value, reducing payload size for typical documents.
+- **Sparse output.** Optional fields are omitted from output when at their default value, reducing payload size for typical documents. See the "Sparse output" section below for details.
+
+## Sparse output
+
+Tool responses omit properties at their default value to reduce token usage, unless the value provides helpful context. This reduces payload size without losing semantic content.
+
+### Item metadata
+
+- **`checked` and `show_checkbox`** use paired semantics: both present or both omitted. If either is true, both are included so agents see the full checkbox state. Omitted when both are `false`.
+- **`collapsed`** is omitted when `false`.
+- **`heading`** is omitted at its default value (`'none'`).
+- **`color`** is omitted at its default value (`'none'`).
+- **`note`** is omitted when empty.
+
+### Document tree shapes
+
+`read_document` items include `child_count` and `children` based on two rules:
+
+- `children` is included only when populated (not depth-limited, not collapsed, not fully filtered).
+- `child_count` is included whenever the item has children, or is collapsed. Collapsed items get `child_count` even when 0, so agents can tell whether a collapsed node has hidden children or genuinely has none.
+
+This produces three field combinations:
+
+1. **No `child_count`, no `children`**: non-collapsed item with no children.
+2. **`child_count` and `children`**: has children and they are included inline.
+3. **`child_count`, no `children`**: has children but they have been hidden, or item is a collapsed leaf.
+
+### Write tool responses
+
+Mutation success responses are minimal: `file_id`, a count of affected items (e.g. `edited_count`, `moved_count`, `deleted_count`), and an optional `sync_warning`. Input values like item IDs are not repeated in the response since the agent already knows them from its own request.
 
 ## Property ordering
 
