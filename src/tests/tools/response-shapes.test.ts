@@ -138,7 +138,7 @@ describe("read_document response shape", () => {
     const node = data.item as Record<string, unknown>;
     expect(typeof node.item_id).toBe("string");
     expect(typeof node.content).toBe("string");
-    // Test doc has children, so child_count and children are present.
+    // Test doc has children, so child_count and children are both present (expanded shape).
     expect(typeof node.child_count).toBe("number");
     expect(Array.isArray(node.children)).toBe(true);
   });

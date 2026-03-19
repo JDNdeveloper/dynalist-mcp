@@ -49,7 +49,7 @@ Non-text metadata properties:
 
 - **Parent chain / hierarchy**: No ancestors tool. Use search_in_document with a regex pattern matching the item's text and parent_levels: "all" to get the full ancestor chain. Fallback: read_document with just file_id, then search the tree for the target item_id.
 - **Sibling context**: Call read_document with the parent's item_id and max_depth: 1.
-- **Expanding collapsed sections**: If an item has collapsed: true and child_count > 0 but empty children, pass the item's item_id to read_document (the starting item always expands), or re-request with include_collapsed_children: true.
+- **Expanding collapsed sections**: If an item has collapsed: true and child_count > 0 but no children array, pass the item's item_id to read_document (the starting item always expands), or re-request with include_collapsed_children: true.
 - **Drilling into depth-limited items**: Drilling into depth-limited items is the primary pattern for exploring documents. If an item has depth_limited: true, call read_document with that item's item_id to zoom into the subtree.
 - **File vs item management**: File tools (create_document, move_document, etc.) operate on the file tree. Item tools (insert_items, edit_items, etc.) operate within a document. Do not confuse file IDs with item IDs.
 

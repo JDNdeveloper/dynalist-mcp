@@ -80,8 +80,12 @@ const outputNodeSchema: z.ZodType<{
     depth_limited: z.literal(true).optional().describe(
       "Present when max_depth cut off traversal. Call read_document with this item_id to expand."
     ),
-    child_count: z.number().optional().describe("Total direct children. Omitted on leaf items (no children)."),
-    children: z.array(outputNodeSchema).optional().describe("Child items. Omitted on leaf items (no children). Empty when depth-limited or collapse-hidden."),
+    child_count: z.number().optional().describe(
+      "Direct child count. Omitted on non-collapsed leaf items."
+    ),
+    children: z.array(outputNodeSchema).optional().describe(
+      "Child items. Omitted on leaf items and when children are hidden."
+    ),
   }).strict()
 );
 
@@ -129,7 +133,7 @@ const fileTreeFolderSchema: z.ZodType<{
   type: "folder";
   depth_limited?: true;
   child_count?: number;
-  children: unknown[];
+  children?: unknown[];
 }> = z.lazy(() =>
   z.object({
     file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
@@ -141,8 +145,8 @@ const fileTreeFolderSchema: z.ZodType<{
     child_count: z.number().optional().describe(
       "Direct children count. Present only when depth_limited is true."
     ),
-    children: z.array(fileTreeEntrySchema).describe(
-      "Child documents and folders. Empty when depth-limited or folder is empty."
+    children: z.array(fileTreeEntrySchema).optional().describe(
+      "Child documents and folders. Omitted when depth-limited."
     ),
   }).strict()
 );
@@ -270,7 +274,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
                 type: "folder",
                 depth_limited: true,
                 child_count: visibleChildCount,
-                children: [],
               };
               result.push(entry);
             } else {
@@ -393,7 +396,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         ),
         include_collapsed_children: z.boolean().optional().default(readDefaults.includeCollapsedChildren).describe(
           "Include collapsed items' children. When false, collapsed items show " +
-          "child_count but empty children."
+          "child_count but omit children."
         ),
         include_notes: z.boolean().optional().default(readDefaults.includeNotes).describe(
           "Include item notes."

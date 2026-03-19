@@ -55,7 +55,7 @@ Non-text metadata properties:
 matching the item's text and parent_levels: "all" to get the full ancestor chain. \
 Fallback: read_document with just file_id, then search the tree for the target item_id.
 - **Sibling context**: Call read_document with the parent's item_id and max_depth: 1.
-- **Expanding collapsed sections**: If an item has collapsed: true and child_count > 0 but empty children, \
+- **Expanding collapsed sections**: If an item has collapsed: true and child_count > 0 but no children array, \
 pass the item's item_id to read_document (the starting item always expands), or \
 re-request with include_collapsed_children: true.
 - **Drilling into depth-limited items**: Drilling into depth-limited items is the primary pattern for \

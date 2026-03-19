@@ -173,9 +173,9 @@ describe("buildNodeTree", () => {
     expect(tree!.children).toHaveLength(1);
     expect(tree!.children![0].item_id).toBe("b");
     // B declares A as a child, so child_count is 1, but A was already visited
-    // so the rendered children array is empty.
+    // so the children are hidden (child_count set, children omitted).
     expect(tree!.children![0].child_count).toBe(1);
-    expect(tree!.children![0].children).toEqual([]);
+    expect(tree!.children![0].children).toBeUndefined();
   });
 
   test("handles self-referencing node without infinite loop", () => {
@@ -186,7 +186,9 @@ describe("buildNodeTree", () => {
     expect(tree).not.toBeNull();
     expect(tree!.item_id).toBe("a");
     // The self-reference should be skipped by the visited guard.
-    expect(tree!.children).toHaveLength(0);
+    // Hidden shape: child_count set, children omitted.
+    expect(tree!.child_count).toBe(1);
+    expect(tree!.children).toBeUndefined();
   });
 });
 

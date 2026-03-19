@@ -117,7 +117,7 @@ Leaf items (no children) omit child_count and children entirely.
 | `file_id` | string | yes |  | Document file ID |
 | `item_id` | string | no |  | Starting item. Omit for document root. |
 | `max_depth` | number \| null | no | 3 | Max traversal depth. 0 = target only, 1 = target + children, null = unlimited. |
-| `include_collapsed_children` | boolean | no | false | Include collapsed items' children. When false, collapsed items show child_count but empty children. |
+| `include_collapsed_children` | boolean | no | false | Include collapsed items' children. When false, collapsed items show child_count but omit children. |
 | `include_notes` | boolean | no | true | Include item notes. |
 | `include_checked` | boolean | no | true | Include checked/completed items. |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |

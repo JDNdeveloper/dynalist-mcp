@@ -371,10 +371,16 @@ export function buildNodeTree(
   // Only set on nodes that have children and are NOT being hidden by collapsed state alone.
   if (atMaxDepth && childrenCount > 0 && !collapsedHidesChildren) output.depth_limited = true;
 
-  // Nested structure always last. Omit both fields for true leaves to save tokens.
-  if (childrenCount > 0) {
+  // Three item shapes based on child visibility:
+  // 1. Leaf (childrenCount === 0, not collapsed): omit both child_count and children.
+  // 2. Expanded (outputChildren non-empty): set both child_count and children.
+  // 3. Hidden (outputChildren empty, childrenCount > 0 or collapsed): set child_count, omit children.
+  //    Collapsed nodes always get child_count so agents know whether there are hidden children.
+  if (outputChildren.length > 0) {
     output.child_count = childrenCount;
     output.children = outputChildren;
+  } else if (childrenCount > 0 || collapsedHidesChildren) {
+    output.child_count = childrenCount;
   }
 
   return output;
