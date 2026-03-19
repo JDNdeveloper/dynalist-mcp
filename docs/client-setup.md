@@ -13,23 +13,17 @@ All paths in MCP config files must be absolute. `~` and `$HOME` are not expanded
 
 ## Claude Desktop
 
+**Option A: `.mcpb` bundle**
+
+Download the latest `.mcpb` file from the [releases page](https://github.com/JDNdeveloper/dynalist-mcp/releases). Go to **Settings > Extensions > Advanced settings > Install Extension** and select the downloaded file. You will be prompted for your API token during setup.
+
+**Option B: Manual config**
+
+Add the Claude Code config snippet (see below) to your Claude Desktop config file:
+
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
 - **Windows (legacy)**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "dynalist": {
-      "command": "/absolute/path/to/bun",
-      "args": ["/absolute/path/to/dynalist-mcp/src/index.ts"],
-      "env": {
-        "DYNALIST_API_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
 
 ## Claude Code
 
@@ -48,6 +42,32 @@ All paths in MCP config files must be absolute. `~` and `$HOME` are not expanded
   }
 }
 ```
+
+## OpenCode
+
+`~/.config/opencode/opencode.json`:
+
+```json
+{
+  "mcp": {
+    "dynalist": {
+      "type": "local",
+      "command": ["/absolute/path/to/bun", "/absolute/path/to/dynalist-mcp/src/index.ts"],
+      "env": {
+        "DYNALIST_API_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+OpenCode does not currently pass MCP instructions to agents (see: [issue #7373](https://github.com/anomalyco/opencode/issues/7373)). Until that is fixed, add the following to your `AGENTS.md` so the agent reads the instructions explicitly at the start of each session:
+
+```markdown
+**CRITICAL**: Before your first Dynalist tool call in a session, read `<absolute-path-to>/dynalist-mcp/docs/instructions.md`.
+```
+
+Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
 
 ## Troubleshooting
 
