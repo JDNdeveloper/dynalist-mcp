@@ -53,7 +53,7 @@ When `delete_items` is called with `children: "promote"`, the tool first moves a
 
 ## Cache invalidation
 
-The document store caches recent reads (see [performance.md](performance.md)). Write tools must invalidate the cache to prevent subsequent reads from returning stale data. The version guard's `finally` block calls `store.invalidate(fileId)` regardless of whether the write succeeded or failed. This handles partial failures (e.g., `PartialInsertError` after some nodes were created) where the cached version is stale even though the write did not fully succeed.
+The document store caches recent reads (see [performance.md](performance.md)). Write tools must invalidate the cache to prevent subsequent reads from returning stale data. The version guard's `finally` block calls `store.invalidate(fileId)` regardless of whether the write succeeded or failed. This handles partial failures (e.g., `PartialWriteError` after some nodes were created) where the cached version is stale even though the write did not fully succeed.
 
 `send_to_inbox` also invalidates the inbox document's cache entry after a successful send, since the inbox document's content changed outside the normal version guard flow.
 
@@ -82,4 +82,4 @@ Specific scenarios tested include:
 - **Move races.** Index race (another client reorders siblings after index computation).
 - **Multi-level insert races.** Concurrent edit during a multi-batch depth-level insert.
 - **Version regression.** Abnormal case where the version goes backwards between pre and post checks.
-- **Partial insert with stale cache.** Verifies that partial insert failures do not return stale cached data on subsequent reads.
+- **Partial write with stale cache.** Verifies that partial write failures do not return stale cached data on subsequent reads.

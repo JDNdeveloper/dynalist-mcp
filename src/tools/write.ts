@@ -13,6 +13,7 @@ import {
   makeErrorResponse,
   wrapToolHandler,
   insertTreeUnderParent,
+  editDocumentWithPartialGuard,
   ToolInputError,
   type ParsedNode,
 } from "../utils/dynalist-helpers";
@@ -213,7 +214,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             }
           }
 
-          const response = await client.editDocument(file_id, changes);
+          const response = await editDocumentWithPartialGuard(client, file_id, changes);
           return { result: undefined, apiCallCount: response.batches_sent };
         },
       );

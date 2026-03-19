@@ -3,12 +3,14 @@ import {
   groupByLevel,
   buildNodeTree,
   wrapToolHandler,
+  editDocumentWithPartialGuard,
+  PartialWriteError,
   makeResponse,
   ToolInputError,
   checkContentSize,
   type ParsedNode,
 } from "../utils/dynalist-helpers";
-import { DynalistApiError, type DynalistNode } from "../dynalist-client";
+import { DynalistApiError, CHANGES_BATCH_SIZE, type DynalistClient, type EditDocumentChange, type DynalistNode } from "../dynalist-client";
 import { ConfigError } from "../config";
 import { parseErrorContent } from "./tools/test-helpers";
 
@@ -336,5 +338,69 @@ describe("checkContentSize boundary values", () => {
     expect(result).not.toBeNull();
     expect(result!.warning).toContain("Use max_depth");
     expect(result!.warning).toContain("Target an item_id");
+  });
+});
+
+// ─── editDocumentWithPartialGuard ─────────────────────────────────────
+
+describe("editDocumentWithPartialGuard", () => {
+  // Minimal mock that either succeeds or throws.
+  function makeMockClient(shouldThrow: boolean): DynalistClient {
+    return {
+      editDocument: async () => {
+        if (shouldThrow) throw new DynalistApiError("ServerError", "Boom");
+        return { batches_sent: 1 };
+      },
+    } as unknown as DynalistClient;
+  }
+
+  function makeChanges(count: number): EditDocumentChange[] {
+    return Array.from({ length: count }, () => ({ action: "delete" as const, node_id: "x" }));
+  }
+
+  test("success passes through the response", async () => {
+    const client = makeMockClient(false);
+    const result = await editDocumentWithPartialGuard(client, "f1", makeChanges(1));
+    expect(result.batches_sent).toBe(1);
+  });
+
+  test("error with changes <= batch size rethrows original error", async () => {
+    const client = makeMockClient(true);
+    const changes = makeChanges(CHANGES_BATCH_SIZE);
+    await expect(editDocumentWithPartialGuard(client, "f1", changes))
+      .rejects.toThrow(DynalistApiError);
+  });
+
+  test("error with changes > batch size throws PartialWriteError", async () => {
+    const client = makeMockClient(true);
+    const changes = makeChanges(CHANGES_BATCH_SIZE + 1);
+    await expect(editDocumentWithPartialGuard(client, "f1", changes))
+      .rejects.toThrow(PartialWriteError);
+  });
+
+  test("PartialWriteError includes file_id and reread guidance", async () => {
+    const client = makeMockClient(true);
+    const changes = makeChanges(CHANGES_BATCH_SIZE + 1);
+    try {
+      await editDocumentWithPartialGuard(client, "f1", changes);
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(PartialWriteError);
+      const pwe = error as PartialWriteError;
+      expect(pwe.fileId).toBe("f1");
+      expect(pwe.message).toContain("read_document");
+    }
+  });
+
+  test("PartialWriteError preserves original error as cause", async () => {
+    const client = makeMockClient(true);
+    const changes = makeChanges(CHANGES_BATCH_SIZE + 1);
+    try {
+      await editDocumentWithPartialGuard(client, "f1", changes);
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      const pwe = error as PartialWriteError;
+      expect(pwe.cause).toBeInstanceOf(DynalistApiError);
+    }
   });
 });

@@ -6,6 +6,7 @@
 import { DynalistApiError, type DynalistClient } from "./dynalist-client";
 import type { DocumentStore } from "./document-store";
 import { makeSyncToken } from "./sync-token";
+import { REREAD_GUIDANCE } from "./tools/descriptions";
 
 export interface VersionGuardOptions {
   client: Pick<DynalistClient, "checkForUpdates">;
@@ -61,7 +62,7 @@ export async function withVersionGuard<T>(
 
   // Execute the guarded function (planning reads + write). The finally
   // block ensures the cache is invalidated even on partial failure (e.g.
-  // PartialInsertError after some writes succeeded).
+  // PartialWriteError after some writes succeeded).
   try {
     const { result, apiCallCount } = await guardedFn();
 
@@ -78,7 +79,7 @@ export async function withVersionGuard<T>(
       if (actualDelta !== apiCallCount) {
         syncWarning =
           "Write succeeded, but another edit may have occurred concurrently. " +
-          "You MUST call read_document and verify the result before making further changes.";
+          REREAD_GUIDANCE;
       }
     } catch {
       // The write succeeded but the post-write version check failed.
@@ -86,7 +87,7 @@ export async function withVersionGuard<T>(
       postWriteVersion = undefined;
       syncWarning =
         "Write succeeded, but the post-write check failed. " +
-        "You MUST call read_document before making further changes.";
+        REREAD_GUIDANCE;
     }
 
     return {

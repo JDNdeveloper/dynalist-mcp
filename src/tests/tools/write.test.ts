@@ -1065,7 +1065,7 @@ describe("insert_items", () => {
 
   // ─── partial failure ──────────────────────────────────────────────
 
-  test("partial failure returns PartialInsert error with context", async () => {
+  test("partial failure returns PartialWrite error with reread guidance", async () => {
     // Insert a 4-level deep hierarchy. Fail after 2 successful editDocument
     // calls, so levels 0 and 1 succeed but level 2 fails.
     ctx.server.failEditAfterNCalls(2);
@@ -1090,13 +1090,9 @@ describe("insert_items", () => {
 
     expect(result.isError).toBe(true);
     const parsedError = parseErrorContent(result);
-    expect(parsedError.error).toBe("PartialInsert");
-    expect(parsedError.inserted_count).toBe(2);
-    expect(parsedError.total_count).toBe(4);
-    expect(parsedError.first_item_id).toBeDefined();
-
-    // Verify failed_at_depth is included in the error response.
-    expect(parsedError.failed_at_depth).toBeDefined();
+    expect(parsedError.error).toBe("PartialWrite");
+    expect(parsedError.file_id).toBe("doc1");
+    expect(parsedError.message).toContain("read_document");
   });
 
   test("partial failure persists nodes inserted before the fault", async () => {

@@ -9,6 +9,8 @@
  */
 
 // Guidance strings (shared policy wording, reused across descriptions and MCP instructions).
+export const REREAD_GUIDANCE =
+  "You MUST call read_document and verify the result before making further changes.";
 export const CONFIRM_GUIDANCE =
   "ALWAYS preview intended changes and confirm with the user before calling. " +
   "NEVER preview and tool call in the same response.";
@@ -36,9 +38,9 @@ export const PARENT_FOLDER_ID_DESCRIPTION = "Parent folder file ID";
 export const DOCUMENT_TITLE_DESCRIPTION = "Document title";
 export const FOLDER_TITLE_DESCRIPTION = "Folder title";
 export const SYNC_TOKEN_DESCRIPTION =
-  "Opaque sync token. Pass as expected_sync_token to write tools.";
+  "Opaque sync token. Pass as expected_sync_token to mutating tools.";
 export const SYNC_WARNING_DESCRIPTION =
-  "Warning if a concurrent edit was detected during the write.";
+  "Warning if a concurrent edit was detected during the mutation.";
 export const SIZE_WARNING_DESCRIPTION =
   "Size warning message when result exceeds token threshold";
 export const MATCH_COUNT_DESCRIPTION = "Number of matches found";

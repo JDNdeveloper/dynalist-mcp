@@ -1,9 +1,11 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   createTestContext,
+  callTool,
   callToolOk,
   callToolError,
   getSyncToken,
+  parseErrorContent,
   standardSetup,
   type TestContext,
 } from "./test-helpers";
@@ -603,6 +605,31 @@ describe("delete_items", () => {
     expect(result.file_id).toBe("doc1");
     expect(result.deleted_count).toBe(1);
     expect(result.promoted_children).toBe(1);
+  });
+});
+
+// ─── partial write errors ────────────────────────────────────────────
+
+describe("delete_items promote partial failure", () => {
+  test("promote returns PartialWrite when delete call fails after successful move", async () => {
+    // n1 has children n1a, n1b. The move call succeeds, but the delete
+    // call fails. The error should mention promotion.
+    ctx.server.failEditAfterNCalls(1);
+
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callTool(ctx.mcpClient, "delete_items", {
+      file_id: "doc1",
+      item_ids: ["n1"],
+      children: "promote",
+      expected_sync_token: syncToken,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseErrorContent(result);
+    expect(parsed.error).toBe("PartialWrite");
+    expect(parsed.file_id).toBe("doc1");
+    expect(parsed.message).toContain("promoted");
+    expect(parsed.message).toContain("not deleted");
   });
 });
 

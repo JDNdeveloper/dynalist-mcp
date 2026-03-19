@@ -155,9 +155,9 @@ Dynalist's checkbox semantics are subtle: items can be checked with or without a
 - Not check children when checking a parent unless asked.
 - Understand that checked state works independently of checkbox visibility.
 
-## Partial insert recovery
+## Partial write recovery
 
-Large tree inserts are batched by depth level. If a batch fails mid-way, some items exist but not all. The error response includes enough metadata (counts and the first created item ID) for the agent to inspect the partial result and help the user recover rather than silently failing.
+Any mutation that requires multiple API calls (multi-level inserts, large batched edits/deletes, child promotion) can partially succeed. If a later API call fails after earlier ones succeeded, the tool returns a `PartialWrite` error with a message telling the agent to re-read the document and verify the result. The error carries the `file_id` so the agent knows which document to re-read.
 
 ## Description architecture
 

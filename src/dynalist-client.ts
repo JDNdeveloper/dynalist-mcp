@@ -34,7 +34,7 @@ const MAX_RETRY_DELAY_MS = 10000;
 // Batch config: the API silently drops changes beyond its burst limit
 // (~500 changes). Batches of 200 stay safely within the limit. No
 // inter-batch delay. The retry logic handles rate limits if needed.
-const CHANGES_BATCH_SIZE = 200;
+export const CHANGES_BATCH_SIZE = 200;
 const INTER_BATCH_DELAY_MS = 0;
 
 const ERROR_GUIDANCE: Record<string, string> = {

@@ -12,12 +12,15 @@ import {
   makeResponse,
   makeErrorResponse,
   wrapToolHandler,
+  editDocumentWithPartialGuard,
   ToolInputError,
+  PartialWriteError,
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import {
   FILE_ID_DESCRIPTION, SYNC_WARNING_DESCRIPTION,
   CONFIRM_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
+  REREAD_GUIDANCE,
 } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
@@ -129,10 +132,21 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
                 parent_id: parentInfo.parentId,
                 index: parentInfo.index + i,
               }));
-              const moveResponse = await client.editDocument(file_id, moveChanges);
+              const moveResponse = await editDocumentWithPartialGuard(client, file_id, moveChanges);
 
-              // Now delete just the (now childless) node.
-              const deleteResponse = await client.editDocument(file_id, [{ action: "delete", node_id }]);
+              // Now delete just the (now childless) node. The move already
+              // succeeded, so if the delete fails the children are promoted
+              // but the parent still exists.
+              let deleteResponse;
+              try {
+                deleteResponse = await client.editDocument(file_id, [{ action: "delete", node_id }]);
+              } catch (error) {
+                throw new PartialWriteError({
+                  fileId: file_id,
+                  message: `Children were promoted but the parent item was not deleted. ${REREAD_GUIDANCE}`,
+                  cause: error,
+                });
+              }
 
               return {
                 result: { deleted_count: 1, deleted_ids: [node_id], promoted_children: promotedCount },
@@ -193,7 +207,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           // orphan children on partial failure with no way to recover them.
           const changes = allToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
 
-          const response = await client.editDocument(file_id, changes);
+          const response = await editDocumentWithPartialGuard(client, file_id, changes);
           return {
             result: { deleted_count: deletedIds.length, deleted_ids: deletedIds },
             apiCallCount: response.batches_sent,
@@ -400,7 +414,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             }
           }
 
-          const response = await client.editDocument(file_id, allChanges);
+          const response = await editDocumentWithPartialGuard(client, file_id, allChanges);
           return { result: undefined, apiCallCount: response.batches_sent };
         },
       );

@@ -778,6 +778,8 @@ const CALL_TO_ENDPOINT: Record<string, string> = {
   "store.read": "readDocument",
   // insertTreeUnderParent() wraps client.editDocument().
   "insertTreeUnderParent": "editDocument",
+  // editDocumentWithPartialGuard() wraps client.editDocument().
+  "editDocumentWithPartialGuard": "editDocument",
 };
 
 // Free function names to detect (keys from CALL_TO_ENDPOINT that aren't

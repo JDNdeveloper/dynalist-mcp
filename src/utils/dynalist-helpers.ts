@@ -2,12 +2,13 @@
  * Shared helpers used across tool modules.
  */
 
-import type { DynalistNode, EditDocumentChange } from "../dynalist-client";
-import { DynalistClient, DynalistApiError } from "../dynalist-client";
+import type { DynalistNode, EditDocumentChange, EditDocumentResponse } from "../dynalist-client";
+import { DynalistClient, CHANGES_BATCH_SIZE, DynalistApiError } from "../dynalist-client";
 import { SyncTokenMismatchError } from "../version-guard";
 import { ConfigError } from "../config";
 import type { NodeSummary, OutputNode, InsertTreeOptions } from "../types";
 import { HEADING_TO_NUMBER, COLOR_TO_NUMBER, NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "../tools/node-metadata";
+import { REREAD_GUIDANCE } from "../tools/descriptions";
 import type { HeadingValue, ColorValue } from "../tools/node-metadata";
 
 /**
@@ -235,8 +236,8 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
     try {
       return await fn(...args);
     } catch (error) {
-      if (error instanceof PartialInsertError) {
-        return error.toStructuredResponse();
+      if (error instanceof PartialWriteError) {
+        return error.toErrorResponse();
       }
       if (error instanceof SyncTokenMismatchError) {
         return makeErrorResponse("SyncTokenMismatch", error.message);
@@ -387,48 +388,53 @@ export function buildNodeTree(
 }
 
 /**
- * Error thrown on partial insert failure. Contains enough context for the
- * caller to report what was created before the failure occurred.
+ * Error thrown when a batched or multi-step write partially succeeds. The
+ * agent's only reliable recovery action is to re-read, so the error carries
+ * just the file_id and a descriptive message with reread guidance.
  */
-export class PartialInsertError extends Error {
+export class PartialWriteError extends Error {
   readonly fileId: string;
-  readonly insertedCount: number;
-  readonly totalCount: number;
-  readonly firstNodeId: string | undefined;
-  readonly failedAtDepth: number;
 
-  constructor(opts: {
-    fileId: string;
-    insertedCount: number;
-    totalCount: number;
-    firstNodeId: string | undefined;
-    failedAtDepth: number;
-    cause: unknown;
-  }) {
-    const msg = `Inserted ${opts.insertedCount} of ${opts.totalCount} items before failure at depth ${opts.failedAtDepth}. You may need to clean up partial results.`;
-    super(msg, { cause: opts.cause });
-    this.name = "PartialInsertError";
+  constructor(opts: { fileId: string; message: string; cause: unknown }) {
+    super(opts.message, { cause: opts.cause });
+    this.name = "PartialWriteError";
     this.fileId = opts.fileId;
-    this.insertedCount = opts.insertedCount;
-    this.totalCount = opts.totalCount;
-    this.firstNodeId = opts.firstNodeId;
-    this.failedAtDepth = opts.failedAtDepth;
   }
 
-  toStructuredResponse() {
-    const data = {
-      error: "PartialInsert",
-      message: this.message,
-      file_id: this.fileId,
-      inserted_count: this.insertedCount,
-      total_count: this.totalCount,
-      first_item_id: this.firstNodeId ?? null,
-      failed_at_depth: this.failedAtDepth,
-    };
+  toErrorResponse() {
     return {
-      content: [{ type: "text" as const, text: JSON.stringify(data) }],
+      content: [{ type: "text" as const, text: JSON.stringify({
+        error: "PartialWrite",
+        message: this.message,
+        file_id: this.fileId,
+      }) }],
       isError: true,
     };
+  }
+}
+
+/**
+ * Execute an editDocument call, wrapping failures in PartialWriteError when
+ * the change set exceeded CHANGES_BATCH_SIZE (meaning internal batching
+ * occurred and partial application is possible). Single-batch calls let the
+ * original error propagate since the API is all-or-nothing at the HTTP level.
+ */
+export async function editDocumentWithPartialGuard(
+  client: DynalistClient,
+  fileId: string,
+  changes: EditDocumentChange[],
+): Promise<EditDocumentResponse> {
+  try {
+    return await client.editDocument(fileId, changes);
+  } catch (error) {
+    if (changes.length > CHANGES_BATCH_SIZE) {
+      throw new PartialWriteError({
+        fileId,
+        message: `Write failed after partial execution. Some changes may have been applied. ${REREAD_GUIDANCE}`,
+        cause: error,
+      });
+    }
+    throw error;
   }
 }
 
@@ -437,7 +443,7 @@ export class PartialInsertError extends Error {
  * Returns total nodes created and array of created node IDs for level 0.
  *
  * On partial failure (e.g. network error mid-insert), throws a
- * PartialInsertError with context about what was created.
+ * PartialWriteError so the agent knows to re-read and verify.
  */
 export async function insertTreeUnderParent(
   client: DynalistClient,
@@ -451,7 +457,6 @@ export async function insertTreeUnderParent(
   }
 
   const levels = groupByLevel(tree);
-  const totalCount = levels.reduce((sum, level) => sum + level.length, 0);
   let totalCreated = 0;
   let batchesSent = 0;
   let rootNodeIds: string[] = [];
@@ -513,12 +518,9 @@ export async function insertTreeUnderParent(
       batchesSent += response.batches_sent;
       previousLevelIds = newIds;
     } catch (error) {
-      throw new PartialInsertError({
+      throw new PartialWriteError({
         fileId,
-        insertedCount: totalCreated,
-        totalCount,
-        firstNodeId: rootNodeIds[0],
-        failedAtDepth: levelIdx,
+        message: `Write failed after partial execution. Some changes may have been applied. ${REREAD_GUIDANCE}`,
         cause: error,
       });
     }

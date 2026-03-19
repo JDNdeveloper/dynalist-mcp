@@ -134,9 +134,9 @@ Example:
 
 ## Sync tokens
 
-- Call read_document before any write tool to obtain the sync_token.
-- Pass the sync_token as expected_sync_token to write tools.
-- If a write tool returns sync_warning, a concurrent edit may have occurred. Re-read and \
+- Call read_document before any mutating tool to obtain the sync_token.
+- Pass the sync_token as expected_sync_token to mutating tools.
+- If a mutating tool returns sync_warning, a concurrent edit may have occurred. Re-read and \
 verify before further edits.
 - Do NOT modify or fabricate sync tokens. They are opaque and unpredictable.
 

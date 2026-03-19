@@ -162,7 +162,7 @@ Leaf items (no children) omit child_count and children entirely.
 | --- | --- | --- | --- |
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
-| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to write tools. |
+| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to mutating tools. |
 | `item` | object | no | Root of the item tree |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
@@ -238,7 +238,7 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 | --- | --- | --- | --- |
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
-| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to write tools. |
+| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to mutating tools. |
 | `count` | number | no | Number of matches found |
 | `query` | string | no | The search query that was used |
 | `matches` | object[] | no | Matching items |
@@ -323,7 +323,7 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 | --- | --- | --- | --- |
 | `file_id` | string | no | Document file ID |
 | `title` | string | no | Document title |
-| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to write tools. |
+| `sync_token` | string | no | Opaque sync token. Pass as expected_sync_token to mutating tools. |
 | `count` | number | no | Number of matches found |
 | `matches` | object[] | no | Changed items |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
@@ -511,7 +511,7 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 | `file_id` | string | yes | Document file ID |
 | `edited_count` | number | yes | Number of items edited |
 | `item_ids` | string[] | yes | IDs of all edited items |
-| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**
 ```json
@@ -584,7 +584,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | `file_id` | string | yes | Document file ID |
 | `total_created` | number | yes | Total number of items created |
 | `root_item_ids` | string[] | yes | IDs of all top-level inserted items |
-| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**
 ```json
@@ -631,7 +631,7 @@ Delete items and their subtrees from a document.
 | `deleted_count` | number | yes | Number of items deleted |
 | `deleted_ids` | string[] | yes | IDs of all deleted items (targets and descendants). |
 | `promoted_children` | number | no | Number of direct children promoted to parent (only when children is 'promote') |
-| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**
 ```json
@@ -687,7 +687,7 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 | `file_id` | string | yes | Document file ID |
 | `moved_count` | number | yes | Number of items moved |
 | `item_ids` | string[] | yes | IDs of all moved items |
-| `sync_warning` | string | no | Warning if a concurrent edit was detected during the write. |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**
 ```json

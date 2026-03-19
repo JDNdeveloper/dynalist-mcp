@@ -250,12 +250,12 @@ describe("version guard edge cases", () => {
     expect(result.sync_warning).toBeDefined();
   });
 
-  test("partial insert failure does not prevent reading partial writes", async () => {
+  test("partial write failure does not prevent reading partial writes", async () => {
     // Warm the cache so the store has a cached version.
     await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
 
     // Insert a 3-level hierarchy, failing after 1 successful batch. Level
-    // 0 succeeds (creates 1 node), level 1 fails. The PartialInsertError
+    // 0 succeeds (creates 1 node), level 1 fails. The PartialWriteError
     // propagates through the version guard, which invalidates the cache in
     // its finally block so subsequent reads see the partial writes.
     //
@@ -279,7 +279,7 @@ describe("version guard edge cases", () => {
 
     expect(result.isError).toBe(true);
     const parsedError = parseErrorContent(result);
-    expect(parsedError.error).toBe("PartialInsert");
+    expect(parsedError.error).toBe("PartialWrite");
 
     // A subsequent read should reflect the partial write (the level-0
     // node was created even though the level-1 insert failed).
