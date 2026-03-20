@@ -60,7 +60,7 @@ const HEADLESS_SYSTEM_PROMPT =
   "mutating Dynalist tools directly without previewing, confirming, or " +
   "asking for approval.";
 
-const GLOBAL_ROOT = `Validation ${RUN_ID}`;
+const GLOBAL_ROOT = `Haiku Validation ${RUN_ID}`;
 
 interface Task {
   category: string;
