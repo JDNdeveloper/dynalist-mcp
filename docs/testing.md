@@ -90,7 +90,7 @@ MCP instructions and tool descriptions must be clear enough for any model to fol
 
 The harness spawns non-interactive Claude CLI sessions, each executing a natural-language prompt that requires the model to interpret tool descriptions, follow MCP instructions, and compose multi-step workflows. Tasks are organized into parallel pipelines, each operating in an isolated root folder to prevent cross-pipeline interference:
 
-- **Positioning pipeline.** Tests all `insert_items` position values: `first_child`, `last_child`, `after`, `before`, with and without `reference_item_id`.
+- **Positioning pipeline.** Tests all `insert_items` position values: `after`, `before`, `first_child`, `last_child`, with and without `reference_item_id`.
 - **Enums pipeline.** Tests heading/color string enum values on insert, edit, clear, and inbox. Tests nested tree insertion with metadata.
 - **Edit pipeline.** Tests content edits, note updates, checkbox toggling, and version guard compliance (passing `expected_sync_token` from a prior read).
 - **Search pipeline.** Tests `search_in_document` with `parent_levels: "all"`, note searching, depth-limited item expansion, and URL-to-file-ID extraction.

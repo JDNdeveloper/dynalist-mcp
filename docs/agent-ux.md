@@ -184,6 +184,17 @@ The Dynalist API does not have an "ancestors" endpoint, and several common tasks
 - **Drilling into depth-limited items.** Read starting from the depth-limited item to zoom into the subtree.
 - **File vs. item management.** The instructions distinguish file-tree tools from item-tree tools to prevent agents from confusing file IDs with item IDs.
 
+## Relative positioning
+
+All tools that position entities (file tools and item tools) use a unified pattern: a reference ID (`reference_file_id` for file tools, `reference_item_id` for item tools) plus a `position` enum (`after`, `before`, `first_child`, `last_child`). The server resolves these to numeric API indexes internally.
+
+This design exists because numeric indexes are unreliable in the agent's view:
+
+- **Filtered views diverge from the API.** Access control filters denied files from `list_documents` output. Similarly, `read_document` filters checked items when `include_checked: false`. The agent sees a filtered view where positions do not match the API's unfiltered children array. Computing the correct index would require the agent to account for invisible items, which it cannot do.
+- **LLMs are bad at counting.** Relative positioning ("after X", "before Y") is more natural for language models than computing a numeric array index.
+
+The `position` enum values and semantics are consistent across all tools: `after`/`before` treat the reference as a sibling, and `first_child`/`last_child` treat it as a parent.
+
 ## Sync token workflow
 
 The instructions establish a mandatory workflow: read a document before any write to obtain the sync token, pass it to the write tool, and re-read if the tool returns a sync warning. This is reinforced at the parameter level, where the sync token field description tells the agent to re-read on staleness. The sync token design is covered in depth in [concurrency.md](concurrency.md).

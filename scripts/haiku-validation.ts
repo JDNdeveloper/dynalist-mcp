@@ -276,6 +276,24 @@ const PIPELINE_SPECS: PipelineSpec[] = [
           `Using Dynalist, list documents to find the folder 'Sub' ` +
           `(inside the folder with file_id '${folderId}'). Rename it to 'Sub Renamed'.`,
       },
+      {
+        category: "file-mgmt",
+        id: "create-doc-before",
+        prompt:
+          `Using Dynalist, list documents to find 'Sub Doc Renamed' ` +
+          `(inside the folder with file_id '${folderId}'). Create a new document ` +
+          `called 'Before Doc' positioned before 'Sub Doc Renamed' ` +
+          `(use its file_id as reference_file_id with position 'before').`,
+      },
+      {
+        category: "file-mgmt",
+        id: "move-folder-first-child",
+        prompt:
+          `Using Dynalist, list documents to find the folder 'Sub Renamed' ` +
+          `(inside the folder with file_id '${folderId}'). Move it to be the ` +
+          `first child of the folder with file_id '${folderId}' ` +
+          `(use reference_file_id '${folderId}' with position 'first_child').`,
+      },
     ],
   },
 ];
@@ -610,7 +628,7 @@ async function main() {
     prompt:
       `Using Dynalist, create a top-level folder named '${GLOBAL_ROOT}'. ` +
       `Then list documents to find '${GLOBAL_ROOT}' and create ${PIPELINE_SPECS.length} folders inside it ` +
-      `(using its file_id as parent_folder_id) named: ${folderNames}.${docInstruction}\n\n` +
+      `(using its file_id as reference_file_id) named: ${folderNames}.${docInstruction}\n\n` +
       `After creating everything, output ONLY a JSON object mapping each folder name ` +
       `to its IDs. Use this exact format (no other text):\n` +
       `{\n` +

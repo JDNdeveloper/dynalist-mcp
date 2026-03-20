@@ -524,9 +524,8 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `items` | object[] | yes | Array of items to insert |
-| `position` | `"first_child"`, `"last_child"`, `"after"`, `"before"` | yes | Insertion target. 'last_child' (most common): append under parent. 'first_child': prepend under parent. 'after'/'before': sibling-relative placement (reference_item_id required). |
-| `reference_item_id` | string | no | For first_child/last_child: the parent item. Omit for document root. For after/before: the sibling item (required). Cannot be the root item for after/before. |
-| `index` | number | no | Exact child index within the parent. 0 = first, -1 = last. Only valid with first_child/last_child. Cannot combine with reference_item_id for sibling positions. |
+| `reference_item_id` | string | no | For after/before: the sibling item (required). Cannot be the root item. For first_child/last_child: the parent item. Omit for document root. |
+| `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | yes | Insertion target. 'after'/'before': sibling-relative placement (reference_item_id required). 'first_child': prepend under parent. 'last_child' (most common): append under parent. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **`items` element fields:**
@@ -560,9 +559,8 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
       ]
     }
   ],
-  "position": "first_child",
   "reference_item_id": "n_sibling012",
-  "index": 0,
+  "position": "after",
   "expected_sync_token": "a1b2c"
 }
 ```
@@ -692,14 +690,14 @@ Create an empty document in a folder. Use the returned file_id with insert_items
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
 | `title` | string | no | "" | Document title |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
+| `reference_file_id` | string | no |  | For after/before: the sibling file (required). For first_child/last_child: the parent folder. Omit for top level. |
+| `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | no | "last_child" | 'after'/'before': place relative to a sibling (reference_file_id required). 'first_child': prepend to start of folder. 'last_child': append to end. |
 
 **Example input:**
 ```json
 {
-  "parent_folder_id": "f_folder456"
+  "reference_file_id": "abc123def456"
 }
 ```
 
@@ -726,14 +724,14 @@ Create an empty folder inside another folder.
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
 | `title` | string | no | "" | Folder title |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
+| `reference_file_id` | string | no |  | For after/before: the sibling file (required). For first_child/last_child: the parent folder. Omit for top level. |
+| `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | no | "last_child" | 'after'/'before': place relative to a sibling (reference_file_id required). 'first_child': prepend to start of folder. 'last_child': append to end. |
 
 **Example input:**
 ```json
 {
-  "parent_folder_id": "f_folder456"
+  "reference_file_id": "abc123def456"
 }
 ```
 
@@ -829,14 +827,14 @@ Move a document to a different folder, or reorder within its current folder. Ope
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
-| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
+| `reference_file_id` | string | no |  | For after/before: the sibling file (required). For first_child/last_child: the parent folder. Omit for top level. |
+| `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | no | "last_child" | 'after'/'before': place relative to a sibling (reference_file_id required). 'first_child': prepend to start of folder. 'last_child': append to end. |
 
 **Example input:**
 ```json
 {
   "file_id": "f_abc123",
-  "parent_folder_id": "f_folder456"
+  "reference_file_id": "abc123def456"
 }
 ```
 
@@ -864,14 +862,14 @@ Move a folder to a different parent, or reorder within its current parent. Conte
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Folder file ID |
-| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
-| `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
+| `reference_file_id` | string | no |  | For after/before: the sibling file (required). For first_child/last_child: the parent folder. Omit for top level. |
+| `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | no | "last_child" | 'after'/'before': place relative to a sibling (reference_file_id required). 'first_child': prepend to start of folder. 'last_child': append to end. |
 
 **Example input:**
 ```json
 {
   "file_id": "f_abc123",
-  "parent_folder_id": "f_folder456"
+  "reference_file_id": "abc123def456"
 }
 ```
 

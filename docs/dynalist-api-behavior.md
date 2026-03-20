@@ -287,6 +287,9 @@ budget (not 1).
 ```
 
 - `type`: `"document"` or `"folder"`.
+- `index: -1` does NOT work as "last child" for file operations, unlike `/doc/edit`.
+  Passing `index: -1` places the file at index 0 (first child). The MCP tools avoid
+  this by always resolving positions to explicit numeric indices.
 - Empty or omitted title: creates with title "Untitled".
 - Duplicate titles: allowed. Multiple files with the same title get separate IDs.
 - Creating inside a document ID (not a folder): API rejects (`results: [false]`).

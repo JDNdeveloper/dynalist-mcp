@@ -12,25 +12,24 @@ import {
   makeResponse,
   makeErrorResponse,
   wrapToolHandler,
+  resolveFilePosition,
 } from "../utils/dynalist-helpers";
+import type { PositionValue } from "../utils/dynalist-helpers";
 import {
   CONFIRM_GUIDANCE, FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION,
-  PARENT_FOLDER_ID_INPUT_DESCRIPTION, PARENT_FOLDER_ID_OUTPUT_DESCRIPTION,
+  PARENT_FOLDER_ID_OUTPUT_DESCRIPTION,
   DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
-  FOLDER_INDEX_DESCRIPTION,
 } from "./descriptions";
 
-export function registerFileTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
-  // Lazily cached root folder ID. Never changes for a given account, so
-  // one API call suffices for the lifetime of the server.
-  let cachedRootFileId: string | null = null;
-  async function getRootFileId(): Promise<string> {
-    if (!cachedRootFileId) {
-      cachedRootFileId = (await client.listFiles()).root_file_id;
-    }
-    return cachedRootFileId;
-  }
+const FILE_POSITION_DESCRIPTION =
+  "'after'/'before': place relative to a sibling (reference_file_id required). " +
+  "'first_child': prepend to start of folder. 'last_child': append to end.";
 
+const REFERENCE_FILE_ID_DESCRIPTION =
+  "For after/before: the sibling file (required). " +
+  "For first_child/last_child: the parent folder. Omit for top level.";
+
+export function registerFileTools(server: McpServer, client: DynalistClient, ac: AccessController): void {
   server.registerTool(
     "create_document",
     {
@@ -39,9 +38,10 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         "Create an empty document in a folder. Use the returned file_id with " +
         "insert_items to add content.",
       inputSchema: {
-        parent_folder_id: z.string().optional().describe(PARENT_FOLDER_ID_INPUT_DESCRIPTION),
         title: z.string().optional().default("").describe(DOCUMENT_TITLE_DESCRIPTION),
-        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
+        reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
+        position: z.enum(["after", "before", "first_child", "last_child"])
+          .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -49,30 +49,34 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       },
     },
     wrapToolHandler(async ({
-      parent_folder_id,
       title,
-      index,
+      reference_file_id,
+      position,
     }: {
-      parent_folder_id?: string;
       title: string;
-      index: number;
+      reference_file_id?: string;
+      position: PositionValue;
     }) => {
       const config = getConfig();
+      const listResponse = await client.listFiles();
 
-      // Resolve to root folder when omitted.
-      const resolvedParent = parent_folder_id ?? await getRootFileId();
+      // Resolve position to parent folder and numeric index.
+      const resolved = resolveFilePosition(
+        reference_file_id, position, listResponse.files, listResponse.root_file_id,
+      );
+      if ("error" in resolved) return makeErrorResponse(resolved.error, resolved.message);
 
       // Access check: creating requires allow on the parent folder.
-      const parentPolicy = await ac.getPolicy(resolvedParent, config);
+      const parentPolicy = await ac.getPolicy(resolved.parentId, config);
       const accessError = requireAccess(parentPolicy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const response = await client.editFiles([{
         action: "create",
         type: "document",
-        parent_id: resolvedParent,
+        parent_id: resolved.parentId,
         title,
-        index,
+        index: resolved.index,
       }]);
 
       if (!response.results?.[0]) {
@@ -101,9 +105,10 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Create an empty folder inside another folder.",
       inputSchema: {
-        parent_folder_id: z.string().optional().describe(PARENT_FOLDER_ID_INPUT_DESCRIPTION),
         title: z.string().optional().default("").describe(FOLDER_TITLE_DESCRIPTION),
-        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
+        reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
+        position: z.enum(["after", "before", "first_child", "last_child"])
+          .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
@@ -111,30 +116,34 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
       },
     },
     wrapToolHandler(async ({
-      parent_folder_id,
       title,
-      index,
+      reference_file_id,
+      position,
     }: {
-      parent_folder_id?: string;
       title: string;
-      index: number;
+      reference_file_id?: string;
+      position: PositionValue;
     }) => {
       const config = getConfig();
+      const listResponse = await client.listFiles();
 
-      // Resolve to root folder when omitted.
-      const resolvedParent = parent_folder_id ?? await getRootFileId();
+      // Resolve position to parent folder and numeric index.
+      const resolved = resolveFilePosition(
+        reference_file_id, position, listResponse.files, listResponse.root_file_id,
+      );
+      if ("error" in resolved) return makeErrorResponse(resolved.error, resolved.message);
 
       // Access check: creating requires allow on the parent folder.
-      const parentPolicy = await ac.getPolicy(resolvedParent, config);
+      const parentPolicy = await ac.getPolicy(resolved.parentId, config);
       const accessError = requireAccess(parentPolicy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const response = await client.editFiles([{
         action: "create",
         type: "folder",
-        parent_id: resolvedParent,
+        parent_id: resolved.parentId,
         title,
-        index,
+        index: resolved.index,
       }]);
 
       if (!response.results?.[0]) {
@@ -253,8 +262,9 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         "Operates on the file tree, not document items.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        parent_folder_id: z.string().optional().describe(PARENT_FOLDER_ID_INPUT_DESCRIPTION),
-        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
+        reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
+        position: z.enum(["after", "before", "first_child", "last_child"])
+          .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -263,27 +273,20 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     },
     wrapToolHandler(async ({
       file_id,
-      parent_folder_id,
-      index,
+      reference_file_id,
+      position,
     }: {
       file_id: string;
-      parent_folder_id?: string;
-      index: number;
+      reference_file_id?: string;
+      position: PositionValue;
     }) => {
       const config = getConfig();
       const listResponse = await client.listFiles();
 
-      // Resolve to root folder when omitted.
-      const resolvedParent = parent_folder_id ?? listResponse.root_file_id;
-
-      // Access check: moving requires allow on both source and destination.
+      // Access check on source: moving requires allow on the file being moved.
       const sourcePolicy = await ac.getPolicy(file_id, config);
       const sourceError = requireAccess(sourcePolicy, "write");
       if (sourceError) return makeErrorResponse(sourceError.error, sourceError.message);
-
-      const destPolicy = await ac.getPolicy(resolvedParent, config);
-      const destError = requireAccess(destPolicy, "write");
-      if (destError) return makeErrorResponse(destError.error, destError.message);
 
       // Verify the file is a document, not a folder.
       const file = listResponse.files.find((f) => f.id === file_id);
@@ -294,12 +297,36 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         return makeErrorResponse("InvalidArgument", "The specified file_id is a folder, not a document. Use move_folder instead.");
       }
 
+      // Resolve position to parent folder and numeric index.
+      const resolved = resolveFilePosition(
+        reference_file_id, position, listResponse.files, listResponse.root_file_id,
+      );
+      if ("error" in resolved) return makeErrorResponse(resolved.error, resolved.message);
+
+      // Access check on destination: moving requires allow on the target folder.
+      const destPolicy = await ac.getPolicy(resolved.parentId, config);
+      const destError = requireAccess(destPolicy, "write");
+      if (destError) return makeErrorResponse(destError.error, destError.message);
+
+      // The API uses post-removal indexing: it removes the file from its
+      // current parent first, then inserts at the given index. When moving
+      // within the same parent and the file is earlier than the target,
+      // the removal shifts the target index down by 1.
+      let apiIndex = resolved.index;
+      const currentParent = listResponse.files.find(f => f.children?.includes(file_id));
+      if (currentParent && currentParent.id === resolved.parentId) {
+        const currentIndex = currentParent.children!.indexOf(file_id);
+        if (currentIndex < apiIndex) {
+          apiIndex--;
+        }
+      }
+
       const response = await client.editFiles([{
         action: "move",
         type: "document",
         file_id,
-        parent_id: resolvedParent,
-        index,
+        parent_id: resolved.parentId,
+        index: apiIndex,
       }]);
 
       if (!response.results?.[0]) {
@@ -311,7 +338,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       return makeResponse({
         file_id,
-        parent_folder_id: resolvedParent,
+        parent_folder_id: resolved.parentId,
       });
     })
   );
@@ -325,8 +352,9 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         "Contents move with it.",
       inputSchema: {
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
-        parent_folder_id: z.string().optional().describe(PARENT_FOLDER_ID_INPUT_DESCRIPTION),
-        index: z.number().optional().default(-1).describe(FOLDER_INDEX_DESCRIPTION),
+        reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
+        position: z.enum(["after", "before", "first_child", "last_child"])
+          .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
@@ -335,27 +363,20 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     },
     wrapToolHandler(async ({
       file_id,
-      parent_folder_id,
-      index,
+      reference_file_id,
+      position,
     }: {
       file_id: string;
-      parent_folder_id?: string;
-      index: number;
+      reference_file_id?: string;
+      position: PositionValue;
     }) => {
       const config = getConfig();
       const listResponse = await client.listFiles();
 
-      // Resolve to root folder when omitted.
-      const resolvedParent = parent_folder_id ?? listResponse.root_file_id;
-
-      // Access check: moving requires allow on both source and destination.
+      // Access check on source: moving requires allow on the file being moved.
       const sourcePolicy = await ac.getPolicy(file_id, config);
       const sourceError = requireAccess(sourcePolicy, "write");
       if (sourceError) return makeErrorResponse(sourceError.error, sourceError.message);
-
-      const destPolicy = await ac.getPolicy(resolvedParent, config);
-      const destError = requireAccess(destPolicy, "write");
-      if (destError) return makeErrorResponse(destError.error, destError.message);
 
       // Verify the file is a folder, not a document.
       const file = listResponse.files.find((f) => f.id === file_id);
@@ -366,12 +387,33 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         return makeErrorResponse("InvalidArgument", "The specified file_id is a document, not a folder. Use move_document instead.");
       }
 
+      // Resolve position to parent folder and numeric index.
+      const resolved = resolveFilePosition(
+        reference_file_id, position, listResponse.files, listResponse.root_file_id,
+      );
+      if ("error" in resolved) return makeErrorResponse(resolved.error, resolved.message);
+
+      // Access check on destination: moving requires allow on the target folder.
+      const destPolicy = await ac.getPolicy(resolved.parentId, config);
+      const destError = requireAccess(destPolicy, "write");
+      if (destError) return makeErrorResponse(destError.error, destError.message);
+
+      // Same-parent post-removal index adjustment (see move_document).
+      let apiIndex = resolved.index;
+      const currentParent = listResponse.files.find(f => f.children?.includes(file_id));
+      if (currentParent && currentParent.id === resolved.parentId) {
+        const currentIndex = currentParent.children!.indexOf(file_id);
+        if (currentIndex < apiIndex) {
+          apiIndex--;
+        }
+      }
+
       const response = await client.editFiles([{
         action: "move",
         type: "folder",
         file_id,
-        parent_id: resolvedParent,
-        index,
+        parent_id: resolved.parentId,
+        index: apiIndex,
       }]);
 
       if (!response.results?.[0]) {
@@ -383,7 +425,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
 
       return makeResponse({
         file_id,
-        parent_folder_id: resolvedParent,
+        parent_folder_id: resolved.parentId,
       });
     })
   );

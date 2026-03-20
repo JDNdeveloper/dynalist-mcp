@@ -333,7 +333,7 @@ function generateExample(name: string, schema: ZodTypeAny, depth: number = 0): u
         const { optional } = unwrap(fieldSchema as ZodTypeAny);
         // Include all optional fields at the first two nesting levels (depth <= 2).
         // Beyond that, skip optional fields except semantically-required ones.
-        if (optional && depth > 2 && !["content", "item_id", "position", "reference_item_id"].includes(key)) continue;
+        if (optional && depth > 2 && !["content", "item_id", "reference_item_id", "position"].includes(key)) continue;
         obj[key] = generateExample(key, fieldSchema as ZodTypeAny, depth + 1);
       }
       return obj;
@@ -383,6 +383,7 @@ function exampleString(name: string): string {
   if (name === "type") return "document";
   if (name === "permission") return "owner";
   if (name === "access_policy") return "read";
+  if (name === "reference_file_id") return "abc123def456";
   if (name === "sync_token" || name === "expected_sync_token") return "a1b2c";
   if (name === "value") return "a1b2c";
   throw new Error(`No example string for field '${name}'. Add it to exampleString() in generate-docs.ts.`);

@@ -452,8 +452,8 @@ describe("move_items response shape", () => {
 describe("create_document response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const raw = await callTool(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
       title: "New Doc",
+      reference_file_id: "folder_a",
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -463,8 +463,8 @@ describe("create_document response shape", () => {
 
   test("error response for non-existent parent folder has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "create_document", {
-      parent_folder_id: "nonexistent",
       title: "New Doc",
+      reference_file_id: "nonexistent",
     });
     assertErrorEnvelope(raw);
   });
@@ -475,8 +475,8 @@ describe("create_document response shape", () => {
 describe("create_folder response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const raw = await callTool(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "folder_a",
       title: "New Folder",
+      reference_file_id: "folder_a",
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -486,8 +486,8 @@ describe("create_folder response shape", () => {
 
   test("error response for non-existent parent folder has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "nonexistent",
       title: "New Folder",
+      reference_file_id: "nonexistent",
     });
     assertErrorEnvelope(raw);
   });
@@ -545,7 +545,7 @@ describe("move_document response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const raw = await callTool(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -556,7 +556,7 @@ describe("move_document response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_document", {
       file_id: "nonexistent",
-      parent_folder_id: "folder_a",
+      reference_file_id: "folder_a",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");
@@ -565,7 +565,7 @@ describe("move_document response shape", () => {
   test("error response for non-existent destination has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "nonexistent",
+      reference_file_id: "nonexistent",
     });
     assertErrorEnvelope(raw);
   });
@@ -577,7 +577,7 @@ describe("move_folder response shape", () => {
   test("success response has correct envelope and fields", async () => {
     const raw = await callTool(ctx.mcpClient, "move_folder", {
       file_id: "folder_a",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -588,7 +588,7 @@ describe("move_folder response shape", () => {
   test("error response for non-existent folder has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_folder", {
       file_id: "nonexistent",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");
@@ -597,7 +597,7 @@ describe("move_folder response shape", () => {
   test("error response for document file_id has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "move_folder", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidArgument");

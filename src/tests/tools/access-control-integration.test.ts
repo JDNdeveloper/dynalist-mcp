@@ -827,7 +827,7 @@ describe("check_document_versions with ACL", () => {
 describe("create_document with ACL", () => {
   test("deny-policy folder returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "create_document", {
-      parent_folder_id: "denied_folder",
+      reference_file_id: "denied_folder",
       title: "Hacked Doc",
     });
     expect(err.error).toBe("NotFound");
@@ -835,7 +835,7 @@ describe("create_document with ACL", () => {
 
   test("read-policy folder returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "create_document", {
-      parent_folder_id: "readonly_folder",
+      reference_file_id: "readonly_folder",
       title: "Hacked Doc",
     });
     expect(err.error).toBe("Forbidden");
@@ -843,7 +843,7 @@ describe("create_document with ACL", () => {
 
   test("allow-policy folder succeeds", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
       title: "New Doc",
     });
     expect(result.file_id).toBeDefined();
@@ -854,7 +854,7 @@ describe("create_document with ACL", () => {
 describe("create_folder with ACL", () => {
   test("deny-policy folder returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "denied_folder",
+      reference_file_id: "denied_folder",
       title: "Hacked Folder",
     });
     expect(err.error).toBe("NotFound");
@@ -862,7 +862,7 @@ describe("create_folder with ACL", () => {
 
   test("read-policy folder returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "readonly_folder",
+      reference_file_id: "readonly_folder",
       title: "Hacked Folder",
     });
     expect(err.error).toBe("Forbidden");
@@ -870,7 +870,7 @@ describe("create_folder with ACL", () => {
 
   test("allow-policy folder succeeds", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
       title: "New Folder",
     });
     expect(result.file_id).toBeDefined();
@@ -936,7 +936,7 @@ describe("move_document with ACL", () => {
   test("deny-policy source returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "denied_doc",
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -944,7 +944,7 @@ describe("move_document with ACL", () => {
   test("read-policy source returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "readonly_doc",
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
     });
     expect(err.error).toBe("Forbidden");
   });
@@ -952,7 +952,7 @@ describe("move_document with ACL", () => {
   test("deny-policy destination returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
-      parent_folder_id: "denied_folder",
+      reference_file_id: "denied_folder",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -960,7 +960,7 @@ describe("move_document with ACL", () => {
   test("read-policy destination returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
-      parent_folder_id: "readonly_folder",
+      reference_file_id: "readonly_folder",
     });
     expect(err.error).toBe("Forbidden");
   });
@@ -986,7 +986,7 @@ describe("move_document with ACL", () => {
 
     const result = await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "allowed_doc",
-      parent_folder_id: "allowed_folder_2",
+      reference_file_id: "allowed_folder_2",
     });
     expect(result.file_id).toBe("allowed_doc");
     expect(result.parent_folder_id).toBe("allowed_folder_2");
@@ -997,7 +997,7 @@ describe("move_folder with ACL", () => {
   test("deny-policy source returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "denied_folder",
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -1005,7 +1005,7 @@ describe("move_folder with ACL", () => {
   test("read-policy source returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "readonly_folder",
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
     });
     expect(err.error).toBe("Forbidden");
   });
@@ -1013,7 +1013,7 @@ describe("move_folder with ACL", () => {
   test("deny-policy destination returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "allowed_folder",
-      parent_folder_id: "denied_folder",
+      reference_file_id: "denied_folder",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -1021,7 +1021,7 @@ describe("move_folder with ACL", () => {
   test("read-policy destination returns Forbidden", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "allowed_folder",
-      parent_folder_id: "readonly_folder",
+      reference_file_id: "readonly_folder",
     });
     expect(err.error).toBe("Forbidden");
   });
@@ -1045,7 +1045,7 @@ describe("move_folder with ACL", () => {
 
     const result = await callToolOk(ctx.mcpClient, "move_folder", {
       file_id: "allowed_folder",
-      parent_folder_id: "allowed_folder_2",
+      reference_file_id: "allowed_folder_2",
     });
     expect(result.file_id).toBe("allowed_folder");
     expect(result.parent_folder_id).toBe("allowed_folder_2");
@@ -1099,7 +1099,7 @@ describe("access.default 'read' blocks all writes", () => {
   test("blocks create_document", async () => {
     writeReadDefaultConfig();
     const err = await callToolError(ctx.mcpClient, "create_document", {
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
       title: "New",
     });
     expect(err.error).toBe("Forbidden");
@@ -1109,7 +1109,7 @@ describe("access.default 'read' blocks all writes", () => {
   test("blocks create_folder", async () => {
     writeReadDefaultConfig();
     const err = await callToolError(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "allowed_folder",
+      reference_file_id: "allowed_folder",
       title: "New",
     });
     expect(err.error).toBe("Forbidden");

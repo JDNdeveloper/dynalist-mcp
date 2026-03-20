@@ -2,7 +2,7 @@
  * Shared helpers used across tool modules.
  */
 
-import type { DynalistNode, EditDocumentChange, EditDocumentResponse } from "../dynalist-client";
+import type { DynalistNode, DynalistFile, EditDocumentChange, EditDocumentResponse } from "../dynalist-client";
 import { DynalistClient, CHANGES_BATCH_SIZE, DynalistApiError } from "../dynalist-client";
 import { SyncTokenMismatchError } from "../version-guard";
 import { ConfigError } from "../config";
@@ -10,6 +10,65 @@ import type { NodeSummary, OutputNode, InsertTreeOptions } from "../types";
 import { HEADING_TO_NUMBER, COLOR_TO_NUMBER, NUMBER_TO_HEADING, NUMBER_TO_COLOR } from "../tools/node-metadata";
 import { REREAD_GUIDANCE } from "../tools/descriptions";
 import type { HeadingValue, ColorValue } from "../tools/node-metadata";
+
+export type PositionValue = "after" | "before" | "first_child" | "last_child";
+
+/**
+ * Resolve a relative position to a parent folder ID and numeric insertion
+ * index. Used by file tools (create/move) to convert reference_file_id +
+ * position into the parent_id and index the Dynalist API expects.
+ *
+ * For first_child/last_child, reference_file_id is the parent folder (omit
+ * for root). For before/after, reference_file_id is a sibling and the
+ * parent is inferred from the file tree.
+ *
+ * The resolved index is based on a listFiles() snapshot taken at the start
+ * of the handler. If another client modifies the folder between listFiles()
+ * and editFiles(), the file could land at a different position than intended.
+ * This race window is small (single handler execution) and file tree
+ * mutations are infrequent, so we accept the risk. Agents are instructed to
+ * read back after mutations, which catches any positional divergence.
+ *
+ * Returns { parentId, index } on success, or { error, message } on failure.
+ */
+export function resolveFilePosition(
+  referenceFileId: string | undefined,
+  position: PositionValue,
+  files: DynalistFile[],
+  rootFileId: string,
+): { parentId: string; index: number } | { error: string; message: string } {
+  const isSibling = position === "before" || position === "after";
+
+  if (isSibling && referenceFileId === undefined) {
+    return { error: "InvalidInput", message: `${position} requires reference_file_id.` };
+  }
+
+  if (!isSibling) {
+    // first_child/last_child: reference is the parent folder (or root if omitted).
+    const parentId = referenceFileId ?? rootFileId;
+    const parentFolder = files.find(f => f.id === parentId);
+    if (!parentFolder) {
+      return { error: "NotFound", message: `Folder '${parentId}' not found.` };
+    }
+    if (parentFolder.type === "document") {
+      return { error: "InvalidInput", message: "reference_file_id must be a folder for first_child/last_child." };
+    }
+    const children = parentFolder.children ?? [];
+    return { parentId, index: position === "first_child" ? 0 : children.length };
+  }
+
+  // before/after: reference is a sibling. Find its parent folder.
+  const parentFolder = files.find(f => f.children?.includes(referenceFileId!));
+  if (!parentFolder) {
+    return { error: "NotFound", message: `Reference file '${referenceFileId}' not found in any folder.` };
+  }
+  const children = parentFolder.children!;
+  const refIndex = children.indexOf(referenceFileId!);
+  return {
+    parentId: parentFolder.id,
+    index: position === "after" ? refIndex + 1 : refIndex,
+  };
+}
 
 /**
  * A node in a parsed tree, used as the intermediate representation for

@@ -64,13 +64,13 @@ Use `list_documents` (from step 0.5) to find the account root folder, then creat
 
 | Sub-root       | Tests |
 |----------------|-------|
-| 01-insert      | ~4    |
+| 01-insert      | ~6    |
 | 02-edit        | ~3    |
 | 03-delete      | ~2    |
-| 04-move        | ~3    |
+| 04-move        | ~4    |
 | 05-read-search | ~4    |
 | 06-inbox       | ~2    |
-| 07-file-mgmt   | ~5    |
+| 07-file-mgmt   | ~8    |
 
 Agent 06 (inbox) does not use its sub-root folder since it only sends to the account inbox. Create the folder anyway for naming consistency.
 
@@ -130,8 +130,8 @@ Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
 - `items`: `[{ "content": "Root First" }]`
-- `position`: `"first_child"`
 - (no `reference_item_id`)
+- `position`: `"first_child"`
 
 Read back the document. **PASS** if `Root First` is the first top-level item. **FAIL** otherwise.
 
@@ -141,8 +141,8 @@ Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
 - `items`: `[{ "content": "Root Last" }]`
-- `position`: `"last_child"`
 - (no `reference_item_id`)
+- `position`: `"last_child"`
 
 Read back the document. **PASS** if `Root Last` is the last top-level item. **FAIL** otherwise.
 
@@ -152,12 +152,34 @@ Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
 - `items`: `[{ "content": "New Sibling" }]`
-- `position`: `"last_child"`
 - `reference_item_id`: item_id of `Existing Parent`
+- `position`: `"last_child"`
 
 Read back the document. **PASS** if children of `Existing Parent` are `[Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
-### Test 1d: Insert with nested tree and metadata
+### Test 1d: Insert after a sibling
+
+Call `insert_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "content": "After Child A" }]`
+- `reference_item_id`: item_id of `Child A`
+- `position`: `"after"`
+
+Read back. **PASS** if children of `Existing Parent` are `[Child A, After Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
+
+### Test 1e: Insert before a sibling
+
+Call `insert_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "content": "Before Child C" }]`
+- `reference_item_id`: item_id of `Child C`
+- `position`: `"before"`
+
+Read back. **PASS** if children of `Existing Parent` include `[..., Before Child C, Child C, ...]` with `Before Child C` immediately before `Child C`. **FAIL** otherwise.
+
+### Test 1f: Insert with nested tree and metadata
 
 Call `insert_items` with:
 - `file_id`: test document
@@ -319,6 +341,17 @@ Call `move_items` with:
 
 Read back. **PASS** if children of `Target Parent` are `[Target Child A, Move Source, Target Child B]` in that order. **FAIL** otherwise.
 
+### Test 4d: Move before a sibling
+
+Call `move_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `moves`: `[{ "item_id": <Move Source>, "reference_item_id": <Target Child B>, "position": "before" }]`
+
+(Note: `Move Source` is currently between `Target Child A` and `Target Child B` from test 4c.)
+
+Read back. **PASS** if children of `Target Parent` are `[Target Child A, Move Source, Target Child B]` in that order (unchanged, since "before Target Child B" is the same position). **FAIL** otherwise.
+
 ---
 
 ## Agent 05: read_document and search_in_document
@@ -420,7 +453,7 @@ This agent tests file-level operations. It works within the sub-root folder. Tes
 
 Call `create_document` with:
 - `title`: `"File Mgmt Doc"`
-- `parent_folder_id`: sub-root folder file_id
+- `reference_file_id`: sub-root folder file_id
 
 Extract the `file_id` from the response. Call `list_documents`. **PASS** if a document named `File Mgmt Doc` exists under the sub-root folder. **FAIL** otherwise.
 
@@ -436,22 +469,49 @@ Call `list_documents`. **PASS** if the document is now named `Renamed Doc`. **FA
 
 Call `create_folder` with:
 - `title`: `"Destination Folder"`
-- `parent_folder_id`: sub-root folder file_id
+- `reference_file_id`: sub-root folder file_id
 
 Call `move_document` with:
 - `file_id`: file_id of `Renamed Doc`
-- `parent_folder_id`: file_id of `Destination Folder`
+- `reference_file_id`: file_id of `Destination Folder`
 
 Call `list_documents`. **PASS** if `Renamed Doc` is now under `Destination Folder` and no longer directly under the sub-root. **FAIL** otherwise.
 
-### Test 7d: Check document versions
+### Test 7d: Create document with position: first_child
 
-Call `create_document` with `title: "Version Check Doc"` and `parent_folder_id: <sub-root folder file_id>`. Call `check_document_versions` with:
+Call `create_document` with:
+- `title`: `"First Doc"`
+- `reference_file_id`: sub-root folder file_id
+- `position`: `"first_child"`
+
+Call `list_documents`. **PASS** if `First Doc` is the first child of the sub-root folder. **FAIL** otherwise.
+
+### Test 7e: Create document with position: after
+
+Call `create_document` with:
+- `title`: `"After First"`
+- `reference_file_id`: file_id of `First Doc`
+- `position`: `"after"`
+
+Call `list_documents`. **PASS** if `After First` appears immediately after `First Doc` in the sub-root folder. **FAIL** otherwise.
+
+### Test 7f: Move folder with position: before
+
+Call `move_folder` with:
+- `file_id`: file_id of `Destination Folder`
+- `reference_file_id`: file_id of `First Doc`
+- `position`: `"before"`
+
+Call `list_documents`. **PASS** if `Destination Folder` appears immediately before `First Doc` in the sub-root folder. **FAIL** otherwise.
+
+### Test 7g: Check document versions
+
+Call `create_document` with `title: "Version Check Doc"` and `reference_file_id: <sub-root folder file_id>`. Call `check_document_versions` with:
 - `file_ids`: `[<Renamed Doc file_id>, <Version Check Doc file_id>]`
 
 **PASS** if the response contains a `sync_tokens` map with entries for both file_ids. **FAIL** otherwise.
 
-### Test 7e: Get recent changes
+### Test 7h: Get recent changes
 
 Call `get_recent_changes` with:
 - `file_id`: file_id of `Renamed Doc`

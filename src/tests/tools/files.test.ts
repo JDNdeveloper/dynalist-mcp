@@ -36,8 +36,8 @@ afterEach(async () => {
 describe("create_document", () => {
   test("creates document in folder", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
       title: "New Doc",
+      reference_file_id: "folder_a",
     });
     expect(result.file_id).toBeDefined();
     expect(result.title).toBe("New Doc");
@@ -45,8 +45,8 @@ describe("create_document", () => {
 
   test("created document appears in list_documents", async () => {
     const createResult = await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
       title: "Created Doc",
+      reference_file_id: "folder_a",
     });
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
@@ -55,58 +55,103 @@ describe("create_document", () => {
     expect(found!.title).toBe("Created Doc");
   });
 
-  test("index: 0 creates at top of folder", async () => {
+  test("position: first_child creates at top of folder", async () => {
     await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
       title: "Top Doc",
-      index: 0,
+      reference_file_id: "folder_a",
+      position: "first_child",
     });
     const folder = ctx.server.files.get("folder_a")!;
     const firstChild = ctx.server.files.get(folder.children![0])!;
     expect(firstChild.title).toBe("Top Doc");
   });
 
-  test("creating in non-existent folder returns error", async () => {
-    const err = await callToolError(ctx.mcpClient, "create_document", {
-      parent_folder_id: "nonexistent",
-      title: "Orphan Doc",
-    });
-    expect(err.error).toBeDefined();
-  });
-
-  test("default title creates document with empty or default title", async () => {
+  test("position: last_child appends to end of folder (default)", async () => {
+    // folder_a already has doc1 as a child.
     const result = await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
-    });
-    expect(result.file_id).toBeDefined();
-    // The document should be created even without specifying a title.
-    expect(result.title).toBeDefined();
-  });
-
-  test("index: -1 appends to end of folder", async () => {
-    // Folder A already has doc1 as a child.
-    const result = await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
       title: "End Doc",
-      index: -1,
+      reference_file_id: "folder_a",
     });
     const folder = ctx.server.files.get("folder_a")!;
     const lastChildId = folder.children![folder.children!.length - 1];
     expect(lastChildId).toBe(result.file_id as string);
   });
 
-  test("omitting parent_folder_id creates at top level", async () => {
+  test("position: after places document after reference sibling", async () => {
+    // folder_a has [doc1]. Create another doc first, then place a third after doc1.
+    const doc2 = await callToolOk(ctx.mcpClient, "create_document", {
+      title: "Doc Two",
+      reference_file_id: "folder_a",
+    });
+    await callToolOk(ctx.mcpClient, "create_document", {
+      title: "After Doc1",
+      reference_file_id: "doc1",
+      position: "after",
+    });
+    const folder = ctx.server.files.get("folder_a")!;
+    // Order should be: doc1, "After Doc1", doc2.
+    expect(folder.children![0]).toBe("doc1");
+    const afterDoc = ctx.server.files.get(folder.children![1])!;
+    expect(afterDoc.title).toBe("After Doc1");
+    expect(folder.children![2]).toBe(doc2.file_id as string);
+  });
+
+  test("position: before places document before reference sibling", async () => {
+    await callToolOk(ctx.mcpClient, "create_document", {
+      title: "Before Doc1",
+      reference_file_id: "doc1",
+      position: "before",
+    });
+    const folder = ctx.server.files.get("folder_a")!;
+    const firstChild = ctx.server.files.get(folder.children![0])!;
+    expect(firstChild.title).toBe("Before Doc1");
+    expect(folder.children![1]).toBe("doc1");
+  });
+
+  test("creating in non-existent folder returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "create_document", {
+      title: "Orphan Doc",
+      reference_file_id: "nonexistent",
+    });
+    expect(err.error).toBeDefined();
+  });
+
+  test("default title creates document with empty or default title", async () => {
+    const result = await callToolOk(ctx.mcpClient, "create_document", {
+      reference_file_id: "folder_a",
+    });
+    expect(result.file_id).toBeDefined();
+    expect(result.title).toBeDefined();
+  });
+
+  test("omitting reference_file_id creates at top level", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_document", {
       title: "Top Level Doc",
     });
     expect(result.file_id).toBeDefined();
     expect(result.title).toBe("Top Level Doc");
 
-    // Verify it appears as a top-level entry.
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const found = findInFileTree(listResult.files as Record<string, unknown>[], result.file_id as string);
     expect(found).toBeDefined();
     expect(found!.title).toBe("Top Level Doc");
+  });
+
+  test("before without reference_file_id returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "create_document", {
+      title: "Bad",
+      position: "before",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("reference_file_id pointing to document with first_child returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "create_document", {
+      title: "Bad",
+      reference_file_id: "doc1",
+      position: "first_child",
+    });
+    expect(err.error).toBe("InvalidInput");
   });
 });
 
@@ -115,8 +160,8 @@ describe("create_document", () => {
 describe("create_folder", () => {
   test("creates folder in parent", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "root_folder",
       title: "New Folder",
+      reference_file_id: "root_folder",
     });
     expect(result.file_id).toBeDefined();
     expect(result.title).toBe("New Folder");
@@ -124,8 +169,8 @@ describe("create_folder", () => {
 
   test("created folder appears in list_documents", async () => {
     const createResult = await callToolOk(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "root_folder",
       title: "Visible Folder",
+      reference_file_id: "root_folder",
     });
 
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
@@ -136,48 +181,79 @@ describe("create_folder", () => {
 
   test("creating in non-existent folder returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "nonexistent",
       title: "Orphan Folder",
+      reference_file_id: "nonexistent",
     });
     expect(err.error).toBeDefined();
   });
 
-  test("omitting parent_folder_id creates at top level", async () => {
+  test("omitting reference_file_id creates at top level", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_folder", {
       title: "Top Level Folder",
     });
     expect(result.file_id).toBeDefined();
     expect(result.title).toBe("Top Level Folder");
 
-    // Verify it appears as a top-level entry.
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const found = findInFileTree(listResult.files as Record<string, unknown>[], result.file_id as string);
     expect(found).toBeDefined();
     expect(found!.title).toBe("Top Level Folder");
   });
-});
 
-// ─── create_document with document as parent ─────────────────────────
-
-describe("create_document with document as parent", () => {
-  test("returns error when parent_folder_id is a document", async () => {
-    const err = await callToolError(ctx.mcpClient, "create_document", {
-      parent_folder_id: "doc1",
-      title: "Should Fail",
+  test("position: first_child creates folder at top", async () => {
+    const result = await callToolOk(ctx.mcpClient, "create_folder", {
+      title: "First Folder",
+      reference_file_id: "root_folder",
+      position: "first_child",
     });
-    expect(err.error).toBeDefined();
+    const root = ctx.server.files.get("root_folder")!;
+    expect(root.children![0]).toBe(result.file_id as string);
+  });
+
+  test("position: after places folder after reference sibling", async () => {
+    await callToolOk(ctx.mcpClient, "create_folder", {
+      title: "After Folder A",
+      reference_file_id: "folder_a",
+      position: "after",
+    });
+    const root = ctx.server.files.get("root_folder")!;
+    const folderAIdx = root.children!.indexOf("folder_a");
+    const nextChild = ctx.server.files.get(root.children![folderAIdx + 1])!;
+    expect(nextChild.title).toBe("After Folder A");
+  });
+
+  test("position: before places folder before reference sibling", async () => {
+    await callToolOk(ctx.mcpClient, "create_folder", {
+      title: "Before Folder B",
+      reference_file_id: "folder_b",
+      position: "before",
+    });
+    const root = ctx.server.files.get("root_folder")!;
+    const folderBIdx = root.children!.indexOf("folder_b");
+    const prevChild = ctx.server.files.get(root.children![folderBIdx - 1])!;
+    expect(prevChild.title).toBe("Before Folder B");
   });
 });
 
-// ─── create_folder with document as parent ───────────────────────────
+// ─── create with document as parent ──────────────────────────────────
 
-describe("create_folder with document as parent", () => {
-  test("returns error when parent_folder_id is a document", async () => {
-    const err = await callToolError(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "doc1",
+describe("create with document as reference_file_id (first_child/last_child)", () => {
+  test("create_document returns error when reference_file_id is a document", async () => {
+    const err = await callToolError(ctx.mcpClient, "create_document", {
       title: "Should Fail",
+      reference_file_id: "doc1",
+      position: "first_child",
     });
-    expect(err.error).toBeDefined();
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("create_folder returns error when reference_file_id is a document", async () => {
+    const err = await callToolError(ctx.mcpClient, "create_folder", {
+      title: "Should Fail",
+      reference_file_id: "doc1",
+      position: "first_child",
+    });
+    expect(err.error).toBe("InvalidInput");
   });
 });
 
@@ -198,7 +274,6 @@ describe("rename_document", () => {
       file_id: "doc1",
       title: "Fresh Title",
     });
-
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const doc = findInFileTree(listResult.files as Record<string, unknown>[], "doc1")!;
     expect(doc.title).toBe("Fresh Title");
@@ -230,7 +305,6 @@ describe("rename_folder", () => {
       file_id: "folder_a",
       title: "New Folder Name",
     });
-
     const listResult = await callToolOk(ctx.mcpClient, "list_documents");
     const folder = findInFileTree(listResult.files as Record<string, unknown>[], "folder_a")!;
     expect(folder.title).toBe("New Folder Name");
@@ -248,19 +322,17 @@ describe("rename_folder", () => {
 // ─── move_document ───────────────────────────────────────────────────
 
 describe("move_document", () => {
-  test("moves document between folders", async () => {
+  test("moves document to another folder", async () => {
     const result = await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     expect(result.file_id).toBe("doc1");
     expect(result.parent_folder_id).toBe("folder_b");
 
-    // Verify doc1 is now in folder_b.
     const folderB = ctx.server.files.get("folder_b")!;
     expect(folderB.children).toContain("doc1");
 
-    // And removed from folder_a.
     const folderA = ctx.server.files.get("folder_a")!;
     expect(folderA.children).not.toContain("doc1");
   });
@@ -268,7 +340,7 @@ describe("move_document", () => {
   test("rejects folder file_id", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "folder_a",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     expect(err.error).toBe("InvalidArgument");
   });
@@ -276,7 +348,7 @@ describe("move_document", () => {
   test("moving to non-existent folder returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "nonexistent",
+      reference_file_id: "nonexistent",
     });
     expect(err.error).toBeDefined();
   });
@@ -284,65 +356,100 @@ describe("move_document", () => {
   test("moving non-existent document returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_document", {
       file_id: "nonexistent",
-      parent_folder_id: "folder_a",
+      reference_file_id: "folder_a",
     });
     expect(err.error).toBeDefined();
   });
 
-  test("index: 0 places document at top of destination", async () => {
-    // Add a second doc to folder_b so it already has children.
+  test("position: first_child places document at top of destination", async () => {
     ctx.server.addDocument("doc_extra", "Extra Doc", "folder_b", [
       ctx.server.makeNode("root", "Extra Doc", []),
     ]);
-
     await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
-      index: 0,
+      reference_file_id: "folder_b",
+      position: "first_child",
     });
-
     const folderB = ctx.server.files.get("folder_b")!;
     expect(folderB.children![0]).toBe("doc1");
   });
 
-  test("index: -1 appends document to end of destination", async () => {
+  test("position: last_child appends document to end of destination", async () => {
+    ctx.server.addDocument("doc_extra", "Extra Doc", "folder_b", [
+      ctx.server.makeNode("root", "Extra Doc", []),
+    ]);
     await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
-      index: -1,
+      reference_file_id: "folder_b",
     });
-
     const folderB = ctx.server.files.get("folder_b")!;
     const lastChildId = folderB.children![folderB.children!.length - 1];
     expect(lastChildId).toBe("doc1");
   });
 
-  test("omitting parent_folder_id moves to top level", async () => {
+  test("position: after places document after reference sibling", async () => {
+    ctx.server.addDocument("doc_extra", "Extra Doc", "folder_b", [
+      ctx.server.makeNode("root", "Extra Doc", []),
+    ]);
+    await callToolOk(ctx.mcpClient, "move_document", {
+      file_id: "doc1",
+      reference_file_id: "doc2",
+      position: "after",
+    });
+    const folderB = ctx.server.files.get("folder_b")!;
+    expect(folderB.children![0]).toBe("doc2");
+    expect(folderB.children![1]).toBe("doc1");
+    expect(folderB.children![2]).toBe("doc_extra");
+  });
+
+  test("omitting reference_file_id moves to top level", async () => {
     const result = await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
     });
     expect(result.file_id).toBe("doc1");
 
-    // Should be removed from folder_a.
     const folderA = ctx.server.files.get("folder_a")!;
     expect(folderA.children).not.toContain("doc1");
 
-    // Should be in root folder.
     const root = ctx.server.files.get("root_folder")!;
     expect(root.children).toContain("doc1");
   });
 
   test("document disappears from source folder children after move", async () => {
-    const folderABefore = ctx.server.files.get("folder_a")!;
-    expect(folderABefore.children).toContain("doc1");
-
+    expect(ctx.server.files.get("folder_a")!.children).toContain("doc1");
     await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
+    expect(ctx.server.files.get("folder_a")!.children).not.toContain("doc1");
+  });
 
-    const folderAAfter = ctx.server.files.get("folder_a")!;
-    expect(folderAAfter.children).not.toContain("doc1");
+  test("same-parent reorder with position: first_child", async () => {
+    ctx.server.addDocument("doc_a2", "Doc A2", "folder_a", [
+      ctx.server.makeNode("root", "Doc A2", []),
+    ]);
+    await callToolOk(ctx.mcpClient, "move_document", {
+      file_id: "doc_a2",
+      reference_file_id: "folder_a",
+      position: "first_child",
+    });
+    const folderA = ctx.server.files.get("folder_a")!;
+    expect(folderA.children![0]).toBe("doc_a2");
+    expect(folderA.children![1]).toBe("doc1");
+  });
+
+  test("same-parent reorder with position: before", async () => {
+    ctx.server.addDocument("doc_a2", "Doc A2", "folder_a", [
+      ctx.server.makeNode("root", "Doc A2", []),
+    ]);
+    await callToolOk(ctx.mcpClient, "move_document", {
+      file_id: "doc_a2",
+      reference_file_id: "doc1",
+      position: "before",
+    });
+    const folderA = ctx.server.files.get("folder_a")!;
+    expect(folderA.children![0]).toBe("doc_a2");
+    expect(folderA.children![1]).toBe("doc1");
   });
 });
 
@@ -350,32 +457,28 @@ describe("move_document", () => {
 
 describe("move_folder", () => {
   test("moves folder with children", async () => {
-    // Move folder_a (which contains doc1) into folder_b.
     const result = await callToolOk(ctx.mcpClient, "move_folder", {
       file_id: "folder_a",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     expect(result.file_id).toBe("folder_a");
 
     const folderB = ctx.server.files.get("folder_b")!;
     expect(folderB.children).toContain("folder_a");
 
-    // folder_a's children should be unaffected.
     const folderA = ctx.server.files.get("folder_a")!;
     expect(folderA.children).toContain("doc1");
   });
 
-  test("omitting parent_folder_id moves to top level", async () => {
+  test("omitting reference_file_id moves to top level", async () => {
     const result = await callToolOk(ctx.mcpClient, "move_folder", {
       file_id: "folder_a",
     });
     expect(result.file_id).toBe("folder_a");
 
-    // folder_a should be a direct child of root.
     const root = ctx.server.files.get("root_folder")!;
     expect(root.children).toContain("folder_a");
 
-    // Its children should be unaffected.
     const folderA = ctx.server.files.get("folder_a")!;
     expect(folderA.children).toContain("doc1");
   });
@@ -383,7 +486,7 @@ describe("move_folder", () => {
   test("rejects document file_id", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     expect(err.error).toBe("InvalidArgument");
   });
@@ -391,7 +494,7 @@ describe("move_folder", () => {
   test("moving to non-existent folder returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "folder_a",
-      parent_folder_id: "nonexistent",
+      reference_file_id: "nonexistent",
     });
     expect(err.error).toBeDefined();
   });
@@ -399,35 +502,75 @@ describe("move_folder", () => {
   test("moving non-existent folder returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_folder", {
       file_id: "nonexistent",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     expect(err.error).toBeDefined();
+  });
+
+  test("position: before places folder before reference sibling", async () => {
+    await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_b",
+      reference_file_id: "folder_a",
+      position: "before",
+    });
+    const root = ctx.server.files.get("root_folder")!;
+    const folderBIdx = root.children!.indexOf("folder_b");
+    const folderAIdx = root.children!.indexOf("folder_a");
+    expect(folderBIdx).toBeLessThan(folderAIdx);
+    expect(folderAIdx).toBe(folderBIdx + 1);
+  });
+
+  test("position: after places folder after reference sibling", async () => {
+    // root_folder has [folder_a, folder_b, ...]. Move folder_a after folder_b.
+    await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+      reference_file_id: "folder_b",
+      position: "after",
+    });
+    const root = ctx.server.files.get("root_folder")!;
+    const folderBIdx = root.children!.indexOf("folder_b");
+    const folderAIdx = root.children!.indexOf("folder_a");
+    expect(folderAIdx).toBe(folderBIdx + 1);
+  });
+
+  test("position: first_child places folder at top of destination", async () => {
+    // Move folder_a into folder_b as first child.
+    // First add a child to folder_b so we can verify first_child placement.
+    ctx.server.addFolder("sub_folder", "Sub Folder", "folder_b");
+
+    await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+      reference_file_id: "folder_b",
+      position: "first_child",
+    });
+    const folderB = ctx.server.files.get("folder_b")!;
+    expect(folderB.children![0]).toBe("folder_a");
+  });
+
+  test("position: last_child places folder at end of destination", async () => {
+    // folder_b has [doc2] from standardSetup. Move folder_a into folder_b as last child.
+    await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+      reference_file_id: "folder_b",
+    });
+    const folderB = ctx.server.files.get("folder_b")!;
+    const lastChildId = folderB.children![folderB.children!.length - 1];
+    expect(lastChildId).toBe("folder_a");
   });
 });
 
 // ─── cache invalidation after file operations ────────────────────────
 
 describe("cache invalidation after file operations", () => {
-  // These tests verify that file management operations invalidate the
-  // AccessController path cache so that ACL resolves correctly for
-  // newly created, renamed, or moved files.
-
-  // These tests need their own context with ACL config active.
-
   test("create_document invalidates path cache for new document", async () => {
     await ctx.cleanup();
     ctx = await createTestContext(standardSetup, {
       access: { default: "deny", rules: [{ path: "/Folder A/**", policy: "allow" }] },
     });
-
-    // Create a new doc inside Folder A.
     const createResult = await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
       title: "Cache Test Doc",
+      reference_file_id: "folder_a",
     });
-
-    // If cache was invalidated, reading the new doc should succeed
-    // because it is under /Folder A/ which has allow policy.
     const readResult = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: createResult.file_id as string,
     });
@@ -439,15 +582,11 @@ describe("cache invalidation after file operations", () => {
     ctx = await createTestContext(standardSetup, {
       access: { default: "allow", rules: [] },
     });
-
     await callToolOk(ctx.mcpClient, "rename_document", {
       file_id: "doc1",
       title: "Renamed Cache Doc",
     });
-
-    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-      file_id: "doc1",
-    });
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
     expect(readResult.title).toBe("Renamed Cache Doc");
   });
 
@@ -456,15 +595,11 @@ describe("cache invalidation after file operations", () => {
     ctx = await createTestContext(standardSetup, {
       access: { default: "allow", rules: [] },
     });
-
     await callToolOk(ctx.mcpClient, "rename_folder", {
       file_id: "folder_a",
       title: "Renamed Folder Cache",
     });
-
-    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-      file_id: "doc1",
-    });
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
     expect(readResult.title).toBe("Test Document");
   });
 
@@ -473,15 +608,11 @@ describe("cache invalidation after file operations", () => {
     ctx = await createTestContext(standardSetup, {
       access: { default: "allow", rules: [] },
     });
-
     await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
-
-    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-      file_id: "doc1",
-    });
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
     expect(readResult.title).toBe("Test Document");
   });
 
@@ -490,15 +621,11 @@ describe("cache invalidation after file operations", () => {
     ctx = await createTestContext(standardSetup, {
       access: { default: "allow", rules: [] },
     });
-
     await callToolOk(ctx.mcpClient, "move_folder", {
       file_id: "folder_a",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
-
-    const readResult = await callToolOk(ctx.mcpClient, "read_document", {
-      file_id: "doc1",
-    });
+    const readResult = await callToolOk(ctx.mcpClient, "read_document", { file_id: "doc1" });
     expect(readResult.title).toBe("Test Document");
   });
 });
@@ -508,8 +635,8 @@ describe("cache invalidation after file operations", () => {
 describe("response shapes", () => {
   test("create_document response includes file_id, title", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
       title: "Shape Test Doc",
+      reference_file_id: "folder_a",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
@@ -518,8 +645,8 @@ describe("response shapes", () => {
 
   test("create_folder response includes file_id, title", async () => {
     const result = await callToolOk(ctx.mcpClient, "create_folder", {
-      parent_folder_id: "root_folder",
       title: "Shape Test Folder",
+      reference_file_id: "root_folder",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
@@ -531,8 +658,6 @@ describe("response shapes", () => {
       file_id: "doc1",
       title: "Shape Renamed Doc",
     });
-    expect(typeof result.file_id).toBe("string");
-    expect(typeof result.title).toBe("string");
     expect(result.file_id).toBe("doc1");
     expect(result.title).toBe("Shape Renamed Doc");
   });
@@ -542,8 +667,6 @@ describe("response shapes", () => {
       file_id: "folder_a",
       title: "Shape Renamed Folder",
     });
-    expect(typeof result.file_id).toBe("string");
-    expect(typeof result.title).toBe("string");
     expect(result.file_id).toBe("folder_a");
     expect(result.title).toBe("Shape Renamed Folder");
   });
@@ -551,7 +674,7 @@ describe("response shapes", () => {
   test("move_document response includes file_id, parent_folder_id", async () => {
     const result = await callToolOk(ctx.mcpClient, "move_document", {
       file_id: "doc1",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.parent_folder_id).toBe("string");
@@ -562,82 +685,11 @@ describe("response shapes", () => {
   test("move_folder response includes file_id, parent_folder_id", async () => {
     const result = await callToolOk(ctx.mcpClient, "move_folder", {
       file_id: "folder_a",
-      parent_folder_id: "folder_b",
+      reference_file_id: "folder_b",
     });
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.parent_folder_id).toBe("string");
     expect(result.file_id).toBe("folder_a");
     expect(result.parent_folder_id).toBe("folder_b");
-  });
-});
-
-// ─── File creation with out-of-bounds index ───────────────────────────
-
-describe("file creation with out-of-bounds index", () => {
-  let idxCtx: TestContext;
-
-  beforeEach(async () => {
-    idxCtx = await createTestContext(standardSetup);
-  });
-
-  afterEach(async () => {
-    await idxCtx.cleanup();
-  });
-
-  test("create_document with index far beyond folder child count succeeds", async () => {
-    // folder_a has 1 child (doc1). Using index=1000 should still create.
-    const result = await callToolOk(idxCtx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
-      title: "Out of Bounds Doc",
-      index: 1000,
-    });
-    expect(result.file_id).toBeDefined();
-    expect(result.title).toBe("Out of Bounds Doc");
-
-    // Verify the document was created in the folder.
-    const folder = idxCtx.server.files.get("folder_a")!;
-    expect(folder.children).toContain(result.file_id as string);
-  });
-
-  test("create_folder with index far beyond parent child count succeeds", async () => {
-    // root_folder has a few children. Using index=1000 should still create.
-    const result = await callToolOk(idxCtx.mcpClient, "create_folder", {
-      parent_folder_id: "root_folder",
-      title: "Out of Bounds Folder",
-      index: 1000,
-    });
-    expect(result.file_id).toBeDefined();
-    expect(result.title).toBe("Out of Bounds Folder");
-
-    // Verify the folder was created.
-    const root = idxCtx.server.files.get("root_folder")!;
-    expect(root.children).toContain(result.file_id as string);
-  });
-
-  test("create_document with index 0 in empty folder places it first", async () => {
-    // Add an empty folder.
-    idxCtx.server.addFolder("empty_folder", "Empty Folder", "root_folder");
-    const result = await callToolOk(idxCtx.mcpClient, "create_document", {
-      parent_folder_id: "empty_folder",
-      title: "First Doc",
-      index: 0,
-    });
-    expect(result.file_id).toBeDefined();
-    const folder = idxCtx.server.files.get("empty_folder")!;
-    expect(folder.children).toHaveLength(1);
-    expect(folder.children![0]).toBe(result.file_id as string);
-  });
-
-  test("create_document with large index in folder with children appends at end", async () => {
-    // folder_a has [doc1]. Using index=999 should place the new doc after doc1.
-    const result = await callToolOk(idxCtx.mcpClient, "create_document", {
-      parent_folder_id: "folder_a",
-      title: "Appended Doc",
-      index: 999,
-    });
-    const folder = idxCtx.server.files.get("folder_a")!;
-    // The new doc should be at the end (splice with out-of-bounds index appends).
-    const lastChild = folder.children![folder.children!.length - 1];
-    expect(lastChild).toBe(result.file_id as string);
   });
 });

@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId, type ReadDocumentResponse } from "../dynalist-client";
+import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
 import { withVersionGuard } from "../version-guard";
@@ -261,20 +261,16 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         items: z.array(jsonInputNodeSchema).describe("Array of items to insert"),
-        position: z.enum(["first_child", "last_child", "after", "before"])
-          .describe(
-            "Insertion target. 'last_child' (most common): append under parent. " +
-            "'first_child': prepend under parent. " +
-            "'after'/'before': sibling-relative placement (reference_item_id required)."
-          ),
         reference_item_id: z.string().optional().describe(
-          "For first_child/last_child: the parent item. Omit for document root. " +
-          "For after/before: the sibling item (required). Cannot be the root item for after/before."
+          "For after/before: the sibling item (required). Cannot be the root item. " +
+          "For first_child/last_child: the parent item. Omit for document root."
         ),
-        index: z.number().optional().describe(
-          "Exact child index within the parent. 0 = first, -1 = last. " +
-          "Only valid with first_child/last_child. Cannot combine with reference_item_id for sibling positions."
-        ),
+        position: z.enum(["after", "before", "first_child", "last_child"])
+          .describe(
+            "Insertion target. 'after'/'before': sibling-relative placement " +
+            "(reference_item_id required). 'first_child': prepend under parent. " +
+            "'last_child' (most common): append under parent."
+          ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
       },
       outputSchema: {
@@ -287,16 +283,14 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     wrapToolHandler(async ({
       file_id,
       items,
-      position,
       reference_item_id,
-      index,
+      position,
       expected_sync_token,
     }: {
       file_id: string;
       items: unknown[];
-      position: string;
       reference_item_id?: string;
-      index?: number;
+      position: string;
       expected_sync_token: string;
     }) => {
       const config = getConfig();
@@ -311,9 +305,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       // Validate parameter combinations.
       if (isSiblingPosition && reference_item_id === undefined) {
         return makeErrorResponse("InvalidInput", "after/before requires reference_item_id; root has no siblings.");
-      }
-      if (isSiblingPosition && index !== undefined) {
-        return makeErrorResponse("InvalidInput", "Cannot specify index with after/before positions.");
       }
 
       // Convert JSON input to ParsedNode tree (no doc read needed).
@@ -348,7 +339,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             parentNodeId = refInfo.parentId;
             startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
           } else {
-            // Child positioning (first_child / last_child / index).
+            // Child positioning (first_child / last_child).
             // reference_item_id is the parent for child positions.
             parentNodeId = reference_item_id;
 
@@ -356,31 +347,26 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             // so sending index -1 for every item in a batch causes them to all
             // resolve to the same position and reverse. For multi-item inserts we
             // resolve to explicit indices to preserve input order.
-            let doc: ReadDocumentResponse | undefined;
+            const doc = await store.read(file_id);
             if (!parentNodeId) {
-              doc = await store.read(file_id);
               parentNodeId = findRootNodeId(doc.nodes);
             } else {
               // Validate that the specified parent node exists in the document.
-              doc = await store.read(file_id);
               const parentNode = doc.nodes.find(n => n.id === parentNodeId);
               if (!parentNode) {
                 throw new ToolInputError("ItemNotFound", `Parent item '${parentNodeId}' not found in document.`);
               }
             }
 
-            if (index !== undefined && index !== -1) {
-              startIndex = index;
-            } else if (position === "first_child") {
+            if (position === "first_child") {
               startIndex = 0;
             } else if (items.length <= 1) {
               // Single item: index -1 is unambiguous, no read needed.
               startIndex = undefined;
             } else {
-              // last_child or index: -1 with multiple items.
-              // Resolve to the parent's current child count so each item gets
-              // a distinct index instead of all resolving to the same position.
-              if (!doc) doc = await store.read(file_id);
+              // last_child with multiple items. Resolve to the parent's current
+              // child count so each item gets a distinct index instead of all
+              // resolving to the same position.
               const parentNode = doc.nodes.find(n => n.id === parentNodeId);
               startIndex = parentNode?.children?.length ?? 0;
             }
