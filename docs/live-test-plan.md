@@ -6,28 +6,21 @@ Manual test plan for exercising the Dynalist MCP server against a live test acco
 
 - Dynalist MCP server running and connected to an MCP client (e.g. Claude Code).
 - `DYNALIST_API_TOKEN` pointing to a **test account**, not a real one.
-- At least one document with nested content (e.g. the default "Getting started with Dynalist").
+- Inbox document set in the test account (Settings > Inbox location in the Dynalist web UI). Required for `send_to_inbox` tests.
 
 ## How to run
 
 Tests are designed to run as parallel subagents, each in an isolated folder to prevent cross-contamination. The operator (you) acts as coordinator.
 
-### Step 0: Verify test account
-
-Before any mutations, the agent MUST:
-
-1. Ask the user to confirm this is a test account (not their real Dynalist).
-2. Call `list_documents` and verify the results look like a test account (few documents, no real personal data). If the account looks like a real account with substantial content, abort and alert the user.
-
-### Step 0.5: Set up working directory with pre-allowed permissions
+### Step 0: Set up working directory with pre-allowed permissions
 
 Subagents cannot interactively approve MCP tool permissions. To avoid agents blocking on permission prompts, the coordinator must run from a temporary working directory with a `.claude/settings.local.json` that pre-allows all Dynalist MCP tools. Claude Code resolves `.claude/settings.local.json` from the **project directory**, not the shell cwd, so the coordinator must be launched from this directory (not just `cd` into it mid-session).
 
-Before running the test plan, run `pwd` to verify the working directory is `/tmp/dynalist-live-test`. If it is not, tell the user to set up the directory and re-launch. The user should run the following in their terminal, replacing `<project-dir>` with the absolute path to the dynalist-mcp repo (e.g. `/Users/jayden.navarro/dynalist-mcp`):
+Run `pwd` to verify the working directory is `/tmp/dynalist-live-test`. If it is not:
 
-```bash
-mkdir -p /tmp/dynalist-live-test/.claude
-cat > /tmp/dynalist-live-test/.claude/settings.local.json << 'SETTINGS'
+1. Create `/tmp/dynalist-live-test/.claude/` and write the following `settings.local.json`, replacing `<project-dir>` with the absolute path to the dynalist-mcp repo (derive this from the path the user gave you for this test plan file, e.g. if they said to follow `~/dynalist-mcp/docs/live-test-plan.md`, the project dir is `~/dynalist-mcp`):
+
+```json
 {
   "permissions": {
     "allow": [
@@ -52,11 +45,18 @@ cat > /tmp/dynalist-live-test/.claude/settings.local.json << 'SETTINGS'
     ]
   }
 }
-SETTINGS
-cd /tmp/dynalist-live-test
 ```
 
-Then launch a new Claude Code session from `/tmp/dynalist-live-test` and re-run this test plan. See `scripts/haiku-validation.ts` (`writeWorkDirSettings`) for the reference implementation.
+See `scripts/haiku-validation.ts` (`writeWorkDirSettings`) for the reference implementation.
+
+2. Tell the user to run `cd /tmp/dynalist-live-test` in their terminal and re-launch Claude Code from there.
+
+### Step 0.5: Verify test account
+
+Before any mutations, the agent MUST:
+
+1. Ask the user to confirm this is a test account (not their real Dynalist).
+2. Call `list_documents` and verify the results look like a test account (few documents, no real personal data). If the account looks like a real account with substantial content, abort and alert the user.
 
 ### Step 1: Create a test root and sub-roots
 
