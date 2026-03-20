@@ -12,7 +12,7 @@
  *      its own sub-folder. Each pipeline is internally sequential.
  *   3. Sonnet reviews each pipeline's results against live Dynalist state,
  *      rating each task pass/fail and 1-5 stars.
- *   4. A Sonnet coordinator cleans up any inbox items added by the test.
+ *   4. A Sonnet aggregator produces a final human-readable summary.
  *   5. The user manually deletes the global root folder (API limitation).
  *
  * Usage:
@@ -426,10 +426,14 @@ async function reviewPipeline(
     `Pipeline: ${pipeline.name}\n` +
     `Root folder: '${pipeline.rootFolder}'\n\n` +
     `For each task below:\n` +
-    `1. Read the transcript to understand what the model did.\n` +
+    `1. Carefully read the FULL transcript. Identify every tool call the model ` +
+    `made, what arguments it passed, what responses it received, and whether ` +
+    `it retried or made unnecessary calls. Do NOT use elapsed time as a proxy ` +
+    `for quality. Base your rating on the actual tool calls and responses.\n` +
     `2. Use Dynalist tools to verify the actual state matches expectations ` +
-    `(e.g., read the document to confirm items exist in the right positions).\n` +
-    `3. Rate the task.\n\n` +
+    `(e.g., read the document to confirm items exist in the right positions, ` +
+    `with the right metadata).\n` +
+    `3. Rate the task based on both transcript analysis and live verification.\n\n` +
     `${taskSections}\n\n` +
     `Output ONLY a JSON array (no other text) with one object per task:\n` +
     `[\n` +
@@ -437,15 +441,15 @@ async function reviewPipeline(
     `    "id": "task-id",\n` +
     `    "pass": true,\n` +
     `    "stars": 5,\n` +
-    `    "notes": "brief explanation"\n` +
+    `    "notes": "brief explanation citing specific tool calls or state issues"\n` +
     `  }\n` +
     `]\n\n` +
     `Star rating guide:\n` +
     `- 5: Completed correctly on first try with minimal tool calls.\n` +
-    `- 4: Completed correctly but with an unnecessary extra tool call or minor hesitation.\n` +
-    `- 3: Completed correctly but with significant inefficiency (extra reads, retries).\n` +
-    `- 2: Partially completed or completed with minor errors.\n` +
-    `- 1: Failed or completed with major errors.\n`;
+    `- 4: Completed correctly but with one unnecessary tool call or minor hesitation.\n` +
+    `- 3: Completed correctly but with multiple unnecessary calls or retries.\n` +
+    `- 2: Partially completed or completed with minor errors in the final state.\n` +
+    `- 1: Failed or final state does not match what was requested.\n`;
 
   const tag = `review/${pipeline.name}`;
   console.log(`  [${tag}] Starting review...`);
@@ -641,84 +645,68 @@ async function main() {
   const reviewElapsed = ((Date.now() - reviewStart) / 1000).toFixed(1);
   console.log(`\n  All reviews done in ${reviewElapsed}s\n`);
 
-  // Step 4: coordinator cleans up inbox items added by the test.
-  const cleanupTask: Task = {
-    category: "coordinator",
-    id: "cleanup-inbox",
-    prompt:
-      `Using Dynalist, read the inbox document. Find and delete the item ` +
-      `'Inbox Test Item' that was added by this test run.`,
-  };
-
-  console.log(
-    `=== Step 4: Cleaning up inbox items (${COORDINATOR_MODEL}) ===\n`,
-  );
-  const cleanupStart = Date.now();
-  const cleanupResult = await runTask(cleanupTask, COORDINATOR_MODEL);
-  const cleanupElapsed = ((Date.now() - cleanupStart) / 1000).toFixed(1);
-  console.log(
-    `\n  Inbox cleanup done in ${cleanupElapsed}s (exit=${cleanupResult.exitCode})\n`,
-  );
-
-  await writeFile(
-    join(runDir, "99_coordinator_cleanup-inbox.txt"),
-    [
-      `Category: coordinator`,
-      `Task ID: cleanup-inbox`,
-      `Prompt: ${cleanupTask.prompt}`,
-      `Exit code: ${cleanupResult.exitCode}`,
-      `Elapsed: ${cleanupElapsed}s`,
-      "",
-      "=== STDOUT ===",
-      cleanupResult.stdout,
-      "",
-      "=== STDERR ===",
-      cleanupResult.stderr,
-    ].join("\n"),
-  );
-
-  // Build summary from reviews.
+  // Build structured summary from reviews.
   const allRatings = reviews.flatMap((r) =>
     r.ratings.map((rating) => ({ pipeline: r.pipeline, ...rating })),
   );
   const passed = allRatings.filter((r) => r.pass).length;
   const failed = allRatings.filter((r) => !r.pass).length;
   const unparsed = allResults.flat().length - allRatings.length;
-  const avgStars = allRatings.length > 0
-    ? (allRatings.reduce((sum, r) => sum + r.stars, 0) / allRatings.length).toFixed(1)
-    : "N/A";
 
   const summaryFile = join(runDir, "_summary.json");
   await writeFile(summaryFile, JSON.stringify({ ratings: allRatings, reviews }, null, 2));
 
-  console.log(`\n=== Results ===`);
-  console.log(`  ${passed} passed, ${failed} failed out of ${allRatings.length} reviewed`);
   if (unparsed > 0) {
-    console.log(`  ${unparsed} tasks could not be parsed from review output`);
+    console.log(`  WARNING: ${unparsed} tasks could not be parsed from review output\n`);
   }
-  console.log(`  Average stars: ${avgStars}/5`);
-  console.log(`  Summary: ${summaryFile}`);
+
+  // Step 4: final aggregator produces a human-readable summary.
+  const ratingsJson = JSON.stringify(allRatings, null, 2);
+  const aggregatorPrompt =
+    `You are producing a final summary of a Dynalist MCP validation test run ` +
+    `where a weaker model (${VALIDATION_MODEL}) was tested against ${allResults.flat().length} tasks ` +
+    `across ${PIPELINES.length} pipelines, and a stronger model (${COORDINATOR_MODEL}) reviewed the results.\n\n` +
+    `Here are the review ratings:\n\n${ratingsJson}\n\n` +
+    `Produce a concise summary with:\n` +
+    `1. Overall pass/fail count and average star rating.\n` +
+    `2. Per-pipeline breakdown (one line each): pass count and average stars.\n` +
+    `3. For every task rated below 5 stars, list it with its star rating and ` +
+    `the reviewer's notes explaining why.\n` +
+    `4. If there were any failures (pass: false), highlight them prominently.\n\n` +
+    `Use plain text, no markdown. Be concise.`;
+
+  console.log(
+    `=== Step 4: Generating final summary (${COORDINATOR_MODEL}) ===\n`,
+  );
+  const aggStart = Date.now();
+  const aggResult = await runTask(
+    { category: "aggregator", id: "final-summary", prompt: aggregatorPrompt },
+    COORDINATOR_MODEL,
+    "aggregator",
+  );
+  const aggElapsed = ((Date.now() - aggStart) / 1000).toFixed(1);
+
+  await writeFile(
+    join(runDir, "99_aggregator_final-summary.txt"),
+    [
+      `Category: aggregator`,
+      `Task ID: final-summary`,
+      `Exit code: ${aggResult.exitCode}`,
+      `Elapsed: ${aggElapsed}s`,
+      "",
+      "=== OUTPUT ===",
+      aggResult.stdout,
+    ].join("\n"),
+  );
+
+  // Print the aggregator's summary directly as the final output.
+  console.log(`\n=== Final Summary ===\n`);
+  console.log(aggResult.stdout);
+
+  console.log(`\n  Summary JSON: ${summaryFile}`);
   console.log(`  Full output: ${runDir}`);
-
-  // Per-pipeline breakdown.
-  console.log("\nPer-pipeline:");
-  for (const review of reviews) {
-    const pipelineRatings = review.ratings;
-    const pPass = pipelineRatings.filter((r) => r.pass).length;
-    const pTotal = pipelineRatings.length;
-    const pAvg = pTotal > 0
-      ? (pipelineRatings.reduce((sum, r) => sum + r.stars, 0) / pTotal).toFixed(1)
-      : "N/A";
-    console.log(`  ${review.pipeline}: ${pPass}/${pTotal} passed, avg ${pAvg}/5`);
-  }
-
-  // Show failures.
-  const failures = allRatings.filter((r) => !r.pass);
-  if (failures.length > 0) {
-    console.log("\nFailed tasks:");
-    for (const r of failures) {
-      console.log(`  ${r.pipeline}/${r.id}: ${r.notes}`);
-    }
+  if (unparsed > 0) {
+    console.log(`  WARNING: ${unparsed} tasks could not be parsed from review output`);
   }
 
   console.log(
