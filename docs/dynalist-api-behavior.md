@@ -328,6 +328,15 @@ budget (not 1).
   Failures are silent (no error code or message per-change).
 - `created`: array of new file IDs for create actions. Only present when creates succeed.
 
+### Default position for new files
+
+The Dynalist web UI places newly created documents and folders at the top of their
+parent folder (`index: 0`). The MCP tools deliberately diverge from this and default
+to `last_child` (appending to the end). This is not an API constraint but a conscious
+UX choice: agents creating multiple items sequentially expect the resulting order to
+match input order. Using `first_child` semantics would reverse the order on each
+insertion, which is rarely what an agent intends.
+
 ### No delete action
 
 The `/file/edit` endpoint does not support a delete action. Files and folders can only
