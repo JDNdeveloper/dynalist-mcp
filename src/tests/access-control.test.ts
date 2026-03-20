@@ -1232,16 +1232,16 @@ describe("slash escaping in paths", () => {
   test("folder with slash in title produces escaped path segment", async () => {
     const server = new DummyDynalistServer();
     server.init();
-    server.addFolder("slashf", "Coding/Career", "root_folder");
-    server.addDocument("slashd", "Resume", "slashf");
+    server.addFolder("slashf", "Q1/Q2 Review", "root_folder");
+    server.addDocument("slashd", "Summary", "slashf");
     const client = new MockDynalistClient(server);
     const ac = new AccessController(client);
 
-    // The escaped path is /Coding\/Career/Resume.
+    // The escaped path is /Q1\/Q2 Review/Summary.
     const config = makeConfig({
       access: {
         default: "deny",
-        rules: [{ path: "/Coding\\/Career/Resume", policy: "allow" }],
+        rules: [{ path: "/Q1\\/Q2 Review/Summary", policy: "allow" }],
       },
     });
     expect(await ac.getPolicy("slashd", config)).toBe("allow");

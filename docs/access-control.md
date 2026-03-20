@@ -19,14 +19,14 @@ If a folder or document title contains a literal `/`, `\`, or `*`, it is escaped
 | Title | Path segment |
 |-------|-------------|
 | `Work` | `Work` |
-| `Coding/Career` | `Coding\/Career` |
+| `Q1/Q2 Review` | `Q1\/Q2 Review` |
 | `A\B` | `A\\B` |
 | `Important*` | `Important\*` |
 
-A folder titled "Coding/Career" containing a document "Resume" has the path `/Coding\/Career/Resume`. The corresponding rule path uses the same escaping:
+A folder titled "Q1/Q2 Review" containing a document "Summary" has the path `/Q1\/Q2 Review/Summary`. The corresponding rule path uses the same escaping:
 
 ```json
-{ "path": "/Coding\\/Career/**", "policy": "allow" }
+{ "path": "/Q1\\/Q2 Review/**", "policy": "allow" }
 ```
 
 Note the doubled backslash in JSON (`\\/`). JSON requires `\\` to represent a single `\` character, so the escaped path segment `\/` is written as `\\/` in the config file.
