@@ -247,16 +247,36 @@ Verified (2026-03-13): moving B then C to root as last_child with index -1
 produces [Parent, C, B] (reversed). Using explicit indices 1 and 2 produces the
 correct [Parent, B, C].
 
-## `/doc/edit`: rate limiting
+## Rate limiting
 
-- Rolling window of ~500-600 changes. Once exceeded, returns `_code: "TooManyRequests"`
-  with HTTP 200 (not an HTTP error status).
-- No `Retry-After` header. Recovery takes ~45-50 seconds.
-- Read endpoints (`/doc/read`, `/file/list`) are NOT rate limited.
-- Rate limit is per-change, not per-request. A batch of 200 changes costs 200 against
-  the window.
-- Insert and delete share the same rate limit budget.
+The API uses a **token bucket algorithm** with per-endpoint steady-state rates and burst
+capacities. Exceeding either limit returns `_code: "TooManyRequests"` with HTTP 200 (not
+an HTTP error status). No `Retry-After` header is provided.
+
+### Per-endpoint request limits
+
+From the [official docs](https://apidocs.dynalist.io/):
+
+| Endpoint              | Steady rate   | Burst          |
+|-----------------------|---------------|----------------|
+| `/file/list`          | 6 req/min     | 10 requests    |
+| `/file/edit`          | 60 req/min    | 50 requests    |
+| `/doc/read`           | 30 req/min    | 100 requests   |
+| `/doc/check_for_updates` | 60 req/min | 50 requests    |
+| `/doc/edit`           | 60 req/min    | 20 requests    |
+| `/inbox/add`          | 60 req/min    | 20 requests    |
+
+### Per-change limit (`/doc/edit` only)
+
+In addition to the request-level limit, `/doc/edit` has a separate per-change budget:
+240 changes/min steady rate, 500-change burst. A batch of N changes costs N against this
+budget (not 1).
+
+### Observed behavior
+
+- Recovery from `TooManyRequests` takes ~45-50 seconds empirically.
 - Per-batch API response time when not rate limited: ~160-200ms.
+- Insert, edit, delete, and move all share the same change budget.
 
 ## `/file/edit`: file actions
 
