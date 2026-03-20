@@ -58,14 +58,14 @@ describe("move_items TOCTOU", () => {
     expect(result.sync_warning).toBeUndefined();
   });
 
-  test("NodeNotFound inside guard returns proper error", async () => {
+  test("ItemNotFound inside guard returns proper error", async () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       expected_sync_token: makeSyncToken("doc1", 1),
       moves: [{ item_id: "nonexistent", reference_item_id: "n2", position: "after" }],
     });
 
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
   test("cycle detection inside guard returns proper error", async () => {

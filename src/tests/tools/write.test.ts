@@ -158,23 +158,23 @@ describe("edit_items", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("nonexistent node returns error", async () => {
+  test("nonexistent item returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_sync_token: makeSyncToken("doc1", 1),
       items: [{ item_id: "nonexistent", content: "test" }],
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
-  test("nonexistent node returns NodeNotFound with specific node ID", async () => {
+  test("nonexistent item returns ItemNotFound with specific item ID", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
       items: [{ item_id: "xyz_bad", content: "test" }],
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
     expect(err.message).toContain("xyz_bad");
   });
 
@@ -455,13 +455,13 @@ describe("edit_items", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("nonexistent node returns NodeNotFound error code", async () => {
+  test("nonexistent item returns ItemNotFound error code", async () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       expected_sync_token: makeSyncToken("doc1", 1),
       items: [{ item_id: "no_such_node", content: "test" }],
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
   // ─── 10f: bulk-specific behavior ─────────────────────────────────
@@ -1389,7 +1389,7 @@ describe("insert_items", () => {
       position: "after",
       reference_item_id: "nonexistent",
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 });
 

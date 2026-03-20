@@ -480,7 +480,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const startNodeId = item_id ?? findRootNodeId(doc.nodes);
 
       if (!nodeMap.has(startNodeId)) {
-        return makeErrorResponse("NodeNotFound", `Item '${startNodeId}' not found in document`);
+        return makeErrorResponse("ItemNotFound", `Item '${startNodeId}' not found in document`);
       }
 
       const tree = buildNodeTree(nodeMap, startNodeId, {
@@ -491,7 +491,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       });
 
       if (!tree) {
-        return makeErrorResponse("NodeNotFound", `Item '${startNodeId}' could not be rendered`);
+        return makeErrorResponse("ItemNotFound", `Item '${startNodeId}' could not be rendered`);
       }
 
       // Check content size on serialized output.

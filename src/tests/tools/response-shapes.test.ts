@@ -155,7 +155,7 @@ describe("read_document response shape", () => {
       item_id: "bad_node",
     });
     const err = assertErrorEnvelope(raw);
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 });
 
@@ -290,7 +290,7 @@ describe("edit_items response shape", () => {
       items: [{ item_id: "bad_node", content: "test" }],
     });
     const err = assertErrorEnvelope(raw);
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 });
 

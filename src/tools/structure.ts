@@ -104,7 +104,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
               throw new ToolInputError("InvalidInput", "Cannot delete the root item of a document.");
             }
             if (!nodeMap.has(id)) {
-              throw new ToolInputError("NodeNotFound", `Item '${id}' not found in document.`);
+              throw new ToolInputError("ItemNotFound", `Item '${id}' not found in document.`);
             }
           }
 
@@ -116,7 +116,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             if (targetNode.children && targetNode.children.length > 0) {
               const parentInfo = parentMap.get(node_id);
               if (!parentInfo) {
-                throw new ToolInputError("NodeNotFound", "Could not find parent of item to delete.");
+                throw new ToolInputError("ItemNotFound", "Could not find parent of item to delete.");
               }
 
               // Capture count before mutations, since editDocument mutates the in-memory node.
@@ -332,10 +332,10 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             const { item_id, reference_item_id, position } = move;
 
             if (!nodeMap.has(item_id)) {
-              throw new ToolInputError("NodeNotFound", `Item '${item_id}' not found in document.`);
+              throw new ToolInputError("ItemNotFound", `Item '${item_id}' not found in document.`);
             }
             if (!nodeMap.has(reference_item_id)) {
-              throw new ToolInputError("NodeNotFound", `Reference item '${reference_item_id}' not found in document.`);
+              throw new ToolInputError("ItemNotFound", `Reference item '${reference_item_id}' not found in document.`);
             }
             if (item_id === reference_item_id) {
               throw new ToolInputError("InvalidInput", "Cannot move an item relative to itself.");
@@ -360,7 +360,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
               // "after" or "before": find the parent of the reference node.
               const refParentInfo = parentMap.get(reference_item_id);
               if (!refParentInfo) {
-                throw new ToolInputError("NodeNotFound", "Could not find parent of reference item.");
+                throw new ToolInputError("ItemNotFound", "Could not find parent of reference item.");
               }
 
               targetParentId = refParentInfo.parentId;

@@ -562,7 +562,7 @@ describe("read_document", () => {
       file_id: "doc1",
       item_id: "nonexistent",
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
   test("invalid file_id returns API error", async () => {

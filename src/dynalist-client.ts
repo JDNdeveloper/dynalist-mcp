@@ -39,7 +39,8 @@ const INTER_BATCH_DELAY_MS = 0;
 
 const ERROR_GUIDANCE: Record<string, string> = {
   InvalidToken: "Check your DYNALIST_API_TOKEN environment variable.",
-  NodeNotFound: "The specified node ID doesn't exist.",
+  ItemNotFound: "The specified item ID does not exist.",
+  NodeNotFound: "The specified item ID does not exist.",
   NotFound: "The specified document or file was not found.",
   NoInbox: "No inbox location is configured in your Dynalist settings.",
   Unauthorized: "You don't have permission to access this resource.",
@@ -49,7 +50,7 @@ const ERROR_GUIDANCE: Record<string, string> = {
 
 /**
  * Error class for Dynalist API errors. Preserves the API error code
- * (e.g. "InvalidToken", "NodeNotFound") for programmatic handling.
+ * (e.g. "InvalidToken", "ItemNotFound") for programmatic handling.
  */
 export class DynalistApiError extends Error {
   readonly code: string;
@@ -304,7 +305,7 @@ export function buildParentMap(nodes: DynalistNode[]): Map<string, { parentId: s
  */
 export function findRootNodeId(nodes: DynalistNode[]): string {
   if (nodes.length === 0) {
-    throw new DynalistApiError("Invalid", "Document has no nodes.");
+    throw new DynalistApiError("Invalid", "Document has no items.");
   }
 
   // The Dynalist API always uses "root" as the root node ID.

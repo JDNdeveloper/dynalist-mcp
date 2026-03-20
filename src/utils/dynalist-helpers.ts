@@ -214,7 +214,7 @@ export function makeErrorResponse(code: string, message: string) {
 
 /**
  * Error thrown from inside a guarded function when tool input validation
- * that depends on document state fails (e.g. NodeNotFound, cycle detection).
+ * that depends on document state fails (e.g. ItemNotFound, cycle detection).
  * Caught by wrapToolHandler and converted to a structured error response.
  */
 export class ToolInputError extends Error {
@@ -249,7 +249,9 @@ export function wrapToolHandler(fn: (...args: any[]) => Promise<any>): any {
         return makeErrorResponse("ConfigError", error.message);
       }
       const message = error instanceof Error ? error.message : String(error);
-      const code = error instanceof DynalistApiError ? error.code : "Unknown";
+      let code = error instanceof DynalistApiError ? error.code : "Unknown";
+      // Remap internal API code to agent-facing terminology.
+      if (code === "NodeNotFound") code = "ItemNotFound";
       return makeErrorResponse(code, message);
     }
   };

@@ -91,7 +91,7 @@ describe("findRootNodeId", () => {
 
   test("throws DynalistApiError on empty nodes array", () => {
     expect(() => findRootNodeId([])).toThrow(DynalistApiError);
-    expect(() => findRootNodeId([])).toThrow("Document has no nodes.");
+    expect(() => findRootNodeId([])).toThrow("Document has no items.");
   });
 
   test("fallback to first node when all are children", () => {

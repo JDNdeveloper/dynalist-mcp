@@ -209,7 +209,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           const nodeMap = buildNodeMap(doc.nodes);
           for (const entry of items) {
             if (!nodeMap.has(entry.item_id)) {
-              throw new ToolInputError("NodeNotFound", `Item '${entry.item_id}' not found in document.`);
+              throw new ToolInputError("ItemNotFound", `Item '${entry.item_id}' not found in document.`);
             }
           }
 
@@ -342,7 +342,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             const refInfo = parentMap.get(reference_item_id!);
 
             if (!refInfo) {
-              throw new ToolInputError("NodeNotFound", `Reference item '${reference_item_id}' not found in document.`);
+              throw new ToolInputError("ItemNotFound", `Reference item '${reference_item_id}' not found in document.`);
             }
 
             parentNodeId = refInfo.parentId;
@@ -365,7 +365,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
               doc = await store.read(file_id);
               const parentNode = doc.nodes.find(n => n.id === parentNodeId);
               if (!parentNode) {
-                throw new ToolInputError("NodeNotFound", `Parent item '${parentNodeId}' not found in document.`);
+                throw new ToolInputError("ItemNotFound", `Parent item '${parentNodeId}' not found in document.`);
               }
             }
 

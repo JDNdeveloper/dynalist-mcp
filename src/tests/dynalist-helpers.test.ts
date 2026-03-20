@@ -199,12 +199,12 @@ describe("buildNodeTree", () => {
 describe("wrapToolHandler error paths", () => {
   test("ToolInputError is caught and returned as structured error", async () => {
     const handler = wrapToolHandler(async () => {
-      throw new ToolInputError("NodeNotFound", "Item 'xyz' not found in document.");
+      throw new ToolInputError("ItemNotFound", "Item 'xyz' not found in document.");
     });
     const result = await handler();
     expect(result.isError).toBe(true);
     const parsedError = parseErrorContent(result);
-    expect(parsedError.error).toBe("NodeNotFound");
+    expect(parsedError.error).toBe("ItemNotFound");
     expect(parsedError.message).toContain("Item 'xyz' not found");
   });
 
@@ -217,6 +217,16 @@ describe("wrapToolHandler error paths", () => {
     const parsedError = parseErrorContent(result);
     expect(parsedError.error).toBe("TooManyRequests");
     expect(parsedError.message).toContain("Rate limited");
+  });
+
+  test("DynalistApiError with NodeNotFound code is remapped to ItemNotFound", async () => {
+    const handler = wrapToolHandler(async () => {
+      throw new DynalistApiError("NodeNotFound", "Node 'xyz' not found.");
+    });
+    const result = await handler();
+    expect(result.isError).toBe(true);
+    const parsedError = parseErrorContent(result);
+    expect(parsedError.error).toBe("ItemNotFound");
   });
 
   test("ConfigError is caught and returned with ConfigError code", async () => {

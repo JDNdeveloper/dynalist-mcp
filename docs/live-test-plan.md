@@ -163,7 +163,7 @@ All tools that accept heading/color use string enums. Verify the full value spac
 
 ### 3e. Nonexistent item
 
-- Attempt to delete an item_id that does not exist. Expect NodeNotFound error.
+- Attempt to delete an item_id that does not exist. Expect ItemNotFound error.
 
 ## 4. move_items edge cases
 
@@ -218,7 +218,7 @@ The MCP API cannot set the collapsed state on items (it is UI-only), so collapse
 ### 6b. Starting from a specific item
 
 - Read from an item_id that is 3 levels deep. Verify the returned tree is rooted at that item, not the document root.
-- Read from a nonexistent item_id. Expect NodeNotFound error.
+- Read from a nonexistent item_id. Expect ItemNotFound error.
 
 ### 6c. include_checked filtering
 
@@ -291,7 +291,7 @@ To trigger a size warning, first create a document with at least 100 top-level i
 
 - Pass a Dynalist URL instead of a file_id (e.g. `https://dynalist.io/d/abc123`). Expect schema validation error or the agent should extract the file_id from the URL (per MCP instructions).
 - Pass a completely invalid file_id. Expect NotFound error.
-- Pass a valid file_id but invalid item_id. Expect NodeNotFound error.
+- Pass a valid file_id but invalid item_id. Expect ItemNotFound error.
 
 ## 12. check_document_versions
 

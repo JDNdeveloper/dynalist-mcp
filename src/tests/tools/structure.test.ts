@@ -510,23 +510,23 @@ describe("delete_items", () => {
     expect(err.error).toBe("NotFound");
   });
 
-  test("nonexistent item_id returns NodeNotFound", async () => {
+  test("nonexistent item_id returns ItemNotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["nonexistent"],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
-  test("nonexistent item_id with children: 'delete' returns NodeNotFound", async () => {
+  test("nonexistent item_id with children: 'delete' returns ItemNotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "delete_items", {
       file_id: "doc1",
       item_ids: ["nonexistent"],
       children: "delete",
       expected_sync_token: makeSyncToken("doc1", 1),
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
   test("nonexistent item_id mixed with valid ones fails entire batch", async () => {
@@ -535,7 +535,7 @@ describe("delete_items", () => {
       item_ids: ["n1", "nonexistent"],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
 
     // Verify n1 was NOT deleted (no partial application).
     const doc = ctx.server.documents.get("doc1")!;
@@ -1035,33 +1035,33 @@ describe("move_items", () => {
     expect(result.moved_count).toBe(1);
   });
 
-  // ─── Nonexistent node validation ──────────────────────────────────
+  // ─── Nonexistent item validation ─────────────────────────────────
 
-  test("nonexistent item_id returns NodeNotFound", async () => {
+  test("nonexistent item_id returns ItemNotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "nonexistent", reference_item_id: "n1", position: "after" }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
-  test("nonexistent reference_item_id with first_child returns NodeNotFound", async () => {
+  test("nonexistent reference_item_id with first_child returns ItemNotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "nonexistent", position: "first_child" }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
-  test("nonexistent reference_item_id with after returns NodeNotFound", async () => {
+  test("nonexistent reference_item_id with after returns ItemNotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "move_items", {
       file_id: "doc1",
       moves: [{ item_id: "n1", reference_item_id: "nonexistent", position: "after" }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
-    expect(err.error).toBe("NodeNotFound");
+    expect(err.error).toBe("ItemNotFound");
   });
 
   test("nonexistent file returns error", async () => {
