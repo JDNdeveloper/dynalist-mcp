@@ -6,10 +6,11 @@
  * URL extraction, compositional patterns, deletes, and moves.
  *
  * Architecture:
- *   1. A Sonnet coordinator creates 6 isolated root folders in Dynalist.
+ *   1. A Sonnet coordinator creates one global root folder in Dynalist,
+ *      then 6 sub-folders inside it for pipeline isolation.
  *   2. Six Haiku pipelines run in parallel, each working exclusively within
- *      its own root folder. Each pipeline is internally sequential.
- *   3. A Sonnet coordinator cleans up all root folders at the end.
+ *      its own sub-folder. Each pipeline is internally sequential.
+ *   3. A Sonnet coordinator cleans up the global root folder at the end.
  *
  * Usage:
  *   bun scripts/haiku-validation.ts
@@ -36,6 +37,7 @@ import { join } from "path";
 const COORDINATOR_MODEL = process.env.COORDINATOR_MODEL ?? "sonnet";
 const VALIDATION_MODEL = process.env.VALIDATION_MODEL ?? "haiku";
 const OUTPUT_DIR = process.env.OUTPUT_DIR ?? "/tmp/haiku-validation";
+const WORK_DIR = "/tmp/haiku-validation-work";
 const MAX_TURNS = Number(process.env.MAX_TURNS ?? 25);
 const TASK_TIMEOUT_MS = Number(process.env.TASK_TIMEOUT_MS ?? 180_000);
 
@@ -46,10 +48,15 @@ const RUN_ID = Math.random().toString(36).slice(2, 6);
 // instruction to preview changes and wait for user confirmation. Without this,
 // headless sessions output a preview and never proceed with the mutation.
 const HEADLESS_SYSTEM_PROMPT =
-  "This is an automated test sequence running against a test Dynalist account. " +
-  "You MUST proceed with all Dynalist mutation tools immediately. Do NOT " +
-  "preview Dynalist changes, ask for confirmation, or wait for user approval. " +
-  "Execute every requested Dynalist operation directly.";
+  "**IMPORTANT**: This is an automated test sequence running in a headless " +
+  "session against a test Dynalist account. There is no human to confirm or " +
+  "approve changes. OVERRIDE: The Dynalist MCP instruction to 'preview " +
+  "changes and stop' and 'wait for the user to explicitly confirm' does NOT " +
+  "apply here. That rule is suspended for this session. You MUST call " +
+  "mutating Dynalist tools directly without previewing, confirming, or " +
+  "asking for approval.";
+
+const GLOBAL_ROOT = `Validation ${RUN_ID}`;
 
 const ROOT_FOLDERS = Array.from(
   { length: 6 },
@@ -355,7 +362,7 @@ async function runTask(
     ];
     const proc = spawn("claude", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      cwd: "/tmp",
+      cwd: WORK_DIR,
     });
 
     let stdout = "";
@@ -480,27 +487,66 @@ async function confirmTestAccount(): Promise<void> {
   console.log();
 }
 
+// Write a local settings file into the work directory so spawned Claude
+// sessions have all Dynalist MCP tools and the docs directory pre-allowed.
+async function writeWorkDirSettings(): Promise<void> {
+  const docsDir = join(import.meta.dir, "..", "docs");
+  const settings = {
+    permissions: {
+      allow: [
+        "mcp__dynalist__list_documents",
+        "mcp__dynalist__read_document",
+        "mcp__dynalist__search_documents",
+        "mcp__dynalist__search_in_document",
+        "mcp__dynalist__check_document_versions",
+        "mcp__dynalist__get_recent_changes",
+        "mcp__dynalist__insert_items",
+        "mcp__dynalist__edit_items",
+        "mcp__dynalist__delete_items",
+        "mcp__dynalist__move_items",
+        "mcp__dynalist__send_to_inbox",
+        "mcp__dynalist__create_document",
+        "mcp__dynalist__create_folder",
+        "mcp__dynalist__rename_document",
+        "mcp__dynalist__rename_folder",
+        "mcp__dynalist__move_document",
+        "mcp__dynalist__move_folder",
+        `Read(${docsDir}/**)`,
+      ],
+    },
+  };
+  const settingsDir = join(WORK_DIR, ".claude");
+  await mkdir(settingsDir, { recursive: true });
+  await writeFile(
+    join(settingsDir, "settings.local.json"),
+    JSON.stringify(settings, null, 2),
+  );
+}
+
 async function main() {
   await confirmTestAccount();
   await mkdir(OUTPUT_DIR, { recursive: true });
+  await mkdir(WORK_DIR, { recursive: true });
+  await writeWorkDirSettings();
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const runDir = join(OUTPUT_DIR, `run-${timestamp}`);
   await mkdir(runDir);
 
   console.log(`Output directory: ${runDir}`);
-  console.log(
-    `Run ID: ${RUN_ID} (folder prefix: 'Validation ${RUN_ID} Root')`,
-  );
+  console.log(`Run ID: ${RUN_ID} (global root: '${GLOBAL_ROOT}')`);
   console.log(`Coordinator model: ${COORDINATOR_MODEL}`);
   console.log(`Validation model: ${VALIDATION_MODEL}`);
 
-  // Step 1: coordinator creates root folders.
+  // Step 1: coordinator creates global root folder, then sub-folders inside it.
   const folderList = ROOT_FOLDERS.map((f) => `'${f}'`).join(", ");
   const setupTask: Task = {
     category: "coordinator",
     id: "create-root-folders",
-    prompt: `Using Dynalist, create 6 new top-level folders named: ${folderList}. Create them one at a time (omit parent_folder_id to create at the top level).`,
+    prompt:
+      `Using Dynalist, create a top-level folder named '${GLOBAL_ROOT}'. ` +
+      `Then list documents to find '${GLOBAL_ROOT}' and create 6 folders inside it ` +
+      `(using its file_id as parent_folder_id) named: ${folderList}.`,
   };
 
   console.log(
@@ -552,7 +598,12 @@ async function main() {
   const cleanupTask: Task = {
     category: "coordinator",
     id: "cleanup-root-folders",
-    prompt: `Using Dynalist, list documents. Find all folders named ${folderList}. For each folder: find all documents inside it (and inside any subfolders), read each document, and delete all its top-level items. Then report what you cleaned up. Note: the Dynalist API cannot delete documents or folders themselves, so just empty the documents.`,
+    prompt:
+      `Using Dynalist, list documents. Find the folder '${GLOBAL_ROOT}'. ` +
+      `For all documents inside it (and inside any subfolders, recursively), ` +
+      `read each document and delete all its top-level items. Then report ` +
+      `what you cleaned up. Note: the Dynalist API cannot delete documents ` +
+      `or folders themselves, so just empty the documents.`,
   };
 
   console.log(
