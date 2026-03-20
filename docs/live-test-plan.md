@@ -18,7 +18,7 @@ Subagents cannot interactively approve MCP tool permissions. To avoid agents blo
 
 Run `pwd` to verify the working directory is `/tmp/dynalist-live-test`. If it is, confirm that `.claude/settings.local.json` exists and contains the expected permissions listed below. If the file is missing or incomplete, create or fix it before proceeding. If the working directory is not `/tmp/dynalist-live-test`:
 
-1. Create `/tmp/dynalist-live-test/.claude/` and write the following `settings.local.json`, replacing `<project-dir>` with the **absolute path** to the dynalist-mcp repo, prefixed with `//`. Derive the path from the path the user gave you for this test plan file (e.g. if they said `~/dynalist-mcp/docs/live-test-plan.md`, resolve `~` and use `//Users/alice/dynalist-mcp`). The `//` prefix is required because Claude Code interprets a single leading `/` as relative to the project root, not the filesystem root:
+1. Create `/tmp/dynalist-live-test/.claude/` and write the following `settings.local.json`, replacing `<project-dir>` with the **absolute path** to the dynalist-mcp repo, with the leading `/` doubled to `//`. Derive the path from the path the user gave you for this test plan file (e.g. if they said `~/dynalist-mcp/docs/live-test-plan.md`, resolve `~` to get `/Users/alice/dynalist-mcp`, then double the leading slash to get `//Users/alice/dynalist-mcp`). The `//` prefix is required because Claude Code interprets a single leading `/` as relative to the project root, not the filesystem root. Do NOT prepend `//` to the absolute path (that would produce `///Users/...`); replace the existing leading `/` so the result has exactly two slashes:
 
 ```json
 {
