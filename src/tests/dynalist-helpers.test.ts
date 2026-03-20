@@ -174,9 +174,9 @@ describe("buildNodeTree", () => {
     // B should appear as child of A, but A should not appear again under B.
     expect(tree!.children).toHaveLength(1);
     expect(tree!.children![0].item_id).toBe("b");
-    // B declares A as a child, so child_count is 1, but A was already visited
-    // so the children are hidden (child_count set, children omitted).
-    expect(tree!.children![0].child_count).toBe(1);
+    // B declares A as a child, but A was already visited so the cycle is
+    // broken. B appears as a leaf (no child_count, no children).
+    expect(tree!.children![0].child_count).toBeUndefined();
     expect(tree!.children![0].children).toBeUndefined();
   });
 
@@ -188,8 +188,8 @@ describe("buildNodeTree", () => {
     expect(tree).not.toBeNull();
     expect(tree!.item_id).toBe("a");
     // The self-reference should be skipped by the visited guard.
-    // Hidden shape: child_count set, children omitted.
-    expect(tree!.child_count).toBe(1);
+    // The node appears as a leaf (no child_count, no children).
+    expect(tree!.child_count).toBeUndefined();
     expect(tree!.children).toBeUndefined();
   });
 });

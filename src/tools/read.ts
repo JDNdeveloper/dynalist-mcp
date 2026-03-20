@@ -384,9 +384,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "collapsed items; include_collapsed_children does NOT bypass the depth limit.\n\n" +
         "The starting item always shows its children regardless of collapsed state.\n\n" +
         "Hidden children are signaled by depth_limited: true (max_depth cut off traversal). " +
-        "Call read_document with that item_id to expand.\n\n" +
-        "Leaf items (no children, not collapsed) omit child_count and children entirely. " +
-        "Collapsed items always include child_count, even if 0.",
+        "Call read_document with that item_id to expand.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_id: z.string().optional().describe(

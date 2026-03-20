@@ -1375,19 +1375,104 @@ describe("read_document", () => {
     expect(root.children).toBeUndefined();
   });
 
-  test("child_count correct when children hidden by include_checked false", async () => {
+  test("child_count matches children array length when include_checked false", async () => {
     const result = await callToolOk(ctx.mcpClient, "read_document", {
       file_id: "doc1",
       max_depth: 10,
       include_checked: false,
     });
     const root = result.item as Record<string, unknown>;
-    // child_count reflects the actual count in the source (3), not the
-    // filtered count. The buildNodeTree implementation uses childIds.length
-    // which is 3 regardless of checked filtering.
-    expect(root.child_count).toBe(3);
-    // But only 2 children are rendered (n3 is checked and excluded).
+    // child_count matches the rendered children array length, not the
+    // source count. n3 is checked and excluded, so both are 2.
+    expect(root.child_count).toBe(2);
     expect((root.children as Record<string, unknown>[]).length).toBe(2);
+  });
+
+  test("parent with all children filtered appears as leaf", async () => {
+    // Create a document where a parent's only children are all checked.
+    const allCheckedCtx = await createTestContext((server) => {
+      server.addFolder("folder_a", "Folder A", "root_folder");
+      server.addDocument("doc_ac", "All Checked Doc", "folder_a", [
+        server.makeNode("root", "Root", ["p1"]),
+        server.makeNode("p1", "Parent", ["c1", "c2"]),
+        server.makeNode("c1", "Checked A", [], { checked: true, checkbox: true }),
+        server.makeNode("c2", "Checked B", [], { checked: true, checkbox: true }),
+      ]);
+    });
+    try {
+      const result = await callToolOk(allCheckedCtx.mcpClient, "read_document", {
+        file_id: "doc_ac",
+        max_depth: 10,
+        include_checked: false,
+      });
+      const root = result.item as Record<string, unknown>;
+      const children = root.children as Record<string, unknown>[];
+      const p1 = children.find((c) => c.item_id === "p1")!;
+      // All children filtered out, so p1 appears as a leaf.
+      expect(p1.child_count).toBeUndefined();
+      expect(p1.children).toBeUndefined();
+    } finally {
+      await allCheckedCtx.cleanup();
+    }
+  });
+
+  test("depth-limited child_count uses filtered count with include_checked false", async () => {
+    // Parent has 3 children (2 unchecked, 1 checked). Depth-limited at parent level.
+    const mixedCtx = await createTestContext((server) => {
+      server.addFolder("folder_a", "Folder A", "root_folder");
+      server.addDocument("doc_mix", "Mixed Doc", "folder_a", [
+        server.makeNode("root", "Root", ["p1"]),
+        server.makeNode("p1", "Parent", ["c1", "c2", "c3"]),
+        server.makeNode("c1", "Unchecked A", []),
+        server.makeNode("c2", "Checked B", [], { checked: true, checkbox: true }),
+        server.makeNode("c3", "Unchecked C", []),
+      ]);
+    });
+    try {
+      const result = await callToolOk(mixedCtx.mcpClient, "read_document", {
+        file_id: "doc_mix",
+        max_depth: 1,
+        include_checked: false,
+      });
+      const root = result.item as Record<string, unknown>;
+      const children = root.children as Record<string, unknown>[];
+      const p1 = children.find((c) => c.item_id === "p1")!;
+      // Depth-limited, so children are hidden. child_count is the filtered count (2),
+      // not the source total (3).
+      expect(p1.depth_limited).toBe(true);
+      expect(p1.child_count).toBe(2);
+      expect(p1.children).toBeUndefined();
+    } finally {
+      await mixedCtx.cleanup();
+    }
+  });
+
+  test("depth-limited node with all children checked becomes leaf with include_checked false", async () => {
+    const allCheckedCtx = await createTestContext((server) => {
+      server.addFolder("folder_a", "Folder A", "root_folder");
+      server.addDocument("doc_acd", "All Checked Depth", "folder_a", [
+        server.makeNode("root", "Root", ["p1"]),
+        server.makeNode("p1", "Parent", ["c1", "c2"]),
+        server.makeNode("c1", "Checked A", [], { checked: true, checkbox: true }),
+        server.makeNode("c2", "Checked B", [], { checked: true, checkbox: true }),
+      ]);
+    });
+    try {
+      const result = await callToolOk(allCheckedCtx.mcpClient, "read_document", {
+        file_id: "doc_acd",
+        max_depth: 1,
+        include_checked: false,
+      });
+      const root = result.item as Record<string, unknown>;
+      const children = root.children as Record<string, unknown>[];
+      const p1 = children.find((c) => c.item_id === "p1")!;
+      // All children are checked and filtered. No depth_limited, no child_count.
+      expect(p1.depth_limited).toBeUndefined();
+      expect(p1.child_count).toBeUndefined();
+      expect(p1.children).toBeUndefined();
+    } finally {
+      await allCheckedCtx.cleanup();
+    }
   });
 
   test("leaf nodes omit child_count and children", async () => {
@@ -2233,10 +2318,7 @@ describe("read_document config defaults: include_checked", () => {
     await cfgCtx.cleanup();
   });
 
-  test("include_checked false: child_count on parent reflects original count, not filtered count", async () => {
-    // This documents actual behavior: child_count uses the raw
-    // children array length (3) even though the checked node n3 is
-    // filtered out of the rendered children.
+  test("include_checked false: child_count matches rendered children count", async () => {
     cfgCtx = await createTestContext(standardSetup);
 
     const result = await callToolOk(cfgCtx.mcpClient, "read_document", {
@@ -2245,9 +2327,9 @@ describe("read_document config defaults: include_checked", () => {
       include_checked: false,
     });
     const root = result.item as Record<string, unknown>;
-    // Root has 3 children in source (n1, n2, n3).
-    expect(root.child_count).toBe(3);
-    // But only 2 are rendered (n3 is checked and excluded).
+    // Root has 3 children in source (n1, n2, n3), but n3 is checked
+    // and excluded. child_count matches the rendered array length.
+    expect(root.child_count).toBe(2);
     expect((root.children as Record<string, unknown>[]).length).toBe(2);
   });
 

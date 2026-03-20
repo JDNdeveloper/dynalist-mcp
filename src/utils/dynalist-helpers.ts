@@ -368,20 +368,29 @@ export function buildNodeTree(
   });
   if (isCollapsed) output.collapsed = true;
 
+  // Count filtered children for hidden nodes (depth-limited or collapsed). When children
+  // are omitted, we still need to report how many the agent would see if it expanded.
+  // This keeps child_count consistent: it always means "children you'll see if you expand."
+  const hiddenChildCount = shouldOmitChildren
+    ? (options.includeChecked
+      ? childrenCount
+      : childIds.filter((id) => { const c = nodeMap.get(id); return c && !c.checked; }).length)
+    : 0;
+
   // Signal depth_limited when the depth limit caused children to be omitted.
-  // Only set on nodes that have children and are NOT being hidden by collapsed state alone.
-  if (atMaxDepth && childrenCount > 0 && !collapsedHidesChildren) output.depth_limited = true;
+  // Only set on nodes that have visible children and are NOT hidden by collapsed state alone.
+  if (atMaxDepth && hiddenChildCount > 0 && !collapsedHidesChildren) output.depth_limited = true;
 
   // Three item shapes based on child visibility:
-  // 1. No child_count, no children: non-collapsed item with no children.
-  // 2. child_count and children: children are inline.
-  // 3. child_count, no children: depth-limited, collapsed, or all children filtered out.
+  // 1. No child_count, no children: leaf, or all children filtered out.
+  // 2. child_count and children: children are inline. child_count matches array length.
+  // 3. child_count, no children: depth-limited or collapsed. child_count is the filtered count.
   //    Collapsed items always get child_count, even when 0.
   if (outputChildren.length > 0) {
-    output.child_count = childrenCount;
+    output.child_count = outputChildren.length;
     output.children = outputChildren;
-  } else if (childrenCount > 0 || collapsedHidesChildren) {
-    output.child_count = childrenCount;
+  } else if ((shouldOmitChildren && hiddenChildCount > 0) || collapsedHidesChildren) {
+    output.child_count = hiddenChildCount;
   }
 
   return output;

@@ -134,8 +134,6 @@ The starting item always shows its children regardless of collapsed state.
 
 Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that item_id to expand.
 
-Leaf items (no children, not collapsed) omit child_count and children entirely. Collapsed items always include child_count, even if 0.
-
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |

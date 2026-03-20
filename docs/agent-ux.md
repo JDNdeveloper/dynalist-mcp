@@ -86,13 +86,15 @@ Tool responses omit properties at their default value to reduce token usage, unl
 `read_document` items include `child_count` and `children` based on two rules:
 
 - `children` is included only when populated (not depth-limited, not collapsed, not fully filtered).
-- `child_count` is included whenever the item has children, or is collapsed. Collapsed items get `child_count` even when 0, so agents can tell whether a collapsed node has hidden children or genuinely has none.
+- `child_count` is included when children are present (inline or hidden by depth/collapse), or when the item is collapsed. Collapsed items get `child_count` even when 0, so agents can tell whether a collapsed node has hidden children or genuinely has none. Items whose children are all filtered out (e.g. all checked with `include_checked: false`) appear as leaves with no `child_count`.
 
 This produces three field combinations:
 
-1. **No `child_count`, no `children`**: non-collapsed item with no children.
-2. **`child_count` and `children`**: has children and they are included inline.
-3. **`child_count`, no `children`**: has children but they have been hidden, or item is a collapsed leaf.
+1. **No `child_count`, no `children`**: leaf item, or all children filtered out.
+2. **`child_count` and `children`**: children are inline. `child_count` always matches `children` array length.
+3. **`child_count`, no `children`**: children hidden by depth limit or collapsed state, or a collapsed leaf. `child_count` reflects the filtered count (how many children the agent would see if it expanded).
+
+Response arrays include a denormalized count field (e.g. `child_count` for `children`, `count` for `matches`) because LLMs cannot reliably count array elements. When both the count and the array are present, they always match.
 
 ### Write tool responses
 
