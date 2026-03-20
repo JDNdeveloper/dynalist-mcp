@@ -150,16 +150,18 @@ Changing a tool's input/output schema, description, or parameter descriptions ca
 4. **Shared descriptions** (`src/tools/descriptions.ts`): update if the change affects a `*_GUIDANCE` or `*_DESCRIPTION` constant shared across tools.
 5. **Hand-maintained docs** (see list below): update any doc whose scope covers the changed behavior (e.g. `docs/agent-ux.md` for rendering changes, `docs/concurrency.md` for version guard changes).
 6. **Tests** (`src/tests/tools/`): add or update tests covering the new behavior.
+7. **Live test plan** (`docs/live-test-plan.md`): update test cases that reference changed tool names, parameter names, response fields, or behavioral semantics. Add new test cases if the change introduces behavior that benefits from agent-driven validation against a live account (e.g., new positioning modes, new filtering options, new compositional patterns). Lean towards not adding new cases unless testing with a real agent would catch issues that dummy server tests cannot.
+8. **Haiku validation script** (`scripts/haiku-validation.ts`): update prompts that reference changed tool names, parameter names, or terminology. Add new pipeline tasks if the change affects instruction clarity for weaker models. Use `docs/tools.md` (generated) as the source of truth for current tool names, parameter names, and response fields.
 
 When adding a **new** tool, also:
 
-7. **Tool count in `README.md`**: update the "**N tools**" count in the Features section.
+9. **Tool count in `README.md`**: update the "**N tools**" count in the Features section.
 
 If the new tool goes in a **new category file** (i.e., a new `src/tools/*.ts` register function rather than adding to an existing one), also:
 
-8. **Tool aggregator** (`src/tools/index.ts`): import and call the new register function.
-9. **Test helpers** (`src/tests/tools/test-helpers.ts`): import and call the new register function so tests discover the tool.
-10. **Doc generator** (`scripts/generate-docs.ts`): import the new register function and add a `captureGroup()` call.
+10. **Tool aggregator** (`src/tools/index.ts`): import and call the new register function.
+11. **Test helpers** (`src/tests/tools/test-helpers.ts`): import and call the new register function so tests discover the tool.
+12. **Doc generator** (`scripts/generate-docs.ts`): import the new register function and add a `captureGroup()` call.
 
 ## When adding a new source file
 

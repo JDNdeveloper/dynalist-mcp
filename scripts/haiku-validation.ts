@@ -69,7 +69,7 @@ interface Pipeline {
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline 1: insert_nodes positioning
+// Pipeline 1: insert_items positioning
 // ---------------------------------------------------------------------------
 const positioningPipeline: Pipeline = {
   name: "positioning",
@@ -82,32 +82,32 @@ const positioningPipeline: Pipeline = {
     {
       category: "positioning",
       id: "insert-last-child-root",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'Last Child' as the last top-level item (position last_child, omit reference_node_id). ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'Last Child' as the last top-level item (position last_child, omit reference_item_id). ${AUTH}`,
     },
     {
       category: "positioning",
       id: "insert-first-child-root",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'First Child' as the first top-level item (position first_child, omit reference_node_id). ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'First Child' as the first top-level item (position first_child, omit reference_item_id). ${AUTH}`,
     },
     {
       category: "positioning",
       id: "insert-after-sibling",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the node 'Item B'. Insert a new item 'After B' immediately after it using position 'after' with Item B's node_id as reference_node_id. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item B'. Insert a new item 'After B' immediately after it using position 'after' with Item B's item_id as reference_item_id. ${AUTH}`,
     },
     {
       category: "positioning",
       id: "insert-before-sibling",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the node 'Item D'. Insert a new item 'Before D' immediately before it using position 'before' with Item D's node_id as reference_node_id. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item D'. Insert a new item 'Before D' immediately before it using position 'before' with Item D's item_id as reference_item_id. ${AUTH}`,
     },
     {
       category: "positioning",
-      id: "insert-child-of-node",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the node 'Item A'. Insert 'Child of A' as the first child of 'Item A' using position 'first_child' with Item A's node_id as reference_node_id. ${AUTH}`,
+      id: "insert-child-of-item",
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item A'. Insert 'Child of A' as the first child of 'Item A' using position 'first_child' with Item A's item_id as reference_item_id. ${AUTH}`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Delete ALL its top-level nodes in a single delete_nodes call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
     },
   ],
 };
@@ -126,7 +126,7 @@ const enumsPipeline: Pipeline = {
     {
       category: "nested-insert",
       id: "insert-nested-tree",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert the following nested structure at the end: A parent item 'Project' with two children: 'Phase 1' (which itself has a child 'Design') and 'Phase 2' (which has a child 'Build'). Use the nodes array with nested children objects. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert the following nested structure at the end: A parent item 'Project' with two children: 'Phase 1' (which itself has a child 'Design') and 'Phase 2' (which has a child 'Build'). Use the items array with nested children objects. ${AUTH}`,
     },
     {
       category: "nested-insert",
@@ -141,12 +141,12 @@ const enumsPipeline: Pipeline = {
     {
       category: "enums",
       id: "edit-heading-and-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the node 'Important Section'. Edit it to change the heading to h1 and add color 'blue'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to change the heading to h1 and add color 'blue'. ${AUTH}`,
     },
     {
       category: "enums",
       id: "clear-heading-and-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the node 'Important Section'. Edit it to remove the heading (set to 'none') and remove the color (set to 'none'). ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to remove the heading (set to 'none') and remove the color (set to 'none'). ${AUTH}`,
     },
     {
       category: "enums",
@@ -161,13 +161,13 @@ const enumsPipeline: Pipeline = {
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Delete ALL its top-level nodes in a single delete_nodes call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
     },
   ],
 };
 
 // ---------------------------------------------------------------------------
-// Pipeline 3: edit_nodes + version guard
+// Pipeline 3: edit_items + version guard
 // ---------------------------------------------------------------------------
 const editPipeline: Pipeline = {
   name: "edit",
@@ -180,27 +180,27 @@ const editPipeline: Pipeline = {
     {
       category: "edit",
       id: "edit-content",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the node 'Item C'. Edit its content to 'Item C (edited)'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item C'. Edit its content to 'Item C (edited)'. ${AUTH}`,
     },
     {
       category: "edit",
       id: "edit-note",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the node 'Item B'. Set its note to 'This is a test note'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item B'. Set its note to 'This is a test note'. ${AUTH}`,
     },
     {
       category: "edit",
       id: "edit-checkbox",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the node 'Item E'. Set checked to true on it. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item E'. Set checked to true on it. ${AUTH}`,
     },
     {
       category: "version-guard",
       id: "read-then-edit",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current sync token. Then edit the node 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_sync_token from the read response. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current sync token. Then edit the item 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_sync_token from the read response. ${AUTH}`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Delete ALL its top-level nodes in a single delete_nodes call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
     },
   ],
 };
@@ -224,23 +224,23 @@ const searchPipeline: Pipeline = {
     {
       category: "search",
       id: "search-in-notes",
-      prompt: `Using Dynalist, find the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Search for 'secret keyword' in that document with search_notes set to true. Tell me which node has it.`,
+      prompt: `Using Dynalist, find the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Search for 'secret keyword' in that document with search_notes set to true. Tell me which item has it.`,
     },
     {
       category: "compositional",
       id: "drill-depth-limited",
-      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}') with max_depth 1. For any nodes that show depth_limited: true, pick one and call read_document again with that node's node_id to see its children.`,
+      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}') with max_depth 1. For any items that show depth_limited: true, pick one and call read_document again with that item's item_id to see its children.`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Delete ALL its top-level nodes in a single delete_nodes call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
     },
   ],
 };
 
 // ---------------------------------------------------------------------------
-// Pipeline 5: delete_nodes + move_nodes
+// Pipeline 5: delete_items + move_items
 // ---------------------------------------------------------------------------
 const deleteMovePipeline: Pipeline = {
   name: "delete-move",
@@ -253,27 +253,27 @@ const deleteMovePipeline: Pipeline = {
     {
       category: "delete",
       id: "delete-with-promote",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the node 'Parent' and delete it with children set to 'promote', so its children ('Child 1', 'Child 2', 'Child 3') become top-level items. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the item 'Parent' and delete it with children set to 'promote', so its children ('Child 1', 'Child 2', 'Child 3') become top-level items. ${AUTH}`,
     },
     {
       category: "delete",
       id: "delete-multiple",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete the nodes 'Child 1' and 'Child 2' in a single delete_nodes call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete the items 'Child 1' and 'Child 2' in a single delete_items call. ${AUTH}`,
     },
     {
       category: "move",
       id: "move-after-sibling",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the nodes 'Sibling A' and 'Sibling C'. Move 'Sibling A' to position 'after' 'Sibling C'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling A' and 'Sibling C'. Move 'Sibling A' to position 'after' 'Sibling C'. ${AUTH}`,
     },
     {
       category: "move",
       id: "move-as-child",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the nodes 'Sibling B' and 'Target'. Move 'Target' to be the first_child of 'Sibling B'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling B' and 'Target'. Move 'Target' to be the first_child of 'Sibling B'. ${AUTH}`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete ALL its top-level nodes in a single delete_nodes call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
     },
   ],
 };
@@ -551,7 +551,7 @@ async function main() {
   const cleanupTask: Task = {
     category: "coordinator",
     id: "cleanup-root-folders",
-    prompt: `Using Dynalist, list documents. Find all folders named ${folderList}. For each folder: find all documents inside it (and inside any subfolders), read each document, and delete all its top-level nodes. Then report what you cleaned up. Note: the Dynalist API cannot delete documents or folders themselves, so just empty the documents. ${AUTH}`,
+    prompt: `Using Dynalist, list documents. Find all folders named ${folderList}. For each folder: find all documents inside it (and inside any subfolders), read each document, and delete all its top-level items. Then report what you cleaned up. Note: the Dynalist API cannot delete documents or folders themselves, so just empty the documents. ${AUTH}`,
   };
 
   console.log(
