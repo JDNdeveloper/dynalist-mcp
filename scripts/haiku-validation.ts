@@ -521,6 +521,9 @@ async function confirmTestAccount(): Promise<void> {
 // sessions have all Dynalist MCP tools and the docs directory pre-allowed.
 async function writeWorkDirSettings(): Promise<void> {
   const docsDir = join(import.meta.dir, "..", "docs");
+  // Claude Code interprets a single leading "/" as relative to the project
+  // root. Use "//" for absolute filesystem paths.
+  const permDocsDir = "/" + docsDir;
   const settings = {
     permissions: {
       allow: [
@@ -541,7 +544,7 @@ async function writeWorkDirSettings(): Promise<void> {
         "mcp__dynalist__rename_folder",
         "mcp__dynalist__move_document",
         "mcp__dynalist__move_folder",
-        `Read(${docsDir}/**)`,
+        `Read(${permDocsDir}/**)`,
       ],
     },
   };
