@@ -1,6 +1,6 @@
 # Live Agent Test Plan
 
-Manual test plan for exercising the Dynalist MCP server against a live test account. Focuses on edge cases, parameter combinations, and behaviors that are hard to cover with the automated dummy server tests.
+Happy-path verification that the MCP server works against the real Dynalist API. Edge cases, error handling, and exhaustive enum coverage belong in the automated unit/integration tests against the dummy server. The live test catches API behavior mismatches, not server logic bugs.
 
 **Prerequisites:**
 
@@ -60,31 +60,25 @@ Before any mutations, the agent MUST:
 
 ### Step 1: Create a test root and sub-roots
 
-Use `list_documents` (from step 0) to find the account root folder, then create a single **test root** folder (e.g. "Manual Test 2026-03-14 (a3f)"). The name includes today's date and a short random suffix to avoid collisions across runs. Inside it, create one **sub-root** per test group. Create the sub-root folders in parallel (multiple `create_folder` calls in a single message) to speed up setup:
+Use `list_documents` (from step 0.5) to find the account root folder, then create a single **test root** folder (e.g. "Live Test 2026-03-14 (a3f)"). The name includes today's date and a short random suffix to avoid collisions across runs. Inside it, create one **sub-root** per test group. Create the sub-root folders in parallel (multiple `create_folder` calls in a single message) to speed up setup:
 
-| Sub-root                | Sections            | Tests |
-|-------------------------|---------------------|-------|
-| 01-pos-child            | 1a                  | 5     |
-| 02-pos-sibling          | 1b                  | 6     |
-| 03-pos-index-multi-nest | 1c, 1d, 1e          | 9     |
-| 04-enum-heading         | 2a                  | 5     |
-| 05-enum-color           | 2b                  | 8     |
-| 06-enum-edit            | 2c                  | 6     |
-| 07-inbox-invalid        | 2d, 2e, 10          | 7     |
-| 08-delete-promote-multi | 3a, 3b              | 5     |
-| 09-delete-errors        | 3c, 3d, 3e          | 3     |
-| 10-move-positions       | 4a, 4b              | 5     |
-| 11-move-reorder-errors  | 4c, 4d, 4e          | 6     |
-| 12-version-edit         | 5, 9                | 7     |
-| 13-read                 | 6                   | 8     |
-| 14-search               | 7                   | 7     |
-| 15-file-mgmt-misc       | 8, 11, 12, 13      | 17    |
+| Sub-root       | Tests |
+|----------------|-------|
+| 01-insert      | ~4    |
+| 02-edit        | ~3    |
+| 03-delete      | ~2    |
+| 04-move        | ~3    |
+| 05-read-search | ~4    |
+| 06-inbox       | ~2    |
+| 07-file-mgmt   | ~5    |
+
+Agent 06 (inbox) does not use its sub-root folder since it only sends to the account inbox. Create the folder anyway for naming consistency.
 
 ### Step 2: Spawn subagents
 
-Launch one subagent per sub-root. Each subagent prompt should:
+Launch one subagent per sub-root (7 total, all in parallel). Each subagent prompt should:
 
-1. Reference this test plan file so the agent can read its assigned sections.
+1. Reference this test plan file so the agent can read its assigned section.
 2. Specify the sub-root folder file_id to work within.
 3. Instruct the agent to create its own test document(s) inside that folder.
 4. Instruct the agent to read back after every write and report PASS/FAIL per test case.
@@ -98,256 +92,369 @@ Launch one subagent per sub-root. Each subagent prompt should:
 
 All subagents run in parallel. Since each operates in its own sub-root with its own documents, there is no risk of version conflicts or cross-contamination.
 
-**Note:** Sections 12 (check_document_versions) and 13 (get_recent_changes) read across documents. If other subagents are writing concurrently, these results may be noisy, but this is acceptable. Run all subagents in parallel to keep total execution time down.
+### Step 3: Aggregate results
 
-### Step 3: Review results
+After all subagents return, collect results into a single summary table:
 
-Each subagent returns a PASS/FAIL summary with star ratings. Collect all summaries and note any failures. For failures, read the agent's detailed output to determine whether the issue is in the MCP server, the tool descriptions, or the test setup. Review star ratings to identify usability pain points: any test case rated below 5 stars warrants investigation into whether tool descriptions, MCP instructions, or parameter semantics can be improved.
+| Agent | Test | Result | Stars | Notes |
+|-------|------|--------|-------|-------|
+
+For each failure, read the agent's detailed output to determine whether the issue is in the MCP server, the tool descriptions, or the test setup. Review star ratings to identify usability pain points: any test case rated below 5 stars warrants investigation into whether tool descriptions, MCP instructions, or parameter semantics can be improved.
 
 ### Cleanup
 
-The Dynalist API cannot delete documents or folders. After all subagents complete, prompt the user to delete the test root folder in the Dynalist web UI. Since every sub-root and test document lives under the single test root, deleting it removes all test artifacts in one action. Also clean up the temporary working directory created in step 0.5 (`rm -rf /tmp/dynalist-live-test`).
+The Dynalist API cannot delete documents or folders. After all subagents complete, prompt the user to delete the test root folder in the Dynalist web UI. Since every sub-root and test document lives under the single test root, deleting it removes all test artifacts in one action. Also clean up the temporary working directory created in step 0 (`rm -rf /tmp/dynalist-live-test`).
 
 ---
 
-## 1. insert_items positioning
+## Agent 01: insert_items
 
-The `insert_items` tool uses a `position` enum with a single `reference_item_id` whose meaning changes depending on the position value.
+Create a test document "Insert Tests" in the sub-root folder.
 
-### 1a. Child positions (first_child / last_child)
+### Setup
 
-- **Append to root (omit reference_item_id):** Insert with `position: "last_child"` and no `reference_item_id`. Verify new items appear at the bottom of the document's top-level items.
-- **Prepend to root:** Insert with `position: "first_child"` and no `reference_item_id`. Verify new items appear at the top.
-- **Append under a specific parent:** Insert with `position: "last_child"` and `reference_item_id` set to an existing item that has children. Verify new items appear after the last existing child.
-- **Prepend under a specific parent:** Insert with `position: "first_child"` and `reference_item_id` set to an item with children. Verify new items appear before the first existing child.
-- **Insert under a leaf item:** Insert with `position: "last_child"` and `reference_item_id` set to a leaf (no children). Verify the leaf now has children.
+Call `read_document` on the new document to get the initial `sync_token`. Then call `insert_items` once to create the following structure:
 
-### 1b. Sibling positions (after / before)
+```
+• Existing Parent
+  • Child A
+  • Child B
+  • Child C
+```
 
-- **After a specific sibling:** Insert with `position: "after"` and `reference_item_id` set to a non-last sibling. Verify new items appear immediately after the reference.
-- **Before a specific sibling:** Insert with `position: "before"` and `reference_item_id` set to a non-first sibling. Verify new items appear immediately before the reference.
-- **After the last sibling:** Insert `position: "after"` on the last child of a parent. Verify new items appear at the end.
-- **Before the first sibling:** Insert `position: "before"` on the first child. Verify new items appear at the start.
-- **Root item as sibling reference (error):** Insert with `position: "after"` and `reference_item_id` set to the root item ID. Expect error: root has no parent.
-- **Missing reference_item_id for sibling (error):** Insert with `position: "after"` but omit `reference_item_id`. Expect error.
+Extract the `item_id` for each item from the response. Read back the document to get the updated `sync_token`.
 
-### 1c. Index parameter
+### Test 1a: Insert at root as first_child
 
-- **Explicit index with last_child:** Insert with `position: "last_child"`, `reference_item_id` pointing to a parent with 3 children, `index: 1`. Verify new item appears at index 1 (between first and second existing child).
-- **Index 0 with last_child:** Equivalent to first_child. Verify item appears at start.
-- **Index -1 with last_child:** Equivalent to appending at end (default behavior).
-- **Index with after/before (error):** Insert with `position: "after"` and `index: 0`. Expect error about incompatible parameters.
+Call `insert_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "content": "Root First" }]`
+- `position`: `"first_child"`
+- (no `reference_item_id`)
 
-### 1d. Multi-item ordering
+Read back the document. **PASS** if `Root First` is the first top-level item. **FAIL** otherwise.
 
-- **Multiple items with last_child:** Insert 3 items with `position: "last_child"`. Verify they appear in input order (not reversed).
-- **Multiple items with first_child:** Insert 3 items with `position: "first_child"`. Verify they appear in input order at the start.
-- **Multiple items with after:** Insert 3 items with `position: "after"` a reference sibling. Verify they appear in input order after the reference.
+### Test 1b: Insert at root as last_child
 
-### 1e. Nested trees
+Call `insert_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "content": "Root Last" }]`
+- `position`: `"last_child"`
+- (no `reference_item_id`)
 
-- **Two-level tree:** Insert an item with children. Verify parent-child relationship in readback.
-- **Three-level tree with metadata:** Insert a tree where items have heading, color, checkbox, note values. Verify all metadata round-trips correctly.
+Read back the document. **PASS** if `Root Last` is the last top-level item. **FAIL** otherwise.
 
-## 2. String enums: heading and color
+### Test 1c: Insert under a parent as last_child
 
-All tools that accept heading/color use string enums. Verify the full value space works on insert, edit, and inbox.
+Call `insert_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "content": "New Sibling" }]`
+- `position`: `"last_child"`
+- `reference_item_id`: item_id of `Existing Parent`
 
-### 2a. Heading values on insert_items
+Read back the document. **PASS** if children of `Existing Parent` are `[Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
-- Insert an item with `heading: "h1"`. Read back, verify heading is `"h1"`.
-- Insert an item with `heading: "h2"`. Read back, verify.
-- Insert an item with `heading: "h3"`. Read back, verify.
-- Insert an item with `heading: "none"`. Read back, verify heading field is absent (omitted when none).
-- Insert an item with no heading field at all. Read back, verify heading field is absent.
+### Test 1d: Insert with nested tree and metadata
 
-### 2b. Color values on insert_items
+Call `insert_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`:
+  ```json
+  [{
+    "content": "H1 Parent",
+    "heading": "h1",
+    "color": "blue",
+    "note": "Parent note",
+    "children": [{
+      "content": "Checkbox Child",
+      "show_checkbox": true,
+      "checked": true,
+      "color": "green"
+    }]
+  }]
+  ```
+- `position`: `"last_child"`
 
-- Insert an item with each color value: `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"`. Read back each, verify correct color.
-- Insert an item with `color: "none"`. Read back, verify color field is absent.
-- Insert an item with no color field. Read back, verify color field is absent.
+Read back the document. **PASS** if all of the following are true:
+- `H1 Parent` exists with `heading: "h1"`, `color: "blue"`, `note: "Parent note"`.
+- `H1 Parent` has one child `Checkbox Child` with `show_checkbox: true`, `checked: true`, `color: "green"`.
 
-### 2c. Heading/color on edit_items
+**FAIL** if any metadata value is missing or incorrect.
 
-- Edit an existing item to set `heading: "h2"`. Read back, verify.
-- Edit the same item to set `heading: "none"`. Read back, verify heading is absent.
-- Edit an item to set `color: "green"`. Read back, verify.
-- Edit the same item to set `color: "none"`. Read back, verify color is absent.
-- Edit heading without touching color (and vice versa). Verify the untouched field is preserved.
+---
 
-### 2d. Heading/color on send_to_inbox
+## Agent 02: edit_items
 
-- Send to inbox with `heading: "h1"` and `color: "red"`. Read the inbox document, find the new item, verify both values.
+Create a test document "Edit Tests" in the sub-root folder.
 
-### 2e. Invalid values (if not caught by schema)
+### Setup
 
-- Attempt to insert with `heading: "h4"`. Expect schema validation error.
-- Attempt to insert with `color: "pink"`. Expect schema validation error.
-- Attempt to insert with `heading: 1` (numeric). Expect schema validation error (string required).
+Call `read_document` on the new document to get the initial `sync_token`. Then call `insert_items` once to create:
 
-## 3. delete_items edge cases
+```
+• Edit Target A
+• Edit Target B
+```
 
-### 3a. Promote children
+Include metadata on `Edit Target A` in the same insert call: `note: "Original note"`, `heading: "h1"`, `color: "red"`. Read back to get item_ids and the updated sync_token.
 
-- Create a parent with 3 children. Delete the parent with `children: "promote"`. Verify the 3 children are now siblings of where the parent was.
-- Delete a leaf item with `children: "promote"`. Verify `promoted_children_count: 0` in response.
-- Attempt `children: "promote"` with 2 item_ids. Expect error.
+### Test 2a: Edit content
 
-### 3b. Multi-item delete
+Call `edit_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "item_id": <Edit Target A>, "content": "Renamed A" }]`
 
-- Create a flat list of 5 siblings. Delete 3 of them in a single call. Verify only the 2 remaining siblings exist.
-- Delete a parent and one of its children in the same call. Verify deduplication: child is subsumed by parent deletion, `deleted_count` reflects the full subtree.
+Read back. **PASS** if the item's content is `Renamed A` and `heading`, `color`, and `note` are all unchanged (`heading: "h1"`, `color: "red"`, `note: "Original note"`). **FAIL** otherwise.
 
-### 3c. Root item
+### Test 2b: Edit metadata (heading + color)
 
-- Attempt to delete with `item_ids: ["root"]`. Expect error. (The root item ID is always the literal string `"root"`, so this single test covers the case.)
+Call `edit_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "item_id": <Edit Target B>, "heading": "h2", "color": "purple" }]`
 
-### 3d. Duplicate item_ids
+Read back. **PASS** if `Edit Target B` has `heading: "h2"` and `color: "purple"`, and content is unchanged. **FAIL** otherwise.
 
-- Attempt to delete with `item_ids: ["abc", "abc"]`. Expect error about duplicates.
+### Test 2c: Clear a note
 
-### 3e. Nonexistent item
+Call `edit_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `items`: `[{ "item_id": <Edit Target A>, "note": "" }]`
 
-- Attempt to delete an item_id that does not exist. Expect ItemNotFound error.
+Read back. **PASS** if the `note` field is absent (cleared) on `Edit Target A`, and all other fields (`content`, `heading`, `color`) are unchanged. **FAIL** otherwise.
 
-## 4. move_items edge cases
+---
 
-### 4a. All four positions
+## Agent 03: delete_items
 
-- Move an item with `position: "first_child"` of a reference parent. Verify it is now the first child.
-- Move an item with `position: "last_child"`. Verify it is now the last child.
-- Move an item with `position: "after"` a sibling. Verify placement.
-- Move an item with `position: "before"` a sibling. Verify placement.
+Create a test document "Delete Tests" in the sub-root folder.
 
-### 4b. Sequential move semantics
+### Setup
 
-- Move item A after item B, then move item C after item A, in a single `moves` array. Verify final order is B, A, C (second move sees the effect of the first).
+Call `read_document` on the new document to get the initial `sync_token`. Then call `insert_items` once to create:
 
-### 4c. Same-parent reordering
+```
+• Keep A
+• Delete Me 1
+• Delete Me 2
+• Delete Me 3
+• Keep B
+```
 
-- Parent has children [A, B, C, D]. Move A to `position: "after"` D. Verify order becomes [B, C, D, A]. This exercises the post-removal index compensation logic.
-- Move D to `position: "before"` A. Verify order becomes [D, A, B, C] (moving later item before earlier).
+Read back to get item_ids and the updated sync_token.
 
-### 4d. Circular move prevention
+### Test 3a: Delete a single item
 
-- Attempt to move a parent item as first_child of one of its own children. Expect error.
-- Attempt to move an item as first_child of a grandchild. Expect error.
-- Attempt to move an item relative to itself. Expect error about self-reference.
+Call `delete_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `item_ids`: `[<Delete Me 1>]`
 
-### 4e. Root item
+Read back. **PASS** if `Delete Me 1` is gone and `Keep A`, `Delete Me 2`, `Delete Me 3`, `Keep B` remain in order. **FAIL** otherwise.
 
-- Attempt to move with `item_id: "root"`. Expect error.
+### Test 3b: Delete multiple items in one call
 
-## 5. Version guard
+Call `delete_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `item_ids`: `[<Delete Me 2>, <Delete Me 3>]`
 
-### 5a. Stale version
+Read back. **PASS** if only `Keep A` and `Keep B` remain. **FAIL** otherwise.
 
-- Read a document (get sync token T). Make an edit (sync token changes). Attempt another edit with `expected_sync_token: T`. Verify the tool aborts with a stale sync token error and requests a re-read.
+---
 
-### 5b. Version warning
+## Agent 04: move_items
 
-- Two rapid edits where the second uses the sync token from the first read. If a concurrent edit happened between, verify the response includes `sync_warning`.
+Create a test document "Move Tests" in the sub-root folder.
 
-**Note:** This test requires a concurrent writer and cannot be exercised in a single-agent setup. Mark as SKIP if no concurrent writer is available.
+### Setup
 
-## 6. read_document edge cases
+Call `read_document` on the new document to get the initial `sync_token`. Then call `insert_items` once to create:
 
-### 6a. Depth limiting
+```
+• Move Source
+• Target Parent
+  • Target Child A
+  • Target Child B
+```
 
-The MCP API cannot set the collapsed state on items (it is UI-only), so collapsed-specific behavior cannot be tested here. These tests focus on `max_depth` behavior with non-collapsed items.
+Read back to get item_ids and the updated sync_token.
 
-- Read with `max_depth: 1`. Verify non-leaf depth-1 items show `depth_limited: true`, `child_count` populated, `children` omitted. Leaf items at depth 1 omit both `child_count` and `children`.
-- Read with `max_depth: null` (unlimited). Verify full depth traversal, no `depth_limited` flags.
-- Read with `max_depth: 0`. Only the target item, no children at all.
+Tests 4a, 4b, and 4c are sequential: each depends on the prior move's final state. If a test fails, SKIP all subsequent tests in this agent.
 
-### 6b. Starting from a specific item
+### Test 4a: Move as first_child
 
-- Read from an item_id that is 3 levels deep. Verify the returned tree is rooted at that item, not the document root.
-- Read from a nonexistent item_id. Expect ItemNotFound error.
+Call `move_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `moves`: `[{ "item_id": <Move Source>, "reference_item_id": <Target Parent>, "position": "first_child" }]`
 
-### 6c. include_checked filtering
+Read back. **PASS** if children of `Target Parent` are `[Move Source, Target Child A, Target Child B]` in that order. **FAIL** otherwise.
 
-- Insert some checked items. Read with `include_checked: false`. Verify checked items and their subtrees are excluded.
-- Read with `include_checked: true` (default). Verify checked items are present.
+### Test 4b: Move as last_child
 
-### 6d. include_notes filtering
+Call `move_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `moves`: `[{ "item_id": <Move Source>, "reference_item_id": <Target Parent>, "position": "last_child" }]`
 
-- Insert items with notes. Read with `include_notes: false`. Verify `note` field is absent on all items.
-- Read with `include_notes: true` (default). Verify notes are present.
+(Note: `Move Source` is currently `first_child` of `Target Parent` from test 4a.)
 
-### 6e. Size warnings
+Read back. **PASS** if children of `Target Parent` are `[Target Child A, Target Child B, Move Source]` in that order. **FAIL** otherwise.
 
-To trigger a size warning, first create a document with at least 100 top-level items (insert in batches).
+### Test 4c: Move after a sibling
 
-- Read the large document without `bypass_warning`. Verify a size warning is returned with narrowing suggestions.
-- Re-read with `bypass_warning: true`. Verify content is returned.
-- Attempt `bypass_warning: true` on a small document that would not trigger a warning. Expect rejection.
+Call `move_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `moves`: `[{ "item_id": <Move Source>, "reference_item_id": <Target Child A>, "position": "after" }]`
 
-## 7. search_in_document edge cases
+(Note: `Move Source` is currently `last_child` of `Target Parent` from test 4b.)
 
-### 7a. parent_levels enum
+Read back. **PASS** if children of `Target Parent` are `[Target Child A, Move Source, Target Child B]` in that order. **FAIL** otherwise.
 
-- Search with `parent_levels: "none"`. Verify no `parents` array in matches.
-- Search with `parent_levels: "immediate"`. Verify one parent per match.
-- Search with `parent_levels: "all"`. Verify full ancestor chain to root.
+---
 
-### 7b. Match in note only
+## Agent 05: read_document and search_in_document
 
-- Create an item with a keyword only in the note, not the content. Search with `search_notes: true`. Verify it is found.
-- Search the same keyword with `search_notes: false`. Verify it is NOT found.
+Create a test document "Read Search Tests" in the sub-root folder.
 
-## 8. File management edge cases
+### Setup
 
-### 8a. create_document
+Call `read_document` on the new document to get the initial `sync_token`. Then call `insert_items` once to create:
 
-- Create a document with `index: 0` in a folder with existing documents. Verify it appears first.
-- Create a document with default index (-1). Verify it appears last.
-- Create a document in a nonexistent folder. Expect error.
+```
+• Level 1 Alpha
+  • Level 2 Beta
+    • Level 3 Gamma
+      • Level 4 Delta
+• Searchable Item
+• Note Holder
+```
 
-### 8b. move_document / move_folder
+Include metadata in the same insert call: set `Note Holder` with `note: "secret keyword hydra"` and `Searchable Item` with `note: "visible text"`. Read back to get item_ids and the updated sync_token.
 
-- Move a document between folders. Verify it disappears from source and appears in destination.
-- Attempt to move a document using a folder's file_id (type mismatch for move_document). Expect error.
-- Attempt to move a folder using a document's file_id (type mismatch for move_folder). Expect error.
+### Test 5a: Read with max_depth
 
-## 9. edit_items edge cases
+Call `read_document` with:
+- `file_id`: test document
+- `max_depth`: `1`
 
-### 9a. Partial updates
+**PASS** if all of the following are true:
+- `Level 1 Alpha` is present with `depth_limited: true` and `child_count: 1`.
+- `Searchable Item` is present without `depth_limited`.
+- `Level 2 Beta` is NOT in the output (depth limited).
 
-- Edit only the `note` field of an item. Verify content, heading, color, show_checkbox, checked are all unchanged.
-- Edit only `checked: true` without specifying `show_checkbox`. Verify `checked` is set but `show_checkbox` remains unchanged (`checked` and `show_checkbox` are independent fields).
-- Edit an item with no mutable fields specified. Expect error.
+**FAIL** otherwise.
 
-### 9b. Multi-item edit
+### Test 5b: Read from a specific item_id
 
-- Edit 3 items in a single call: change content on first, color on second, heading on third. Verify each change applied independently.
+Call `read_document` with:
+- `file_id`: test document
+- `item_id`: item_id of `Level 2 Beta`
+- `max_depth`: `null` (unlimited)
 
-### 9c. Clear note
+**PASS** if the returned tree is rooted at `Level 2 Beta` and contains `Level 3 Gamma` and `Level 4 Delta` as descendants. `Level 1 Alpha` must NOT appear. **FAIL** otherwise.
 
-- Set a note on an item. Then edit with `note: ""`. Verify the note is cleared (field absent on readback).
+### Test 5c: Search with parent_levels
 
-## 10. send_to_inbox edge cases
+Call `search_in_document` with:
+- `file_id`: test document
+- `query`: `"Gamma"`
+- `parent_levels`: `"all"`
 
-- Send with empty content (whitespace only). Expect error.
-- Send with `checked: true` and no `show_checkbox`. Verify `checked` is set but `show_checkbox` remains false (`checked` and `show_checkbox` are independent fields).
-- Send with all metadata: heading, color, show_checkbox, checked, note. Verify full round-trip.
+**PASS** if the match for `Level 3 Gamma` includes a `parents` array containing `Level 2 Beta` and `Level 1 Alpha` (in ancestor order). **FAIL** otherwise.
 
-## 11. Error recovery and URL handling
+### Test 5d: Search in notes
 
-- Pass a Dynalist URL instead of a file_id (e.g. `https://dynalist.io/d/abc123`). Expect schema validation error or the agent should extract the file_id from the URL (per MCP instructions).
-- Pass a completely invalid file_id. Expect NotFound error.
-- Pass a valid file_id but invalid item_id. Expect ItemNotFound error.
+Call `search_in_document` with:
+- `file_id`: test document
+- `query`: `"hydra"`
+- `search_notes`: `true`
 
-## 12. check_document_versions
+**PASS** if `Note Holder` is found. **FAIL** if no match.
 
-- Check versions for multiple documents in one call. Verify each gets a sync token in the `sync_tokens` map.
-- Include a nonexistent file_id. Verify it is absent from the `sync_tokens` map or gets a sentinel value.
-- Check an empty file_ids array. Verify empty response.
+Then call `search_in_document` with:
+- `file_id`: test document
+- `query`: `"hydra"`
+- `search_notes`: `false`
 
-## 13. get_recent_changes edge cases
+**PASS** if no match is returned (the keyword is only in the note). **FAIL** if a match is found.
 
-- Query with `since` as an ISO date string (e.g. "2026-03-01"). Verify date-only treated as start of day.
-- Query with `until` as an ISO date string. Verify treated as end of day.
-- Query with `since` after `until`. Verify empty results (no error).
-- Query with `type: "created"` vs `type: "modified"`. Verify filtering.
-- Query with `sort: "oldest_first"`. Verify ascending order.
+---
+
+## Agent 06: send_to_inbox
+
+No test document creation needed. This agent sends items to the inbox and reads them back. The inbox `file_id` is not known in advance; extract it from the `send_to_inbox` response.
+
+### Test 6a: Send with metadata
+
+Call `send_to_inbox` with:
+- `content`: `"Inbox Test With Metadata"`
+- `heading`: `"h1"`
+- `color`: `"red"`
+- `note`: `"Inbox note"`
+
+Extract `file_id` from the response. Call `read_document` with that `file_id`. Find the item matching `Inbox Test With Metadata`. **PASS** if the item exists with `heading: "h1"`, `color: "red"`, `note: "Inbox note"`. **FAIL** otherwise.
+
+### Test 6b: Send plain item
+
+Call `send_to_inbox` with:
+- `content`: `"Plain Inbox Item"`
+
+Call `read_document` with the inbox `file_id` from test 6a. Find the item matching `Plain Inbox Item`. **PASS** if the item exists with no heading, no color, no note. **FAIL** otherwise.
+
+---
+
+## Agent 07: File management, check_document_versions, get_recent_changes
+
+This agent tests file-level operations. It works within the sub-root folder. Tests 7a-7c are sequential: each depends on the prior test's result. If a test fails, SKIP all subsequent tests through 7c.
+
+### Test 7a: Create a document
+
+Call `create_document` with:
+- `title`: `"File Mgmt Doc"`
+- `parent_folder_id`: sub-root folder file_id
+
+Extract the `file_id` from the response. Call `list_documents`. **PASS** if a document named `File Mgmt Doc` exists under the sub-root folder. **FAIL** otherwise.
+
+### Test 7b: Rename the document
+
+Call `rename_document` with:
+- `file_id`: file_id of `File Mgmt Doc`
+- `title`: `"Renamed Doc"`
+
+Call `list_documents`. **PASS** if the document is now named `Renamed Doc`. **FAIL** otherwise.
+
+### Test 7c: Move document between folders
+
+Call `create_folder` with:
+- `title`: `"Destination Folder"`
+- `parent_folder_id`: sub-root folder file_id
+
+Call `move_document` with:
+- `file_id`: file_id of `Renamed Doc`
+- `parent_folder_id`: file_id of `Destination Folder`
+
+Call `list_documents`. **PASS** if `Renamed Doc` is now under `Destination Folder` and no longer directly under the sub-root. **FAIL** otherwise.
+
+### Test 7d: Check document versions
+
+Call `create_document` with `title: "Version Check Doc"` and `parent_folder_id: <sub-root folder file_id>`. Call `check_document_versions` with:
+- `file_ids`: `[<Renamed Doc file_id>, <Version Check Doc file_id>]`
+
+**PASS** if the response contains a `sync_tokens` map with entries for both file_ids. **FAIL** otherwise.
+
+### Test 7e: Get recent changes
+
+Call `get_recent_changes` with:
+- `file_id`: file_id of `Renamed Doc`
+- `since`: today's date in ISO 8601 format (e.g. `"2026-03-20"`)
+
+**PASS** if the response includes at least one match. **FAIL** if the response is empty or contains no matches.
