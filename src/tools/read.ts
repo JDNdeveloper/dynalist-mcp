@@ -325,7 +325,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       },
       outputSchema: {
         count: z.number().describe(MATCH_COUNT_DESCRIPTION),
-        query: z.string().describe("The search query that was used"),
         matches: z.array(z.object({
           file_id: z.string().describe(FILE_ID_DESCRIPTION),
           title: z.string().describe("Document or folder title"),
@@ -376,7 +375,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
 
       return makeResponse({
         count: matches.length,
-        query,
         matches,
       });
     })
@@ -515,7 +513,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
         sync_token: z.string().describe(SYNC_TOKEN_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
-        query: z.string().optional().describe("The search query that was used"),
         matches: z.array(searchMatchSchema).optional().describe("Matching items"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
       },
@@ -584,7 +581,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         title: doc.title,
         sync_token: makeSyncToken(file_id, doc.version),
         count: matches.length,
-        query,
         matches,
       };
 

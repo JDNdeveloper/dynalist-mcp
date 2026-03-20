@@ -110,9 +110,9 @@ This produces three field combinations:
 
 Response arrays include a denormalized count field (e.g. `child_count` for `children`, `count` for `matches`) because LLMs cannot reliably count array elements. When both the count and the array are present, they always match.
 
-### Write tool responses
+### Response minimalism
 
-Mutation success responses are minimal: `file_id`, a count of affected items (e.g. `edited_count`, `moved_count`, `deleted_count`), and an optional `sync_warning`. Input values like item IDs are not repeated in the response since the agent already knows them from its own request.
+Responses never echo back input values the agent already knows from its own request. For mutations, this means item IDs are omitted. For searches, the query is omitted. Mutation success responses are minimal: `file_id`, a count of affected items (e.g. `edited_count`, `moved_count`, `deleted_count`), and an optional `sync_warning`.
 
 ## Property ordering
 

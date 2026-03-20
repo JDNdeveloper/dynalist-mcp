@@ -111,7 +111,7 @@ describe("search_documents response shape", () => {
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.count).toBe("number");
-    expect(typeof data.query).toBe("string");
+    expect(data.query).toBeUndefined();
     expect(Array.isArray(data.matches)).toBe(true);
   });
 
@@ -172,7 +172,7 @@ describe("search_in_document response shape", () => {
     expect(typeof data.file_id).toBe("string");
     expect(typeof data.title).toBe("string");
     expect(typeof data.count).toBe("number");
-    expect(typeof data.query).toBe("string");
+    expect(data.query).toBeUndefined();
     expect(Array.isArray(data.matches)).toBe(true);
 
     // Validate match shape if there are results.

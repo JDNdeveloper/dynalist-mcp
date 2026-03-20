@@ -453,9 +453,9 @@ describe("search_documents", () => {
     expect(result.matches).toEqual([]);
   });
 
-  test("query field is echoed back", async () => {
+  test("query is not echoed back in response", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_documents", { query: "test" });
-    expect(result.query).toBe("test");
+    expect(result.query).toBeUndefined();
   });
 
   // ─── Section 8a: additional search_documents tests ─────────────────
@@ -1540,12 +1540,12 @@ describe("search_in_document", () => {
     expect(parents[0].item_id).toBe("n1");
   });
 
-  test("query echoed back", async () => {
+  test("query is not echoed back in response", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "hello",
     });
-    expect(result.query).toBe("hello");
+    expect(result.query).toBeUndefined();
   });
 
   test("empty query matches all nodes", async () => {
@@ -1694,7 +1694,7 @@ describe("search_in_document", () => {
 
   // ─── Section 5e: response shape ──────────────────────────────────
 
-  test("response includes file_id, title, count, query, matches", async () => {
+  test("response includes file_id, title, count, matches but not query", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_in_document", {
       file_id: "doc1",
       query: "First",
@@ -1702,7 +1702,7 @@ describe("search_in_document", () => {
     expect(typeof result.file_id).toBe("string");
     expect(typeof result.title).toBe("string");
     expect(typeof result.count).toBe("number");
-    expect(typeof result.query).toBe("string");
+    expect(result.query).toBeUndefined();
     expect(Array.isArray(result.matches)).toBe(true);
   });
 
@@ -2724,11 +2724,11 @@ describe("list_documents empty account", () => {
 // ─── 8a. search_documents edge case ───────────────────────────────────
 
 describe("search_documents query echo", () => {
-  test("query is echoed back in response", async () => {
+  test("query is not echoed back in response", async () => {
     const result = await callToolOk(ctx.mcpClient, "search_documents", {
       query: "My Unique Search Query 123",
     });
-    expect(result.query).toBe("My Unique Search Query 123");
+    expect(result.query).toBeUndefined();
   });
 });
 

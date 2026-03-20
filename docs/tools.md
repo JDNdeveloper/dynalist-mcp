@@ -94,7 +94,6 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `count` | number | yes | Number of matches found |
-| `query` | string | yes | The search query that was used |
 | `matches` | object[] | yes | Matching documents and/or folders |
 
 **`matches` element fields:**
@@ -111,7 +110,6 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 ```json
 {
   "count": 1,
-  "query": "groceries",
   "matches": [
     {
       "file_id": "f_abc123",
@@ -238,7 +236,6 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 | `title` | string | yes | Document title |
 | `sync_token` | string | yes | Opaque sync token. Pass as expected_sync_token to mutating tools. |
 | `count` | number | no | Number of matches found |
-| `query` | string | no | The search query that was used |
 | `matches` | object[] | no | Matching items |
 | `warning` | string | no | Size warning message when result exceeds token threshold |
 
@@ -269,7 +266,6 @@ Search for text in a document. Returns matching items with metadata. Use parent_
   "title": "Project Notes",
   "sync_token": "a1b2c",
   "count": 1,
-  "query": "groceries",
   "matches": [
     {
       "item_id": "n_item789",
