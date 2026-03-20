@@ -2,13 +2,13 @@
  * Weak-model instruction validation harness.
  *
  * Tests whether Claude Haiku can correctly follow MCP instructions and tool
- * descriptions for string enums, positioning, nested inserts, version guards,
- * URL extraction, compositional patterns, deletes, and moves.
+ * descriptions for string enums, positioning, nested inserts, deletes, moves,
+ * search, and file management.
  *
  * Architecture:
  *   1. A Sonnet coordinator creates one global root folder in Dynalist,
- *      then 6 sub-folders inside it for pipeline isolation.
- *   2. Six Haiku pipelines run in parallel, each working exclusively within
+ *      then N sub-folders inside it (one per pipeline) for isolation.
+ *   2. Haiku pipelines run in parallel, each working exclusively within
  *      its own sub-folder. Each pipeline is internally sequential.
  *   3. A Sonnet coordinator cleans up any inbox items added by the test.
  *   4. The user manually deletes the global root folder (API limitation).
@@ -59,11 +59,6 @@ const HEADLESS_SYSTEM_PROMPT =
 
 const GLOBAL_ROOT = `Validation ${RUN_ID}`;
 
-const ROOT_FOLDERS = Array.from(
-  { length: 6 },
-  (_, i) => `Validation ${RUN_ID} Root ${i + 1}`,
-);
-
 interface Task {
   category: string;
   id: string;
@@ -72,245 +67,193 @@ interface Task {
 
 interface Pipeline {
   name: string;
+  rootFolder: string;
   tasks: Task[];
 }
 
-// ---------------------------------------------------------------------------
-// Pipeline 1: insert_items positioning
-// ---------------------------------------------------------------------------
-const positioningPipeline: Pipeline = {
-  name: "positioning",
-  tasks: [
-    {
-      category: "setup",
-      id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[0]}'. Create a new document called 'Positioning Test Doc' in that folder. Then insert five top-level items: 'Item A', 'Item B', 'Item C', 'Item D', 'Item E'.`,
-    },
-    {
-      category: "positioning",
-      id: "insert-last-child-root",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'Last Child' as the last top-level item (position last_child, omit reference_item_id).`,
-    },
-    {
-      category: "positioning",
-      id: "insert-first-child-root",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'First Child' as the first top-level item (position first_child, omit reference_item_id).`,
-    },
-    {
-      category: "positioning",
-      id: "insert-after-sibling",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item B'. Insert a new item 'After B' immediately after it using position 'after' with Item B's item_id as reference_item_id.`,
-    },
-    {
-      category: "positioning",
-      id: "insert-before-sibling",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item D'. Insert a new item 'Before D' immediately before it using position 'before' with Item D's item_id as reference_item_id.`,
-    },
-    {
-      category: "positioning",
-      id: "insert-child-of-item",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item A'. Insert 'Child of A' as the first child of 'Item A' using position 'first_child' with Item A's item_id as reference_item_id.`,
-    },
-  ],
-};
+// Helper to build a pipeline with an auto-assigned root folder name.
+function pipeline(
+  name: string,
+  tasksFn: (folder: string) => Task[],
+): Pipeline {
+  const rootFolder = `${GLOBAL_ROOT} ${name}`;
+  return { name, rootFolder, tasks: tasksFn(rootFolder) };
+}
 
 // ---------------------------------------------------------------------------
-// Pipeline 2: enums (heading, color, nested inserts with metadata)
+// Pipelines
 // ---------------------------------------------------------------------------
-const enumsPipeline: Pipeline = {
-  name: "enums",
-  tasks: [
+
+const PIPELINES: Pipeline[] = [
+  // Read + search.
+  pipeline("read-search", (f) => [
     {
       category: "setup",
       id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[1]}'. Create a new document called 'Enums Test Doc' in that folder. Then insert one top-level item: 'Placeholder'.`,
+      prompt:
+        `Using Dynalist, list documents to find the folder '${f}'. ` +
+        `Create a new document called 'Test Doc' in that folder. Then insert ` +
+        `three top-level items: 'Alpha', 'Beta' (with a note 'secret keyword'), and 'Gamma'.`,
     },
     {
-      category: "nested-insert",
-      id: "insert-nested-tree",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert the following nested structure at the end: A parent item 'Project' with two children: 'Phase 1' (which itself has a child 'Design') and 'Phase 2' (which has a child 'Build'). Use the items array with nested children objects.`,
+      category: "search",
+      id: "search-item",
+      prompt:
+        `Using Dynalist, find the document 'Test Doc' (in folder '${f}'). ` +
+        `Search for 'Beta' in that document.`,
     },
     {
-      category: "nested-insert",
-      id: "insert-tree-with-metadata",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Shopping' with heading 'h2' and three children: 'Milk' (with checkbox and color 'green'), 'Eggs' (with checkbox), and 'Bread' (with checkbox and checked set to true). Use the JSON tree format with nested children.`,
+      category: "search",
+      id: "search-notes",
+      prompt:
+        `Using Dynalist, find the document 'Test Doc' (in folder '${f}'). ` +
+        `Search for 'secret keyword' in that document with search_notes set to true.`,
+    },
+  ]),
+
+  // Insert + positioning.
+  pipeline("insert-position", (f) => [
+    {
+      category: "setup",
+      id: "create-doc",
+      prompt:
+        `Using Dynalist, list documents to find the folder '${f}'. ` +
+        `Create a new document called 'Test Doc' in that folder. Then insert ` +
+        `three top-level items: 'Alpha', 'Beta', 'Gamma'.`,
     },
     {
-      category: "enums",
-      id: "insert-with-heading",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Important Section' with heading level h2 at the end.`,
+      category: "positioning",
+      id: "insert-after",
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Find the item 'Alpha'. Insert a new item 'After Alpha' immediately after it ` +
+        `using position 'after' with Alpha's item_id as reference_item_id.`,
     },
     {
-      category: "enums",
-      id: "edit-heading-and-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to change the heading to h1 and add color 'blue'.`,
+      category: "positioning",
+      id: "insert-first-child",
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Find the item 'Beta'. Insert 'Child of Beta' as the first child of 'Beta' ` +
+        `using position 'first_child' with Beta's item_id as reference_item_id.`,
     },
     {
-      category: "enums",
-      id: "clear-heading-and-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to remove the heading (set to 'none') and remove the color (set to 'none').`,
+      category: "insert",
+      id: "insert-nested",
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Insert a new top-level item 'Parent' with one child 'Child'. ` +
+        `Use the items array with a nested children object.`,
+    },
+  ]),
+
+  // Edit + enums.
+  pipeline("edit-enums", (f) => [
+    {
+      category: "setup",
+      id: "create-doc",
+      prompt:
+        `Using Dynalist, list documents to find the folder '${f}'. ` +
+        `Create a new document called 'Test Doc' in that folder. Then insert ` +
+        `one top-level item 'Section' with heading 'h2' and color 'blue'.`,
     },
     {
-      category: "enums",
-      id: "insert-with-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Urgent Task' with color 'red' and a checkbox at the end.`,
+      category: "edit",
+      id: "edit-heading-color",
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Find the item 'Section'. Edit it to change the heading to 'h1' and remove ` +
+        `the color (set to 'none').`,
     },
     {
-      category: "enums",
+      category: "insert",
+      id: "insert-checkbox-color",
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Insert a new top-level item 'Task' with color 'red' and a checkbox.`,
+    },
+    {
+      category: "inbox",
       id: "inbox-with-metadata",
-      prompt: `Using Dynalist, send an item to my inbox with content 'Inbox Test Item', heading 'h3', and color 'green'.`,
+      prompt:
+        `Using Dynalist, send an item to my inbox with content 'Inbox Test Item', ` +
+        `heading 'h3', and color 'green'.`,
     },
-  ],
-};
+  ]),
 
-// ---------------------------------------------------------------------------
-// Pipeline 3: edit_items + version guard
-// ---------------------------------------------------------------------------
-const editPipeline: Pipeline = {
-  name: "edit",
-  tasks: [
+  // Delete + move.
+  pipeline("delete-move", (f) => [
     {
       category: "setup",
       id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[2]}'. Create a new document called 'Edit Test Doc' in that folder. Then insert five top-level items: 'Item A', 'Item B', 'Item C', 'Item D', 'Item E'.`,
-    },
-    {
-      category: "edit",
-      id: "edit-content",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item C'. Edit its content to 'Item C (edited)'.`,
-    },
-    {
-      category: "edit",
-      id: "edit-note",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item B'. Set its note to 'This is a test note'.`,
-    },
-    {
-      category: "edit",
-      id: "edit-checkbox",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item E'. Set checked to true on it.`,
-    },
-    {
-      category: "version-guard",
-      id: "read-then-edit",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current sync token. Then edit the item 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_sync_token from the read response.`,
-    },
-  ],
-};
-
-// ---------------------------------------------------------------------------
-// Pipeline 4: search + compositional patterns + URL extraction
-// ---------------------------------------------------------------------------
-const searchPipeline: Pipeline = {
-  name: "search",
-  tasks: [
-    {
-      category: "setup",
-      id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[3]}'. Create a new document called 'Search Test Doc' in that folder. Then insert this nested structure: a top-level item 'Outer' with a child 'Inner' (give 'Inner' a note that says 'secret keyword'), and 'Inner' should have a child 'Deep'. Also insert a second top-level item 'Another' with a child 'Also Inner'.`,
-    },
-    {
-      category: "search",
-      id: "search-with-ancestors",
-      prompt: `Using Dynalist, find the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Search for 'Inner' in that document and show me the full ancestor chain for each match (use parent_levels 'all').`,
-    },
-    {
-      category: "search",
-      id: "search-in-notes",
-      prompt: `Using Dynalist, find the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Search for 'secret keyword' in that document with search_notes set to true. Tell me which item has it.`,
-    },
-    {
-      category: "compositional",
-      id: "drill-depth-limited",
-      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}') with max_depth 1. For any items that show depth_limited: true, pick one and call read_document again with that item's item_id to see its children.`,
-    },
-  ],
-};
-
-// ---------------------------------------------------------------------------
-// Pipeline 5: delete_items + move_items
-// ---------------------------------------------------------------------------
-const deleteMovePipeline: Pipeline = {
-  name: "delete-move",
-  tasks: [
-    {
-      category: "setup",
-      id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[4]}'. Create a new document called 'Move Test Doc' in that folder. Then insert this structure: a top-level item 'Parent' with three children 'Child 1', 'Child 2', 'Child 3'. Also insert four more top-level items: 'Sibling A', 'Sibling B', 'Sibling C', 'Target'.`,
+      prompt:
+        `Using Dynalist, list documents to find the folder '${f}'. ` +
+        `Create a new document called 'Test Doc' in that folder. Then insert ` +
+        `a top-level item 'Parent' with one child 'Child'. Also insert three ` +
+        `more top-level items: 'Alpha', 'Beta', 'Gamma'.`,
     },
     {
       category: "delete",
-      id: "delete-with-promote",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the item 'Parent' and delete it with children set to 'promote', so its children ('Child 1', 'Child 2', 'Child 3') become top-level items.`,
-    },
-    {
-      category: "delete",
-      id: "delete-multiple",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete the items 'Child 1' and 'Child 2' in a single delete_items call.`,
+      id: "delete-promote",
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Find the item 'Parent' and delete it with children set to 'promote', ` +
+        `so 'Child' becomes a top-level item.`,
     },
     {
       category: "move",
-      id: "move-after-sibling",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling A' and 'Sibling C'. Move 'Sibling A' to position 'after' 'Sibling C'.`,
+      id: "move-after",
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Find the items 'Alpha' and 'Gamma'. Move 'Alpha' to position 'after' 'Gamma'.`,
     },
     {
       category: "move",
       id: "move-as-child",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling B' and 'Target'. Move 'Target' to be the first_child of 'Sibling B'.`,
+      prompt:
+        `Using Dynalist, find and read the document 'Test Doc' (in folder '${f}'). ` +
+        `Find the items 'Beta' and 'Gamma'. Move 'Beta' to be the first_child of 'Gamma'.`,
     },
-  ],
-};
+  ]),
 
-// ---------------------------------------------------------------------------
-// Pipeline 6: file management (create, rename, move folders and documents)
-// ---------------------------------------------------------------------------
-const fileMgmtPipeline: Pipeline = {
-  name: "file-mgmt",
-  tasks: [
+  // File management.
+  pipeline("file-mgmt", (f) => [
     {
       category: "file-mgmt",
       id: "create-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[5]}'. Create a new folder called 'Subfolder' inside it.`,
+      prompt:
+        `Using Dynalist, list documents to find the folder '${f}'. ` +
+        `Create a new folder called 'Sub' inside it.`,
     },
     {
       category: "file-mgmt",
       id: "create-doc-in-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder 'Subfolder' (inside '${ROOT_FOLDERS[5]}'). Create a new document called 'Subfolder Doc' inside it.`,
+      prompt:
+        `Using Dynalist, list documents to find the folder 'Sub' ` +
+        `(inside '${f}'). Create a new document called 'Sub Doc' inside it.`,
+    },
+    {
+      category: "file-mgmt",
+      id: "rename-doc",
+      prompt:
+        `Using Dynalist, list documents to find the document 'Sub Doc' ` +
+        `(inside 'Sub' in '${f}'). Rename it to 'Sub Doc Renamed'.`,
+    },
+    {
+      category: "file-mgmt",
+      id: "move-doc",
+      prompt:
+        `Using Dynalist, list documents to find the document 'Sub Doc Renamed' ` +
+        `and the folder '${f}'. Move the document into '${f}' (out of 'Sub').`,
     },
     {
       category: "file-mgmt",
       id: "rename-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder 'Subfolder' (inside '${ROOT_FOLDERS[5]}'). Rename it to 'Subfolder Renamed'.`,
+      prompt:
+        `Using Dynalist, list documents to find the folder 'Sub' ` +
+        `(inside '${f}'). Rename it to 'Sub Renamed'.`,
     },
-    {
-      category: "file-mgmt",
-      id: "rename-document",
-      prompt: `Using Dynalist, list documents to find the document 'Subfolder Doc' (inside 'Subfolder Renamed' in '${ROOT_FOLDERS[5]}'). Rename it to 'Subfolder Doc Renamed'.`,
-    },
-    {
-      category: "file-mgmt",
-      id: "move-document",
-      prompt: `Using Dynalist, list documents to find the document 'Subfolder Doc Renamed' and the folder '${ROOT_FOLDERS[5]}'. Move the document into '${ROOT_FOLDERS[5]}' (out of 'Subfolder Renamed').`,
-    },
-    {
-      category: "file-mgmt",
-      id: "create-dest-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[5]}'. Create a new folder called 'Dest Subfolder' inside it.`,
-    },
-    {
-      category: "file-mgmt",
-      id: "move-subfolder",
-      prompt: `Using Dynalist, list documents to find the folders 'Subfolder Renamed' and 'Dest Subfolder' (both in '${ROOT_FOLDERS[5]}'). Move 'Subfolder Renamed' into 'Dest Subfolder'.`,
-    },
-  ],
-};
-
-const PIPELINES: Pipeline[] = [
-  positioningPipeline,
-  enumsPipeline,
-  editPipeline,
-  searchPipeline,
-  deleteMovePipeline,
-  fileMgmtPipeline,
+  ]),
 ];
 
 // ---------------------------------------------------------------------------
@@ -515,18 +458,18 @@ async function main() {
   console.log(`Validation model: ${VALIDATION_MODEL}`);
 
   // Step 1: coordinator creates global root folder, then sub-folders inside it.
-  const folderList = ROOT_FOLDERS.map((f) => `'${f}'`).join(", ");
+  const folderList = PIPELINES.map((p) => `'${p.rootFolder}'`).join(", ");
   const setupTask: Task = {
     category: "coordinator",
     id: "create-root-folders",
     prompt:
       `Using Dynalist, create a top-level folder named '${GLOBAL_ROOT}'. ` +
-      `Then list documents to find '${GLOBAL_ROOT}' and create 6 folders inside it ` +
+      `Then list documents to find '${GLOBAL_ROOT}' and create ${PIPELINES.length} folders inside it ` +
       `(using its file_id as parent_folder_id) named: ${folderList}.`,
   };
 
   console.log(
-    `\n=== Step 1: Creating ${ROOT_FOLDERS.length} root folders (${COORDINATOR_MODEL}) ===\n`,
+    `\n=== Step 1: Creating ${PIPELINES.length} pipeline folders (${COORDINATOR_MODEL}) ===\n`,
   );
   const setupStart = Date.now();
   const setupResult = await runTask(setupTask, COORDINATOR_MODEL);
