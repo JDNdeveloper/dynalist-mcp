@@ -191,8 +191,16 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       // Build a lookup map for all files.
       const fileMap = new Map(response.files.map((f) => [f.id, f]));
 
-      // Validate folder_id if provided.
+      // Build policies for all files to filter denied ones.
+      const allIds = response.files.map((f) => f.id);
+      const policies = await ac.getPolicies(allIds, config);
+
+      // Validate folder_id if provided. Access check runs first so that
+      // denied folders do not leak existence or type information.
       if (folder_id !== undefined) {
+        if (policies.get(folder_id) === "deny") {
+          return makeErrorResponse("NotFound", `Folder '${folder_id}' not found`);
+        }
         const target = fileMap.get(folder_id);
         if (!target) {
           return makeErrorResponse("NotFound", `Folder '${folder_id}' not found`);
@@ -201,10 +209,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           return makeErrorResponse("InvalidInput", `'${folder_id}' is a document, not a folder`);
         }
       }
-
-      // Build policies for all files to filter denied ones.
-      const allIds = response.files.map((f) => f.id);
-      const policies = await ac.getPolicies(allIds, config);
 
       // Folders referenced by non-deny rule paths are visible even when
       // denied, so the agent can see the full folder chain.

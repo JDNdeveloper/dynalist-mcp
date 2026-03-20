@@ -1294,6 +1294,17 @@ describe("denied-content filtering in list and search", () => {
     expect(docs.every((d) => d.file_id !== "secret_doc")).toBe(true);
   });
 
+  test("list_documents with denied document as folder_id returns NotFound, not InvalidInput", async () => {
+    // Regression: before the fix, passing a denied document's ID as folder_id
+    // returned InvalidInput ("is a document, not a folder"), leaking that the
+    // ID exists and its type. After the fix, the access check runs first and
+    // returns NotFound for denied IDs.
+    const err = await callToolError(fCtx.mcpClient, "list_documents", {
+      folder_id: "secret_doc",
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
   test("search_documents excludes denied documents", async () => {
     const result = await callToolOk(fCtx.mcpClient, "search_documents", {
       query: "Doc",
