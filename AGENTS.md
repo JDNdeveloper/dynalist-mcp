@@ -138,7 +138,7 @@ Key rules:
 - **Sparse output**: tool responses omit properties at their default value to reduce token usage, unless the value provides helpful context. See `docs/agent-ux.md` "Sparse output" for per-field rules.
 - **Property ordering**: any property whose value is a nested structure (array of objects, recursive tree, etc.) must be the last property on its containing object, in both schemas and response construction. This keeps scalar metadata visually adjacent to the primary content in serialized JSON. See `docs/agent-ux.md` "Property ordering" for the full canonical field order, rationale, and examples.
 - **Union discriminators**: every variant in a `z.union()` must include a `z.literal()` field as a discriminator (e.g. `type: z.literal("document")`). `scripts/generate-docs.ts` uses the first literal field in each variant to label the per-variant sub-tables in `docs/tools.md`.
-- **Denormalized counts**: response arrays include a companion count field (e.g. `child_count` for `children`, `count` for `matches`). When both the count and the array are present, the count always matches the array length.
+- **Denormalized counts**: response arrays include a companion count field (e.g. `child_count` for `children`, `count` for `matches`). When both the count and the array are present, the count always matches the array length. `list_documents` is a deliberate exception: `document_count` counts only documents in the `files` array, not folders.
 
 ## When tools change
 

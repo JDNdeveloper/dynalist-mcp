@@ -172,7 +172,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         ),
       },
       outputSchema: {
-        count: z.number().describe("Total number of documents in the result"),
+        document_count: z.number().describe("Total number of documents in the result"),
         files: z.array(fileTreeEntrySchema).describe(
           "Recursive file tree of intermixed documents and folders."
         ),
@@ -304,7 +304,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const files = buildFileTree(startFolderId, 1);
 
       return makeResponse({
-        count: documentCount,
+        document_count: documentCount,
         files,
       });
     })

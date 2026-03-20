@@ -86,7 +86,7 @@ describe("list_documents response shape", () => {
     const raw = await callTool(ctx.mcpClient, "list_documents");
     const data = assertSuccessEnvelope(raw);
 
-    expect(typeof data.count).toBe("number");
+    expect(typeof data.document_count).toBe("number");
     expect(Array.isArray(data.files)).toBe(true);
   });
 

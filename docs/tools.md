@@ -28,7 +28,7 @@ List documents and folders as a recursive tree.
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
-| `count` | number | yes | Total number of documents in the result |
+| `document_count` | number | yes | Total number of documents in the result |
 | `files` | object \| object (recursive)[] | yes | Recursive file tree of intermixed documents and folders. |
 
 **`files` document element fields:**
@@ -55,7 +55,7 @@ List documents and folders as a recursive tree.
 **Example response:**
 ```json
 {
-  "count": 1,
+  "document_count": 1,
   "files": [
     {
       "file_id": "f_abc123",

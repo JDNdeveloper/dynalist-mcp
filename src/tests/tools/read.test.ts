@@ -55,7 +55,7 @@ describe("list_documents", () => {
   test("returns recursive file tree with correct document count", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     // Three documents: doc1, doc2, inbox_doc.
-    expect(result.count).toBe(3);
+    expect(result.document_count).toBe(3);
     expect(Array.isArray(result.files)).toBe(true);
     // Root folder is not included in the output.
     const files = result.files as Record<string, unknown>[];
@@ -86,9 +86,9 @@ describe("list_documents", () => {
     expect(doc1).toBeDefined();
   });
 
-  test("count reflects document count, not folder count", async () => {
+  test("document_count reflects document count, not folder count", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
-    expect(result.count).toBe(3);
+    expect(result.document_count).toBe(3);
   });
 
   // ─── folder_id parameter ──────────────────────────────────────────
@@ -101,7 +101,7 @@ describe("list_documents", () => {
     // folder_a contains doc1. The folder itself is not in the output.
     expect(findFile(files, "folder_a")).toBeUndefined();
     expect(files.some((f) => f.file_id === "doc1")).toBe(true);
-    expect(result.count).toBe(1);
+    expect(result.document_count).toBe(1);
   });
 
   test("folder_id pointing to a document returns error", async () => {
@@ -144,7 +144,7 @@ describe("list_documents", () => {
     });
     const files = result.files as Record<string, unknown>[];
     expect(files).toEqual([]);
-    expect(result.count).toBe(0);
+    expect(result.document_count).toBe(0);
   });
 
   test("max_depth: 1 returns direct children, sub-folders depth-limited", async () => {
@@ -166,7 +166,7 @@ describe("list_documents", () => {
     expect(inbox!.type).toBe("document");
 
     // Documents at depth 1 are counted, but nested docs are not.
-    expect(result.count).toBe(1);
+    expect(result.document_count).toBe(1);
   });
 
   test("max_depth: 2 returns two levels deep", async () => {
@@ -244,21 +244,21 @@ describe("list_documents", () => {
 
   // ─── Count accuracy ──────────────────────────────────────────────
 
-  test("count only counts documents, not folders", async () => {
+  test("document_count only counts documents, not folders", async () => {
     ctx.server.addFolder("extra_folder", "Extra Folder", "root_folder");
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     // Still 3 documents (doc1, doc2, inbox_doc). Extra folder does not count.
-    expect(result.count).toBe(3);
+    expect(result.document_count).toBe(3);
   });
 
-  test("count includes documents in nested folders", async () => {
+  test("document_count includes documents in nested folders", async () => {
     ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
     ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
       ctx.server.makeNode("root", "Nested Doc", []),
     ]);
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     // 3 original + 1 nested = 4.
-    expect(result.count).toBe(4);
+    expect(result.document_count).toBe(4);
   });
 
   // ─── depth_limited signaling ──────────────────────────────────────
@@ -307,7 +307,7 @@ describe("list_documents", () => {
 
     // nested_doc should not appear anywhere.
     expect(findFile(files, "nested_doc")).toBeUndefined();
-    expect(result.count).toBe(1);
+    expect(result.document_count).toBe(1);
   });
 
   test("folder_id with max_depth: 0 returns empty files", async () => {
@@ -316,7 +316,7 @@ describe("list_documents", () => {
       max_depth: 0,
     });
     expect(result.files).toEqual([]);
-    expect(result.count).toBe(0);
+    expect(result.document_count).toBe(0);
   });
 
   test("folder_id pointing to empty folder returns empty files", async () => {
@@ -325,7 +325,7 @@ describe("list_documents", () => {
       folder_id: "empty_folder",
     });
     expect(result.files).toEqual([]);
-    expect(result.count).toBe(0);
+    expect(result.document_count).toBe(0);
   });
 
   test("empty folder has child_count: 0 and no children array", async () => {
@@ -376,12 +376,12 @@ describe("list_documents", () => {
 
     // Count: doc1 (depth 2) + inbox_doc (depth 1) + doc2 (depth 2) = 3.
     // deep_doc is hidden behind depth limit.
-    expect(result.count).toBe(3);
+    expect(result.document_count).toBe(3);
   });
 
-  // ─── Count with max_depth truncation ──────────────────────────────
+  // ─── document_count with max_depth truncation ─────────────────────
 
-  test("count excludes documents hidden by max_depth", async () => {
+  test("document_count excludes documents hidden by max_depth", async () => {
     ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
     ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
       ctx.server.makeNode("root", "Nested Doc", []),
@@ -389,13 +389,13 @@ describe("list_documents", () => {
 
     // With unlimited depth, all 4 docs are counted.
     const full = await callToolOk(ctx.mcpClient, "list_documents");
-    expect(full.count).toBe(4);
+    expect(full.document_count).toBe(4);
 
     // With max_depth: 1, only top-level documents are counted.
     const shallow = await callToolOk(ctx.mcpClient, "list_documents", {
       max_depth: 1,
     });
-    expect(shallow.count).toBe(1);
+    expect(shallow.document_count).toBe(1);
 
     // With max_depth: 2, docs in folder_a and folder_b are visible.
     const medium = await callToolOk(ctx.mcpClient, "list_documents", {
@@ -403,12 +403,12 @@ describe("list_documents", () => {
     });
     // inbox_doc (depth 1) + doc1 (depth 2) + doc2 (depth 2) = 3.
     // nested_doc is at depth 3 (root -> folder_a -> folder_nested -> nested_doc).
-    expect(medium.count).toBe(3);
+    expect(medium.document_count).toBe(3);
   });
 
-  // ─── folder_id + count with nested docs ────────────────────────────
+  // ─── folder_id + document_count with nested docs ───────────────────
 
-  test("folder_id count includes all visible nested documents", async () => {
+  test("folder_id document_count includes all visible nested documents", async () => {
     ctx.server.addFolder("folder_nested", "Nested Folder", "folder_a");
     ctx.server.addDocument("nested_doc", "Nested Doc", "folder_nested", [
       ctx.server.makeNode("root", "Nested Doc", []),
@@ -418,14 +418,14 @@ describe("list_documents", () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents", {
       folder_id: "folder_a",
     });
-    expect(result.count).toBe(2);
+    expect(result.document_count).toBe(2);
 
     // max_depth: 1 from folder_a: only doc1 visible.
     const shallow = await callToolOk(ctx.mcpClient, "list_documents", {
       folder_id: "folder_a",
       max_depth: 1,
     });
-    expect(shallow.count).toBe(1);
+    expect(shallow.document_count).toBe(1);
   });
 });
 
@@ -2710,13 +2710,13 @@ describe("list_documents empty account", () => {
     await emptyCtx.cleanup();
   });
 
-  test("empty account (no documents): returns empty arrays, count 0", async () => {
+  test("empty account (no documents): returns empty arrays, document_count 0", async () => {
     // Create a context with no setup function. The DummyDynalistServer
     // init() only creates a root folder, no documents.
     emptyCtx = await createTestContext();
 
     const result = await callToolOk(emptyCtx.mcpClient, "list_documents");
-    expect(result.count).toBe(0);
+    expect(result.document_count).toBe(0);
     expect(result.files).toEqual([]);
   });
 });

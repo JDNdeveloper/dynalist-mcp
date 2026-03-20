@@ -108,7 +108,7 @@ This produces three field combinations:
 
 ### Denormalized counts
 
-Response arrays include a denormalized count field (e.g. `child_count` for `children`, `count` for `matches`) because LLMs cannot reliably count array elements. When both the count and the array are present, they always match.
+Response arrays include a denormalized count field (e.g. `child_count` for `children`, `count` for `matches`) because LLMs cannot reliably count array elements. When both the count and the array are present, they always match. `list_documents` is a deliberate exception: `document_count` counts only documents in the `files` array, not folders, so it does not match `files.length`.
 
 ### Response minimalism
 

@@ -509,13 +509,13 @@ describe("list_documents with ACL", () => {
     expect(allowDoc!.access_policy).toBeUndefined();
   });
 
-  test("count reflects filtered count, not pre-filter count", async () => {
+  test("document_count reflects filtered count, not pre-filter count", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const all = flattenTree(result.files as Record<string, unknown>[]);
     const docs = all.filter((f) => f.type === "document");
     // denied_doc and unruled_doc (default: deny) should be filtered out.
     // Remaining: readonly_doc, allowed_doc, allowed_in_denied_doc, deep_allowed_doc, inbox_doc.
-    expect(result.count).toBe(docs.length);
+    expect(result.document_count).toBe(docs.length);
     expect(findFileInTree(result.files as Record<string, unknown>[], "denied_doc")).toBeUndefined();
     expect(findFileInTree(result.files as Record<string, unknown>[], "unruled_doc")).toBeUndefined();
   });
@@ -1249,11 +1249,11 @@ describe("denied-content filtering in list and search", () => {
     expect(allIds).not.toContain("secret_doc");
   });
 
-  test("list_documents count reflects filtered count", async () => {
+  test("list_documents document_count reflects filtered count", async () => {
     const result = await callToolOk(fCtx.mcpClient, "list_documents");
     const all = flattenTree(result.files as Record<string, unknown>[]);
     const docs = all.filter((f) => f.type === "document");
-    expect(result.count).toBe(docs.length);
+    expect(result.document_count).toBe(docs.length);
     // secret_doc should not be included.
     expect(docs.every((d) => d.file_id !== "secret_doc")).toBe(true);
   });
