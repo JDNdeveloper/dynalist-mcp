@@ -10,8 +10,10 @@
  *      then N sub-folders inside it (one per pipeline) for isolation.
  *   2. Haiku pipelines run in parallel, each working exclusively within
  *      its own sub-folder. Each pipeline is internally sequential.
- *   3. A Sonnet coordinator cleans up any inbox items added by the test.
- *   4. The user manually deletes the global root folder (API limitation).
+ *   3. Sonnet reviews each pipeline's results against live Dynalist state,
+ *      rating each task pass/fail and 1-5 stars.
+ *   4. A Sonnet coordinator cleans up any inbox items added by the test.
+ *   5. The user manually deletes the global root folder (API limitation).
  *
  * Usage:
  *   bun scripts/haiku-validation.ts
@@ -304,7 +306,9 @@ async function runTask(
       resolve({ stdout, stderr: stderr + "\n" + err.message, exitCode: 1 });
     });
 
+    let timedOut = false;
     const timeout = setTimeout(() => {
+      timedOut = true;
       proc.kill("SIGTERM");
       stderr +=
         "\n[TIMEOUT] Task killed after " + TASK_TIMEOUT_MS / 1000 + "s\n";
@@ -315,7 +319,9 @@ async function runTask(
 
     proc.on("close", (code: number | null) => {
       clearTimeout(timeout);
-      resolve({ stdout, stderr, exitCode: code ?? 1 });
+      // Force non-zero exit code on timeout regardless of process exit code.
+      const exitCode = timedOut ? 1 : (code ?? 1);
+      resolve({ stdout, stderr, exitCode });
     });
   });
 }
@@ -325,8 +331,21 @@ interface TaskResult {
   id: string;
   category: string;
   exitCode: number;
-  outputLength: number;
+  stdout: string;
   elapsed: string;
+}
+
+interface ReviewRating {
+  id: string;
+  pass: boolean;
+  stars: number;
+  notes: string;
+}
+
+interface PipelineReview {
+  pipeline: string;
+  ratings: ReviewRating[];
+  rawOutput: string;
 }
 
 async function runPipeline(
@@ -376,12 +395,104 @@ async function runPipeline(
       id: task.id,
       category: task.category,
       exitCode: result.exitCode,
-      outputLength: result.stdout.length,
+      stdout: result.stdout,
       elapsed,
     });
   }
 
   return results;
+}
+
+async function reviewPipeline(
+  pipeline: Pipeline,
+  results: TaskResult[],
+  runDir: string,
+): Promise<PipelineReview> {
+  // Build transcript sections for each task.
+  const taskSections = results.map((r, i) => [
+    `--- Task ${i + 1}: ${r.id} ---`,
+    `Prompt: ${pipeline.tasks[i].prompt}`,
+    `Exit code: ${r.exitCode}`,
+    `Elapsed: ${r.elapsed}s`,
+    "",
+    "Transcript:",
+    r.stdout || "(no output)",
+  ].join("\n")).join("\n\n");
+
+  const reviewPrompt =
+    `You are reviewing the results of an automated Dynalist MCP validation test. ` +
+    `A weaker model was given tasks to perform against a live Dynalist account. ` +
+    `You must verify that each task was completed correctly.\n\n` +
+    `Pipeline: ${pipeline.name}\n` +
+    `Root folder: '${pipeline.rootFolder}'\n\n` +
+    `For each task below:\n` +
+    `1. Read the transcript to understand what the model did.\n` +
+    `2. Use Dynalist tools to verify the actual state matches expectations ` +
+    `(e.g., read the document to confirm items exist in the right positions).\n` +
+    `3. Rate the task.\n\n` +
+    `${taskSections}\n\n` +
+    `Output ONLY a JSON array (no other text) with one object per task:\n` +
+    `[\n` +
+    `  {\n` +
+    `    "id": "task-id",\n` +
+    `    "pass": true,\n` +
+    `    "stars": 5,\n` +
+    `    "notes": "brief explanation"\n` +
+    `  }\n` +
+    `]\n\n` +
+    `Star rating guide:\n` +
+    `- 5: Completed correctly on first try with minimal tool calls.\n` +
+    `- 4: Completed correctly but with an unnecessary extra tool call or minor hesitation.\n` +
+    `- 3: Completed correctly but with significant inefficiency (extra reads, retries).\n` +
+    `- 2: Partially completed or completed with minor errors.\n` +
+    `- 1: Failed or completed with major errors.\n`;
+
+  const tag = `review/${pipeline.name}`;
+  console.log(`  [${tag}] Starting review...`);
+
+  const start = Date.now();
+  const result = await runTask(
+    { category: "review", id: `review-${pipeline.name}`, prompt: reviewPrompt },
+    COORDINATOR_MODEL,
+    tag,
+  );
+  const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+  console.log(`  [${tag}] Done in ${elapsed}s`);
+
+  // Write raw review output.
+  await writeFile(
+    join(runDir, `98_review_${pipeline.name}.txt`),
+    [
+      `Pipeline: ${pipeline.name}`,
+      `Review model: ${COORDINATOR_MODEL}`,
+      `Exit code: ${result.exitCode}`,
+      `Elapsed: ${elapsed}s`,
+      "",
+      "=== REVIEW PROMPT ===",
+      reviewPrompt,
+      "",
+      "=== REVIEW OUTPUT ===",
+      result.stdout,
+    ].join("\n"),
+  );
+
+  // Parse JSON ratings from the output. Try the full output first (if Sonnet
+  // returned only JSON), then fall back to extracting from a code block.
+  let ratings: ReviewRating[] = [];
+  try {
+    ratings = JSON.parse(result.stdout.trim());
+  } catch {
+    try {
+      const codeBlockMatch = result.stdout.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
+      if (codeBlockMatch) {
+        ratings = JSON.parse(codeBlockMatch[1]);
+      }
+    } catch {
+      console.error(`  [${tag}] Failed to parse review JSON`);
+    }
+  }
+
+  return { pipeline: pipeline.name, ratings, rawOutput: result.stdout };
 }
 
 async function confirmTestAccount(): Promise<void> {
@@ -513,7 +624,21 @@ async function main() {
   const pipelineElapsed = ((Date.now() - pipelineStart) / 1000).toFixed(1);
   console.log(`\n  All pipelines done in ${pipelineElapsed}s\n`);
 
-  // Step 3: coordinator cleans up inbox items added by the test.
+  // Step 3: Sonnet reviews each pipeline's results against live state.
+  console.log(
+    `=== Step 3: Reviewing ${PIPELINES.length} pipelines (${COORDINATOR_MODEL}) ===\n`,
+  );
+
+  const reviewStart = Date.now();
+  const reviews = await Promise.all(
+    PIPELINES.map((pipeline, i) =>
+      reviewPipeline(pipeline, allResults[i], runDir),
+    ),
+  );
+  const reviewElapsed = ((Date.now() - reviewStart) / 1000).toFixed(1);
+  console.log(`\n  All reviews done in ${reviewElapsed}s\n`);
+
+  // Step 4: coordinator cleans up inbox items added by the test.
   const cleanupTask: Task = {
     category: "coordinator",
     id: "cleanup-inbox",
@@ -523,7 +648,7 @@ async function main() {
   };
 
   console.log(
-    `=== Step 3: Cleaning up inbox items (${COORDINATOR_MODEL}) ===\n`,
+    `=== Step 4: Cleaning up inbox items (${COORDINATOR_MODEL}) ===\n`,
   );
   const cleanupStart = Date.now();
   const cleanupResult = await runTask(cleanupTask, COORDINATOR_MODEL);
@@ -549,22 +674,47 @@ async function main() {
     ].join("\n"),
   );
 
-  // Write summary.
-  const summary = allResults.flat();
-  const passed = summary.filter((r) => r.exitCode === 0).length;
-  const failed = summary.filter((r) => r.exitCode !== 0).length;
+  // Build summary from reviews.
+  const allRatings = reviews.flatMap((r) =>
+    r.ratings.map((rating) => ({ pipeline: r.pipeline, ...rating })),
+  );
+  const passed = allRatings.filter((r) => r.pass).length;
+  const failed = allRatings.filter((r) => !r.pass).length;
+  const unparsed = allResults.flat().length - allRatings.length;
+  const avgStars = allRatings.length > 0
+    ? (allRatings.reduce((sum, r) => sum + r.stars, 0) / allRatings.length).toFixed(1)
+    : "N/A";
+
   const summaryFile = join(runDir, "_summary.json");
-  await writeFile(summaryFile, JSON.stringify(summary, null, 2));
+  await writeFile(summaryFile, JSON.stringify({ ratings: allRatings, reviews }, null, 2));
 
   console.log(`\n=== Results ===`);
-  console.log(`  ${passed} passed, ${failed} failed out of ${summary.length}`);
+  console.log(`  ${passed} passed, ${failed} failed out of ${allRatings.length} reviewed`);
+  if (unparsed > 0) {
+    console.log(`  ${unparsed} tasks could not be parsed from review output`);
+  }
+  console.log(`  Average stars: ${avgStars}/5`);
   console.log(`  Summary: ${summaryFile}`);
   console.log(`  Full output: ${runDir}`);
 
-  if (failed > 0) {
+  // Per-pipeline breakdown.
+  console.log("\nPer-pipeline:");
+  for (const review of reviews) {
+    const pipelineRatings = review.ratings;
+    const pPass = pipelineRatings.filter((r) => r.pass).length;
+    const pTotal = pipelineRatings.length;
+    const pAvg = pTotal > 0
+      ? (pipelineRatings.reduce((sum, r) => sum + r.stars, 0) / pTotal).toFixed(1)
+      : "N/A";
+    console.log(`  ${review.pipeline}: ${pPass}/${pTotal} passed, avg ${pAvg}/5`);
+  }
+
+  // Show failures.
+  const failures = allRatings.filter((r) => !r.pass);
+  if (failures.length > 0) {
     console.log("\nFailed tasks:");
-    for (const r of summary.filter((r) => r.exitCode !== 0)) {
-      console.log(`  ${r.pipeline}/${r.id} (exit ${r.exitCode})`);
+    for (const r of failures) {
+      console.log(`  ${r.pipeline}/${r.id}: ${r.notes}`);
     }
   }
 
