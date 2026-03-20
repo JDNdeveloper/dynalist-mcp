@@ -31,12 +31,7 @@
 import { spawn } from "child_process";
 import { createInterface } from "readline";
 import { mkdir, writeFile } from "fs/promises";
-import { dirname, join, resolve } from "path";
-import { fileURLToPath } from "url";
-
-// Resolve the project root from this script's location.
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = resolve(SCRIPT_DIR, "..");
+import { join } from "path";
 
 const COORDINATOR_MODEL = process.env.COORDINATOR_MODEL ?? "sonnet";
 const VALIDATION_MODEL = process.env.VALIDATION_MODEL ?? "haiku";
@@ -47,10 +42,14 @@ const TASK_TIMEOUT_MS = Number(process.env.TASK_TIMEOUT_MS ?? 180_000);
 // Short random suffix so repeated runs do not collide on folder names.
 const RUN_ID = Math.random().toString(36).slice(2, 6);
 
-// Every mutation prompt includes this suffix to prevent the model from asking
-// for confirmation in non-interactive mode.
-const AUTH =
-  "You have full authorization to make all changes described. Do not ask for confirmation; proceed immediately.";
+// System prompt override that prevents the model from following the MCP
+// instruction to preview changes and wait for user confirmation. Without this,
+// headless sessions output a preview and never proceed with the mutation.
+const HEADLESS_SYSTEM_PROMPT =
+  "This is an automated test sequence running against a test Dynalist account. " +
+  "You MUST proceed with all Dynalist mutation tools immediately. Do NOT " +
+  "preview Dynalist changes, ask for confirmation, or wait for user approval. " +
+  "Execute every requested Dynalist operation directly.";
 
 const ROOT_FOLDERS = Array.from(
   { length: 6 },
@@ -77,37 +76,37 @@ const positioningPipeline: Pipeline = {
     {
       category: "setup",
       id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[0]}'. Create a new document called 'Positioning Test Doc' in that folder. Then insert five top-level items: 'Item A', 'Item B', 'Item C', 'Item D', 'Item E'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[0]}'. Create a new document called 'Positioning Test Doc' in that folder. Then insert five top-level items: 'Item A', 'Item B', 'Item C', 'Item D', 'Item E'.`,
     },
     {
       category: "positioning",
       id: "insert-last-child-root",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'Last Child' as the last top-level item (position last_child, omit reference_item_id). ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'Last Child' as the last top-level item (position last_child, omit reference_item_id).`,
     },
     {
       category: "positioning",
       id: "insert-first-child-root",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'First Child' as the first top-level item (position first_child, omit reference_item_id). ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Insert a new item 'First Child' as the first top-level item (position first_child, omit reference_item_id).`,
     },
     {
       category: "positioning",
       id: "insert-after-sibling",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item B'. Insert a new item 'After B' immediately after it using position 'after' with Item B's item_id as reference_item_id. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item B'. Insert a new item 'After B' immediately after it using position 'after' with Item B's item_id as reference_item_id.`,
     },
     {
       category: "positioning",
       id: "insert-before-sibling",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item D'. Insert a new item 'Before D' immediately before it using position 'before' with Item D's item_id as reference_item_id. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item D'. Insert a new item 'Before D' immediately before it using position 'before' with Item D's item_id as reference_item_id.`,
     },
     {
       category: "positioning",
       id: "insert-child-of-item",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item A'. Insert 'Child of A' as the first child of 'Item A' using position 'first_child' with Item A's item_id as reference_item_id. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item A'. Insert 'Child of A' as the first child of 'Item A' using position 'first_child' with Item A's item_id as reference_item_id.`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Delete ALL its top-level items in a single delete_items call.`,
     },
   ],
 };
@@ -121,47 +120,47 @@ const enumsPipeline: Pipeline = {
     {
       category: "setup",
       id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[1]}'. Create a new document called 'Enums Test Doc' in that folder. Then insert one top-level item: 'Placeholder'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[1]}'. Create a new document called 'Enums Test Doc' in that folder. Then insert one top-level item: 'Placeholder'.`,
     },
     {
       category: "nested-insert",
       id: "insert-nested-tree",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert the following nested structure at the end: A parent item 'Project' with two children: 'Phase 1' (which itself has a child 'Design') and 'Phase 2' (which has a child 'Build'). Use the items array with nested children objects. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert the following nested structure at the end: A parent item 'Project' with two children: 'Phase 1' (which itself has a child 'Design') and 'Phase 2' (which has a child 'Build'). Use the items array with nested children objects.`,
     },
     {
       category: "nested-insert",
       id: "insert-tree-with-metadata",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Shopping' with heading 'h2' and three children: 'Milk' (with checkbox and color 'green'), 'Eggs' (with checkbox), and 'Bread' (with checkbox and checked set to true). Use the JSON tree format with nested children. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Shopping' with heading 'h2' and three children: 'Milk' (with checkbox and color 'green'), 'Eggs' (with checkbox), and 'Bread' (with checkbox and checked set to true). Use the JSON tree format with nested children.`,
     },
     {
       category: "enums",
       id: "insert-with-heading",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Important Section' with heading level h2 at the end. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Important Section' with heading level h2 at the end.`,
     },
     {
       category: "enums",
       id: "edit-heading-and-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to change the heading to h1 and add color 'blue'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to change the heading to h1 and add color 'blue'.`,
     },
     {
       category: "enums",
       id: "clear-heading-and-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to remove the heading (set to 'none') and remove the color (set to 'none'). ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Find the item 'Important Section'. Edit it to remove the heading (set to 'none') and remove the color (set to 'none').`,
     },
     {
       category: "enums",
       id: "insert-with-color",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Urgent Task' with color 'red' and a checkbox at the end. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Insert a new top-level item 'Urgent Task' with color 'red' and a checkbox at the end.`,
     },
     {
       category: "enums",
       id: "inbox-with-metadata",
-      prompt: `Using Dynalist, send an item to my inbox with content 'Inbox Test Item', heading 'h3', and color 'green'. ${AUTH}`,
+      prompt: `Using Dynalist, send an item to my inbox with content 'Inbox Test Item', heading 'h3', and color 'green'.`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Delete ALL its top-level items in a single delete_items call.`,
     },
   ],
 };
@@ -175,32 +174,32 @@ const editPipeline: Pipeline = {
     {
       category: "setup",
       id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[2]}'. Create a new document called 'Edit Test Doc' in that folder. Then insert five top-level items: 'Item A', 'Item B', 'Item C', 'Item D', 'Item E'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[2]}'. Create a new document called 'Edit Test Doc' in that folder. Then insert five top-level items: 'Item A', 'Item B', 'Item C', 'Item D', 'Item E'.`,
     },
     {
       category: "edit",
       id: "edit-content",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item C'. Edit its content to 'Item C (edited)'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item C'. Edit its content to 'Item C (edited)'.`,
     },
     {
       category: "edit",
       id: "edit-note",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item B'. Set its note to 'This is a test note'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item B'. Set its note to 'This is a test note'.`,
     },
     {
       category: "edit",
       id: "edit-checkbox",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item E'. Set checked to true on it. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Find the item 'Item E'. Set checked to true on it.`,
     },
     {
       category: "version-guard",
       id: "read-then-edit",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current sync token. Then edit the item 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_sync_token from the read response. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current sync token. Then edit the item 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_sync_token from the read response.`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Delete ALL its top-level items in a single delete_items call.`,
     },
   ],
 };
@@ -214,7 +213,7 @@ const searchPipeline: Pipeline = {
     {
       category: "setup",
       id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[3]}'. Create a new document called 'Search Test Doc' in that folder. Then insert this nested structure: a top-level item 'Outer' with a child 'Inner' (give 'Inner' a note that says 'secret keyword'), and 'Inner' should have a child 'Deep'. Also insert a second top-level item 'Another' with a child 'Also Inner'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[3]}'. Create a new document called 'Search Test Doc' in that folder. Then insert this nested structure: a top-level item 'Outer' with a child 'Inner' (give 'Inner' a note that says 'secret keyword'), and 'Inner' should have a child 'Deep'. Also insert a second top-level item 'Another' with a child 'Also Inner'.`,
     },
     {
       category: "search",
@@ -234,7 +233,7 @@ const searchPipeline: Pipeline = {
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Delete ALL its top-level items in a single delete_items call.`,
     },
   ],
 };
@@ -248,32 +247,32 @@ const deleteMovePipeline: Pipeline = {
     {
       category: "setup",
       id: "create-doc",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[4]}'. Create a new document called 'Move Test Doc' in that folder. Then insert this structure: a top-level item 'Parent' with three children 'Child 1', 'Child 2', 'Child 3'. Also insert four more top-level items: 'Sibling A', 'Sibling B', 'Sibling C', 'Target'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[4]}'. Create a new document called 'Move Test Doc' in that folder. Then insert this structure: a top-level item 'Parent' with three children 'Child 1', 'Child 2', 'Child 3'. Also insert four more top-level items: 'Sibling A', 'Sibling B', 'Sibling C', 'Target'.`,
     },
     {
       category: "delete",
       id: "delete-with-promote",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the item 'Parent' and delete it with children set to 'promote', so its children ('Child 1', 'Child 2', 'Child 3') become top-level items. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the item 'Parent' and delete it with children set to 'promote', so its children ('Child 1', 'Child 2', 'Child 3') become top-level items.`,
     },
     {
       category: "delete",
       id: "delete-multiple",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete the items 'Child 1' and 'Child 2' in a single delete_items call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete the items 'Child 1' and 'Child 2' in a single delete_items call.`,
     },
     {
       category: "move",
       id: "move-after-sibling",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling A' and 'Sibling C'. Move 'Sibling A' to position 'after' 'Sibling C'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling A' and 'Sibling C'. Move 'Sibling A' to position 'after' 'Sibling C'.`,
     },
     {
       category: "move",
       id: "move-as-child",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling B' and 'Target'. Move 'Target' to be the first_child of 'Sibling B'. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling B' and 'Target'. Move 'Target' to be the first_child of 'Sibling B'.`,
     },
     {
       category: "cleanup",
       id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete ALL its top-level items in a single delete_items call. ${AUTH}`,
+      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete ALL its top-level items in a single delete_items call.`,
     },
   ],
 };
@@ -287,37 +286,37 @@ const fileMgmtPipeline: Pipeline = {
     {
       category: "file-mgmt",
       id: "create-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[5]}'. Create a new folder called 'Subfolder' inside it. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[5]}'. Create a new folder called 'Subfolder' inside it.`,
     },
     {
       category: "file-mgmt",
       id: "create-doc-in-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder 'Subfolder' (inside '${ROOT_FOLDERS[5]}'). Create a new document called 'Subfolder Doc' inside it. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder 'Subfolder' (inside '${ROOT_FOLDERS[5]}'). Create a new document called 'Subfolder Doc' inside it.`,
     },
     {
       category: "file-mgmt",
       id: "rename-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder 'Subfolder' (inside '${ROOT_FOLDERS[5]}'). Rename it to 'Subfolder Renamed'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder 'Subfolder' (inside '${ROOT_FOLDERS[5]}'). Rename it to 'Subfolder Renamed'.`,
     },
     {
       category: "file-mgmt",
       id: "rename-document",
-      prompt: `Using Dynalist, list documents to find the document 'Subfolder Doc' (inside 'Subfolder Renamed' in '${ROOT_FOLDERS[5]}'). Rename it to 'Subfolder Doc Renamed'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the document 'Subfolder Doc' (inside 'Subfolder Renamed' in '${ROOT_FOLDERS[5]}'). Rename it to 'Subfolder Doc Renamed'.`,
     },
     {
       category: "file-mgmt",
       id: "move-document",
-      prompt: `Using Dynalist, list documents to find the document 'Subfolder Doc Renamed' and the folder '${ROOT_FOLDERS[5]}'. Move the document into '${ROOT_FOLDERS[5]}' (out of 'Subfolder Renamed'). ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the document 'Subfolder Doc Renamed' and the folder '${ROOT_FOLDERS[5]}'. Move the document into '${ROOT_FOLDERS[5]}' (out of 'Subfolder Renamed').`,
     },
     {
       category: "file-mgmt",
       id: "create-dest-subfolder",
-      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[5]}'. Create a new folder called 'Dest Subfolder' inside it. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folder '${ROOT_FOLDERS[5]}'. Create a new folder called 'Dest Subfolder' inside it.`,
     },
     {
       category: "file-mgmt",
       id: "move-subfolder",
-      prompt: `Using Dynalist, list documents to find the folders 'Subfolder Renamed' and 'Dest Subfolder' (both in '${ROOT_FOLDERS[5]}'). Move 'Subfolder Renamed' into 'Dest Subfolder'. ${AUTH}`,
+      prompt: `Using Dynalist, list documents to find the folders 'Subfolder Renamed' and 'Dest Subfolder' (both in '${ROOT_FOLDERS[5]}'). Move 'Subfolder Renamed' into 'Dest Subfolder'.`,
     },
   ],
 };
@@ -351,10 +350,12 @@ async function runTask(
       String(MAX_TURNS),
       "--output-format",
       "text",
+      "--append-system-prompt",
+      HEADLESS_SYSTEM_PROMPT,
     ];
     const proc = spawn("claude", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      cwd: PROJECT_ROOT,
+      cwd: "/tmp",
     });
 
     let stdout = "";
@@ -499,7 +500,7 @@ async function main() {
   const setupTask: Task = {
     category: "coordinator",
     id: "create-root-folders",
-    prompt: `Using Dynalist, list documents to find the root folder. Then create 6 new folders in the root folder named: ${folderList}. Create them one at a time. ${AUTH}`,
+    prompt: `Using Dynalist, create 6 new top-level folders named: ${folderList}. Create them one at a time (omit parent_folder_id to create at the top level).`,
   };
 
   console.log(
@@ -551,7 +552,7 @@ async function main() {
   const cleanupTask: Task = {
     category: "coordinator",
     id: "cleanup-root-folders",
-    prompt: `Using Dynalist, list documents. Find all folders named ${folderList}. For each folder: find all documents inside it (and inside any subfolders), read each document, and delete all its top-level items. Then report what you cleaned up. Note: the Dynalist API cannot delete documents or folders themselves, so just empty the documents. ${AUTH}`,
+    prompt: `Using Dynalist, list documents. Find all folders named ${folderList}. For each folder: find all documents inside it (and inside any subfolders), read each document, and delete all its top-level items. Then report what you cleaned up. Note: the Dynalist API cannot delete documents or folders themselves, so just empty the documents.`,
   };
 
   console.log(
