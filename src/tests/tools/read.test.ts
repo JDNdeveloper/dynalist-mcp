@@ -71,15 +71,17 @@ describe("list_documents", () => {
     expect(doc1!.permission).toBe("owner");
   });
 
-  test("folders have file_id, title, type, children array", async () => {
+  test("folders have file_id, title, type, child_count, children array", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const folderA = findFile(result.files as Record<string, unknown>[], "folder_a");
     expect(folderA).toBeDefined();
     expect(folderA!.title).toBe("Folder A");
     expect(folderA!.type).toBe("folder");
+    expect(folderA!.child_count).toBe(1);
     expect(Array.isArray(folderA!.children)).toBe(true);
     // doc1 should be inside folder_a's children.
     const children = folderA!.children as Record<string, unknown>[];
+    expect(children).toHaveLength(1);
     const doc1 = children.find((c) => c.file_id === "doc1");
     expect(doc1).toBeDefined();
   });
@@ -222,7 +224,8 @@ describe("list_documents", () => {
     const result2 = await callToolOk(ctx.mcpClient, "list_documents");
     const empty = findFile(result2.files as Record<string, unknown>[], "empty_folder");
     expect(empty).toBeDefined();
-    expect(empty!.children).toEqual([]);
+    expect(empty!.child_count).toBe(0);
+    expect(empty!.children).toBeUndefined();
   });
 
   // ─── Order preservation ───────────────────────────────────────────
@@ -260,7 +263,7 @@ describe("list_documents", () => {
 
   // ─── depth_limited signaling ──────────────────────────────────────
 
-  test("depth_limited and child_count omitted when not applicable", async () => {
+  test("depth_limited omitted on expanded folders; child_count always present on folders", async () => {
     const result = await callToolOk(ctx.mcpClient, "list_documents");
     const files = result.files as Record<string, unknown>[];
     // Documents should not have depth_limited or child_count.
@@ -269,10 +272,11 @@ describe("list_documents", () => {
     expect(inbox!.depth_limited).toBeUndefined();
     expect(inbox!.child_count).toBeUndefined();
 
-    // Non-depth-limited folders should not have depth_limited.
+    // Expanded folders: child_count present, depth_limited absent.
     const folderA = findFile(files, "folder_a");
     expect(folderA).toBeDefined();
     expect(folderA!.depth_limited).toBeUndefined();
+    expect(folderA!.child_count).toBe(1);
   });
 
   // ─── folder_id + max_depth combined ─────────────────────────────────
@@ -322,6 +326,15 @@ describe("list_documents", () => {
     });
     expect(result.files).toEqual([]);
     expect(result.count).toBe(0);
+  });
+
+  test("empty folder has child_count: 0 and no children array", async () => {
+    ctx.server.addFolder("empty_folder", "Empty", "root_folder");
+    const result = await callToolOk(ctx.mcpClient, "list_documents");
+    const empty = findFile(result.files as Record<string, unknown>[], "empty_folder");
+    expect(empty).toBeDefined();
+    expect(empty!.child_count).toBe(0);
+    expect(empty!.children).toBeUndefined();
   });
 
   // ─── Deep nesting (3+ levels) ──────────────────────────────────────

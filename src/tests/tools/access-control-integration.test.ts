@@ -595,7 +595,8 @@ describe("list_documents with ACL", () => {
     const emptyFolder = children.find((f) => f.file_id === "allowed_empty_folder");
     expect(emptyFolder).toBeDefined();
     expect(emptyFolder!.title).toBe("Allowed Empty Folder");
-    expect(emptyFolder!.children).toEqual([]);
+    expect(emptyFolder!.child_count).toBe(0);
+    expect(emptyFolder!.children).toBeUndefined();
   });
 
   test("empty denied folder with /* rule: visible because rule references its path", async () => {
@@ -609,7 +610,8 @@ describe("list_documents with ACL", () => {
     const globFolder = children.find((f) => f.file_id === "glob_target_folder");
     expect(globFolder).toBeDefined();
     expect(globFolder!.title).toBe("Glob Target Folder");
-    expect(globFolder!.children).toEqual([]);
+    expect(globFolder!.child_count).toBe(0);
+    expect(globFolder!.children).toBeUndefined();
   });
 
   test("rule-visible denied folder appears even at max_depth: 1", async () => {
@@ -621,7 +623,8 @@ describe("list_documents with ACL", () => {
     const files = result.files as Record<string, unknown>[];
     const deniedFolder = files.find((f) => f.file_id === "denied_folder");
     expect(deniedFolder).toBeDefined();
-    expect(deniedFolder!.children).toEqual([]);
+    expect(deniedFolder!.child_count).toBe(0);
+    expect(deniedFolder!.children).toBeUndefined();
   });
 
   test("rule-visible denied folders at max_depth: 2 show their visible children", async () => {
@@ -642,7 +645,8 @@ describe("list_documents with ACL", () => {
     // its children are beyond the depth limit.
     const subfolder = children.find((f) => f.file_id === "denied_subfolder");
     expect(subfolder).toBeDefined();
-    expect(subfolder!.children).toEqual([]);
+    expect(subfolder!.child_count).toBe(0);
+    expect(subfolder!.children).toBeUndefined();
 
     // Denied documents should NOT appear.
     expect(children.find((f) => f.file_id === "denied_doc")).toBeUndefined();

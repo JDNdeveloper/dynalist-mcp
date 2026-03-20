@@ -143,7 +143,7 @@ const fileTreeFolderSchema: z.ZodType<{
       "Present when max_depth cut off traversal. Call list_documents with this folder's file_id to expand."
     ),
     child_count: z.number().optional().describe(
-      "Direct children count. Present only when depth_limited is true."
+      "Direct children count."
     ),
     children: z.array(fileTreeEntrySchema).optional().describe(
       "Child documents and folders. Omitted when depth-limited."
@@ -237,12 +237,16 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             if (child.type === "folder" || child.type === "root") {
               const children = buildFileTree(childId, currentDepth + 1);
               if (children.length > 0 || ruleVisibleFolders.has(childId)) {
-                result.push({
+                const entry: Record<string, unknown> = {
                   file_id: child.id,
                   title: child.title,
                   type: "folder",
-                  children,
-                });
+                  child_count: children.length,
+                };
+                if (children.length > 0) {
+                  entry.children = children;
+                }
+                result.push(entry);
               }
             }
             continue;
@@ -282,8 +286,11 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
                 file_id: child.id,
                 title: child.title,
                 type: "folder",
-                children,
+                child_count: children.length,
               };
+              if (children.length > 0) {
+                entry.children = children;
+              }
               result.push(entry);
             }
           }

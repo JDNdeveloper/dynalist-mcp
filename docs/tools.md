@@ -49,7 +49,7 @@ List documents and folders as a recursive tree.
 | `title` | string | yes | Folder title |
 | `type` | "folder" | yes | File type |
 | `depth_limited` | true | no | Present when max_depth cut off traversal. Call list_documents with this folder's file_id to expand. |
-| `child_count` | number | no | Direct children count. Present only when depth_limited is true. |
+| `child_count` | number | no | Direct children count. |
 | `children` | object \| object (recursive)[] | no | Child documents and folders. Omitted when depth-limited. |
 
 **Example response:**

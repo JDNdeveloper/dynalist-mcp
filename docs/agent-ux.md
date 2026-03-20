@@ -81,18 +81,32 @@ Tool responses omit properties at their default value to reduce token usage, unl
 - **`color`** is omitted at its default value (`'none'`).
 - **`note`** is omitted when empty.
 
-### Document tree shapes
+### Document tree shapes (`read_document`)
 
 `read_document` items include `child_count` and `children` based on two rules:
 
 - `children` is included only when populated (not depth-limited, not collapsed, not fully filtered).
-- `child_count` is included when children are present (inline or hidden by depth/collapse), or when the item is collapsed. Collapsed items get `child_count` even when 0, so agents can tell whether a collapsed node has hidden children or genuinely has none. Items whose children are all filtered out (e.g. all checked with `include_checked: false`) appear as leaves with no `child_count`.
+- `child_count` is included when children are present (inline or hidden), or when the item is collapsed. Collapsed items get `child_count` even when 0, so agents can tell whether a collapsed node has hidden children or genuinely has none. Items whose children are all filtered out (e.g. all checked with `include_checked: false`) appear as leaves with no `child_count`.
 
 This produces three field combinations:
 
 1. **No `child_count`, no `children`**: leaf item, or all children filtered out.
 2. **`child_count` and `children`**: children are inline. `child_count` always matches `children` array length.
 3. **`child_count`, no `children`**: children hidden by depth limit or collapsed state, or a collapsed leaf. `child_count` reflects the filtered count (how many children the agent would see if it expanded).
+
+### File tree shapes (`list_documents`)
+
+`list_documents` folders use a simpler scheme than document items. `child_count` is always present on folders (including empty folders with `child_count: 0`), because folders have no collapsed state or filtering that would make the count ambiguous.
+
+- `children` is included only when non-empty and not depth-limited.
+
+This produces three field combinations:
+
+1. **`child_count: 0`, no `children`**: empty folder.
+2. **`child_count` and `children`**: children are inline. `child_count` always matches `children` array length.
+3. **`child_count`, no `children`**: children hidden by depth limit.
+
+### Denormalized counts
 
 Response arrays include a denormalized count field (e.g. `child_count` for `children`, `count` for `matches`) because LLMs cannot reliably count array elements. When both the count and the array are present, they always match.
 
