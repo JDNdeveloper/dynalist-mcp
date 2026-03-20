@@ -211,6 +211,42 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       const ruleVisibleFolders = await ac.getRuleVisibleFolderIds(config);
 
       // Recursively build the file tree from a folder's children.
+      // Check whether a denied folder has any visible descendants,
+      // recursively. Used by countVisibleChildren to include denied
+      // folders that serve as structural containers.
+      function hasVisibleDescendants(folderId: string): boolean {
+        const folder = fileMap.get(folderId);
+        if (!folder) return false;
+        for (const childId of folder.children ?? []) {
+          const c = fileMap.get(childId);
+          if (!c) continue;
+          if (policies.get(childId) !== "deny") return true;
+          if ((c.type === "folder" || c.type === "root") && hasVisibleDescendants(childId)) return true;
+        }
+        return false;
+      }
+
+      // Count how many direct children of a folder would be visible
+      // when expanded. Matches buildFileTree's inclusion logic: non-denied
+      // items always count; denied folders count when they have visible
+      // descendants or are referenced by a non-deny rule path.
+      function countVisibleChildren(folderId: string): number {
+        const folder = fileMap.get(folderId);
+        if (!folder) return 0;
+        let count = 0;
+        for (const childId of folder.children ?? []) {
+          const c = fileMap.get(childId);
+          if (!c) continue;
+          if (policies.get(childId) !== "deny") {
+            count++;
+          } else if ((c.type === "folder" || c.type === "root") &&
+                     (ruleVisibleFolders.has(childId) || hasVisibleDescendants(childId))) {
+            count++;
+          }
+        }
+        return count;
+      }
+
       let documentCount = 0;
 
       function buildFileTree(folderId: string, currentDepth: number): Record<string, unknown>[] {
@@ -265,11 +301,6 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
             documentCount++;
             result.push(doc);
           } else if (child.type === "folder") {
-            // Count visible children for depth-limited reporting.
-            const visibleChildCount = (child.children ?? []).filter(
-              (id) => policies.get(id) !== "deny"
-            ).length;
-
             // Check if we have reached the depth limit.
             if (max_depth !== null && currentDepth >= max_depth) {
               const entry: Record<string, unknown> = {
@@ -277,7 +308,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
                 title: child.title,
                 type: "folder",
                 depth_limited: true,
-                child_count: visibleChildCount,
+                child_count: countVisibleChildren(child.id),
               };
               result.push(entry);
             } else {

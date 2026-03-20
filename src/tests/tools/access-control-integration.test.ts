@@ -23,6 +23,7 @@ import { DummyDynalistServer } from "../dummy-server";
  *                          > Glob Target Folder    (empty, denied; has /* rule targeting children)
  *        > ReadOnly Folder > ReadOnly Doc
  *        > Allowed Folder  > Allowed Doc
+ *                          > Denied Inner Folder > Inner Visible Doc
  *        > Unruled Folder  > Unruled Doc   (no explicit rule, uses default)
  *        > Inbox
  */
@@ -74,6 +75,14 @@ function aclSetup(server: DummyDynalistServer): void {
     server.makeNode("an1a", "Allowed child", []),
   ]);
 
+  // Denied subfolder inside an allowed folder, containing a visible doc.
+  // Tests that depth-limited child_count includes denied container folders.
+  server.addFolder("denied_inner_folder", "Denied Inner Folder", "allowed_folder");
+  server.addDocument("inner_visible_doc", "Inner Visible Doc", "denied_inner_folder", [
+    server.makeNode("root", "Inner Visible Doc", ["ivn1"]),
+    server.makeNode("ivn1", "Inner visible content", []),
+  ]);
+
   server.addDocument("unruled_doc", "Unruled Doc", "unruled_folder", [
     server.makeNode("root", "Unruled Doc", ["un1"]),
     server.makeNode("un1", "Unruled content", []),
@@ -108,6 +117,8 @@ const ACL_CONFIG = {
       { path: "/Denied Folder/Glob Target Folder/*", policy: "allow" as const },
       { path: "/ReadOnly Folder/**", policy: "read" as const },
       { path: "/Allowed Folder/**", policy: "allow" as const },
+      { path: "/Allowed Folder/Denied Inner Folder/**", policy: "deny" as const },
+      { path: "/Allowed Folder/Denied Inner Folder/Inner Visible Doc", policy: "allow" as const },
       { path: "/Inbox", policy: "allow" as const },
     ],
   },
@@ -650,6 +661,31 @@ describe("list_documents with ACL", () => {
 
     // Denied documents should NOT appear.
     expect(children.find((f) => f.file_id === "denied_doc")).toBeUndefined();
+  });
+
+  test("depth-limited child_count includes denied container folders with visible descendants", async () => {
+    // Allowed Folder contains: Allowed Doc (allow) and Denied Inner
+    // Folder (deny, but has Inner Visible Doc inside). When depth-limited,
+    // child_count must include the denied container folder.
+    const result = await callToolOk(ctx.mcpClient, "list_documents", {
+      max_depth: 1,
+    });
+    const files = result.files as Record<string, unknown>[];
+    const allowedFolder = files.find((f) => f.file_id === "allowed_folder");
+    expect(allowedFolder).toBeDefined();
+    expect(allowedFolder!.depth_limited).toBe(true);
+    // 2 = Allowed Doc + Denied Inner Folder (shown as container).
+    expect(allowedFolder!.child_count).toBe(2);
+    expect(allowedFolder!.children).toBeUndefined();
+
+    // When expanded (no depth limit), the same folder shows both children.
+    const expanded = await callToolOk(ctx.mcpClient, "list_documents", {
+      folder_id: "allowed_folder",
+    });
+    const expandedFiles = expanded.files as Record<string, unknown>[];
+    expect(expandedFiles.length).toBe(2);
+    expect(expandedFiles.find((f) => f.file_id === "allowed_doc")).toBeDefined();
+    expect(expandedFiles.find((f) => f.file_id === "denied_inner_folder")).toBeDefined();
   });
 
   test("denied folder without any rule reference is still omitted", async () => {
