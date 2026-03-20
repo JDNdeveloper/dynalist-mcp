@@ -32,7 +32,8 @@ export const CONTENT_MULTILINE_GUIDANCE =
 export const FILE_ID_DESCRIPTION = "Document file ID";
 export const FOLDER_ID_DESCRIPTION = "Folder file ID";
 export const ITEM_ID_DESCRIPTION = "Item ID";
-export const PARENT_FOLDER_ID_DESCRIPTION = "Parent folder file ID";
+export const PARENT_FOLDER_ID_INPUT_DESCRIPTION = "Parent folder file ID. Omit to use the top level.";
+export const PARENT_FOLDER_ID_OUTPUT_DESCRIPTION = "Destination folder file ID";
 
 // Common output fields.
 export const DOCUMENT_TITLE_DESCRIPTION = "Document title";

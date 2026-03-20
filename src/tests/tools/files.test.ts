@@ -94,6 +94,20 @@ describe("create_document", () => {
     const lastChildId = folder.children![folder.children!.length - 1];
     expect(lastChildId).toBe(result.file_id as string);
   });
+
+  test("omitting parent_folder_id creates at top level", async () => {
+    const result = await callToolOk(ctx.mcpClient, "create_document", {
+      title: "Top Level Doc",
+    });
+    expect(result.file_id).toBeDefined();
+    expect(result.title).toBe("Top Level Doc");
+
+    // Verify it appears as a top-level entry.
+    const listResult = await callToolOk(ctx.mcpClient, "list_documents");
+    const found = findInFileTree(listResult.files as Record<string, unknown>[], result.file_id as string);
+    expect(found).toBeDefined();
+    expect(found!.title).toBe("Top Level Doc");
+  });
 });
 
 // ─── create_folder ───────────────────────────────────────────────────
@@ -126,6 +140,20 @@ describe("create_folder", () => {
       title: "Orphan Folder",
     });
     expect(err.error).toBeDefined();
+  });
+
+  test("omitting parent_folder_id creates at top level", async () => {
+    const result = await callToolOk(ctx.mcpClient, "create_folder", {
+      title: "Top Level Folder",
+    });
+    expect(result.file_id).toBeDefined();
+    expect(result.title).toBe("Top Level Folder");
+
+    // Verify it appears as a top-level entry.
+    const listResult = await callToolOk(ctx.mcpClient, "list_documents");
+    const found = findInFileTree(listResult.files as Record<string, unknown>[], result.file_id as string);
+    expect(found).toBeDefined();
+    expect(found!.title).toBe("Top Level Folder");
   });
 });
 
@@ -289,6 +317,21 @@ describe("move_document", () => {
     expect(lastChildId).toBe("doc1");
   });
 
+  test("omitting parent_folder_id moves to top level", async () => {
+    const result = await callToolOk(ctx.mcpClient, "move_document", {
+      file_id: "doc1",
+    });
+    expect(result.file_id).toBe("doc1");
+
+    // Should be removed from folder_a.
+    const folderA = ctx.server.files.get("folder_a")!;
+    expect(folderA.children).not.toContain("doc1");
+
+    // Should be in root folder.
+    const root = ctx.server.files.get("root_folder")!;
+    expect(root.children).toContain("doc1");
+  });
+
   test("document disappears from source folder children after move", async () => {
     const folderABefore = ctx.server.files.get("folder_a")!;
     expect(folderABefore.children).toContain("doc1");
@@ -318,6 +361,21 @@ describe("move_folder", () => {
     expect(folderB.children).toContain("folder_a");
 
     // folder_a's children should be unaffected.
+    const folderA = ctx.server.files.get("folder_a")!;
+    expect(folderA.children).toContain("doc1");
+  });
+
+  test("omitting parent_folder_id moves to top level", async () => {
+    const result = await callToolOk(ctx.mcpClient, "move_folder", {
+      file_id: "folder_a",
+    });
+    expect(result.file_id).toBe("folder_a");
+
+    // folder_a should be a direct child of root.
+    const root = ctx.server.files.get("root_folder")!;
+    expect(root.children).toContain("folder_a");
+
+    // Its children should be unaffected.
     const folderA = ctx.server.files.get("folder_a")!;
     expect(folderA.children).toContain("doc1");
   });

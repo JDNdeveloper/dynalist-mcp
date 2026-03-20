@@ -692,7 +692,7 @@ Create an empty document in a folder. Use the returned file_id with insert_items
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `parent_folder_id` | string | yes |  | Parent folder file ID |
+| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
 | `title` | string | no | "" | Document title |
 | `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
@@ -726,7 +726,7 @@ Create an empty folder inside another folder.
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `parent_folder_id` | string | yes |  | Parent folder file ID |
+| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
 | `title` | string | no | "" | Folder title |
 | `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
@@ -829,7 +829,7 @@ Move a document to a different folder, or reorder within its current folder. Ope
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Document file ID |
-| `parent_folder_id` | string | yes |  | Parent folder file ID |
+| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
 | `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
 **Example input:**
@@ -845,7 +845,7 @@ Move a document to a different folder, or reorder within its current folder. Ope
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `parent_folder_id` | string | yes | Parent folder file ID |
+| `parent_folder_id` | string | yes | Destination folder file ID |
 
 **Example response:**
 ```json
@@ -864,7 +864,7 @@ Move a folder to a different parent, or reorder within its current parent. Conte
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `file_id` | string | yes |  | Folder file ID |
-| `parent_folder_id` | string | yes |  | Parent folder file ID |
+| `parent_folder_id` | string | no |  | Parent folder file ID. Omit to use the top level. |
 | `index` | number | no | -1 | Position in folder. 0 = first, -1 = last. |
 
 **Example input:**
@@ -880,7 +880,7 @@ Move a folder to a different parent, or reorder within its current parent. Conte
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Folder file ID |
-| `parent_folder_id` | string | yes | Parent folder file ID |
+| `parent_folder_id` | string | yes | Destination folder file ID |
 
 **Example response:**
 ```json
