@@ -16,7 +16,7 @@ Tests are designed to run as parallel subagents, each in an isolated folder to p
 
 Subagents cannot interactively approve MCP tool permissions. To avoid agents blocking on permission prompts, the coordinator must run from a temporary working directory with a `.claude/settings.local.json` that pre-allows all Dynalist MCP tools. Claude Code resolves `.claude/settings.local.json` from the **project directory**, not the shell cwd, so the coordinator must be launched from this directory (not just `cd` into it mid-session).
 
-Run `pwd` to verify the working directory is `/tmp/dynalist-live-test`. If it is not:
+Run `pwd` to verify the working directory is `/tmp/dynalist-live-test`. If it is, confirm that `.claude/settings.local.json` exists and contains the expected permissions listed below. If the file is missing or incomplete, create or fix it before proceeding. If the working directory is not `/tmp/dynalist-live-test`:
 
 1. Create `/tmp/dynalist-live-test/.claude/` and write the following `settings.local.json`, replacing `<project-dir>` with the absolute path to the dynalist-mcp repo (derive this from the path the user gave you for this test plan file, e.g. if they said to follow `~/dynalist-mcp/docs/live-test-plan.md`, the project dir is `~/dynalist-mcp`):
 
