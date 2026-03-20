@@ -10,7 +10,8 @@
  *      then 6 sub-folders inside it for pipeline isolation.
  *   2. Six Haiku pipelines run in parallel, each working exclusively within
  *      its own sub-folder. Each pipeline is internally sequential.
- *   3. A Sonnet coordinator cleans up the global root folder at the end.
+ *   3. A Sonnet coordinator cleans up any inbox items added by the test.
+ *   4. The user manually deletes the global root folder (API limitation).
  *
  * Usage:
  *   bun scripts/haiku-validation.ts
@@ -110,11 +111,6 @@ const positioningPipeline: Pipeline = {
       id: "insert-child-of-item",
       prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Find the item 'Item A'. Insert 'Child of A' as the first child of 'Item A' using position 'first_child' with Item A's item_id as reference_item_id.`,
     },
-    {
-      category: "cleanup",
-      id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Positioning Test Doc' (in folder '${ROOT_FOLDERS[0]}'). Delete ALL its top-level items in a single delete_items call.`,
-    },
   ],
 };
 
@@ -164,11 +160,6 @@ const enumsPipeline: Pipeline = {
       id: "inbox-with-metadata",
       prompt: `Using Dynalist, send an item to my inbox with content 'Inbox Test Item', heading 'h3', and color 'green'.`,
     },
-    {
-      category: "cleanup",
-      id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Enums Test Doc' (in folder '${ROOT_FOLDERS[1]}'). Delete ALL its top-level items in a single delete_items call.`,
-    },
   ],
 };
 
@@ -203,11 +194,6 @@ const editPipeline: Pipeline = {
       id: "read-then-edit",
       prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}') to get its current sync token. Then edit the item 'Item A' to change its content to 'Item A (v-tested)'. Make sure to pass the expected_sync_token from the read response.`,
     },
-    {
-      category: "cleanup",
-      id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Edit Test Doc' (in folder '${ROOT_FOLDERS[2]}'). Delete ALL its top-level items in a single delete_items call.`,
-    },
   ],
 };
 
@@ -236,11 +222,6 @@ const searchPipeline: Pipeline = {
       category: "compositional",
       id: "drill-depth-limited",
       prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}') with max_depth 1. For any items that show depth_limited: true, pick one and call read_document again with that item's item_id to see its children.`,
-    },
-    {
-      category: "cleanup",
-      id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Search Test Doc' (in folder '${ROOT_FOLDERS[3]}'). Delete ALL its top-level items in a single delete_items call.`,
     },
   ],
 };
@@ -275,11 +256,6 @@ const deleteMovePipeline: Pipeline = {
       category: "move",
       id: "move-as-child",
       prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Find the items 'Sibling B' and 'Target'. Move 'Target' to be the first_child of 'Sibling B'.`,
-    },
-    {
-      category: "cleanup",
-      id: "cleanup",
-      prompt: `Using Dynalist, find and read the document 'Move Test Doc' (in folder '${ROOT_FOLDERS[4]}'). Delete ALL its top-level items in a single delete_items call.`,
     },
   ],
 };
@@ -594,33 +570,30 @@ async function main() {
   const pipelineElapsed = ((Date.now() - pipelineStart) / 1000).toFixed(1);
   console.log(`\n  All pipelines done in ${pipelineElapsed}s\n`);
 
-  // Step 3: coordinator cleans up root folders.
+  // Step 3: coordinator cleans up inbox items added by the test.
   const cleanupTask: Task = {
     category: "coordinator",
-    id: "cleanup-root-folders",
+    id: "cleanup-inbox",
     prompt:
-      `Using Dynalist, list documents. Find the folder '${GLOBAL_ROOT}'. ` +
-      `For all documents inside it (and inside any subfolders, recursively), ` +
-      `read each document and delete all its top-level items. Then report ` +
-      `what you cleaned up. Note: the Dynalist API cannot delete documents ` +
-      `or folders themselves, so just empty the documents.`,
+      `Using Dynalist, read the inbox document. Find and delete the item ` +
+      `'Inbox Test Item' that was added by this test run.`,
   };
 
   console.log(
-    `=== Step 3: Cleaning up root folders (${COORDINATOR_MODEL}) ===\n`,
+    `=== Step 3: Cleaning up inbox items (${COORDINATOR_MODEL}) ===\n`,
   );
   const cleanupStart = Date.now();
   const cleanupResult = await runTask(cleanupTask, COORDINATOR_MODEL);
   const cleanupElapsed = ((Date.now() - cleanupStart) / 1000).toFixed(1);
   console.log(
-    `\n  Cleanup done in ${cleanupElapsed}s (exit=${cleanupResult.exitCode})\n`,
+    `\n  Inbox cleanup done in ${cleanupElapsed}s (exit=${cleanupResult.exitCode})\n`,
   );
 
   await writeFile(
-    join(runDir, "99_coordinator_cleanup-root-folders.txt"),
+    join(runDir, "99_coordinator_cleanup-inbox.txt"),
     [
       `Category: coordinator`,
-      `Task ID: cleanup-root-folders`,
+      `Task ID: cleanup-inbox`,
       `Prompt: ${cleanupTask.prompt}`,
       `Exit code: ${cleanupResult.exitCode}`,
       `Elapsed: ${cleanupElapsed}s`,
@@ -650,6 +623,14 @@ async function main() {
     for (const r of summary.filter((r) => r.exitCode !== 0)) {
       console.log(`  ${r.pipeline}/${r.id} (exit ${r.exitCode})`);
     }
+  }
+
+  console.log(
+    `\nCleanup required: delete the folder '${GLOBAL_ROOT}' in Dynalist. ` +
+    `The API cannot delete folders, so this must be done manually.`,
+  );
+
+  if (failed > 0) {
     process.exit(1);
   }
 }
