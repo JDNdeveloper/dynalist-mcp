@@ -49,7 +49,7 @@ const nodeMetadataFields = {
   ),
 };
 
-// Collapsed state applies to document items (read_document, search_in_document).
+// Collapsed state applies to document items (read_document, get_recent_changes).
 // File-tree folders also have a collapsed field in the API response, but list_documents
 // does not currently expose it.
 //
@@ -132,7 +132,7 @@ const fileTreeFolderSchema: z.ZodType<{
   title: string;
   type: "folder";
   depth_limited?: true;
-  child_count?: number;
+  child_count: number;
   children?: unknown[];
 }> = z.lazy(() =>
   z.object({
@@ -142,8 +142,8 @@ const fileTreeFolderSchema: z.ZodType<{
     depth_limited: z.literal(true).optional().describe(
       "Present when max_depth cut off traversal. Call list_documents with this folder's file_id to expand."
     ),
-    child_count: z.number().optional().describe(
-      "Direct children count."
+    child_count: z.number().describe(
+      "Direct children count. Always present on folders, including empty folders with 0."
     ),
     children: z.array(fileTreeEntrySchema).optional().describe(
       "Child documents and folders. Omitted when depth-limited."
