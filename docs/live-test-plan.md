@@ -315,7 +315,7 @@ To trigger a size warning, first create a document with at least 100 top-level i
 ### 9a. Partial updates
 
 - Edit only the `note` field of an item. Verify content, heading, color, show_checkbox, checked are all unchanged.
-- Edit only `checked: true` without specifying `show_checkbox`. Verify the item auto-enables checkbox.
+- Edit only `checked: true` without specifying `show_checkbox`. Verify `checked` is set but `show_checkbox` remains unchanged (`checked` and `show_checkbox` are independent fields).
 - Edit an item with no mutable fields specified. Expect error.
 
 ### 9b. Multi-item edit
@@ -329,7 +329,7 @@ To trigger a size warning, first create a document with at least 100 top-level i
 ## 10. send_to_inbox edge cases
 
 - Send with empty content (whitespace only). Expect error.
-- Send with `checked: true` and no `show_checkbox`. Verify both checked and checkbox are true on readback.
+- Send with `checked: true` and no `show_checkbox`. Verify `checked` is set but `show_checkbox` remains false (`checked` and `show_checkbox` are independent fields).
 - Send with all metadata: heading, color, show_checkbox, checked, note. Verify full round-trip.
 
 ## 11. Error recovery and URL handling
