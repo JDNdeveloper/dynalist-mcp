@@ -50,6 +50,7 @@ Launch one subagent per sub-root. Each subagent prompt should:
 3. Instruct the agent to create its own test document(s) inside that folder.
 4. Instruct the agent to read back after every write and report PASS/FAIL per test case.
 5. Instruct the agent to move on quickly if a test case fails or behaves unexpectedly. Mark it FAIL (or SKIP if untestable) and proceed to the next test. Do not retry in a loop or spend time debugging.
+6. Instruct the agent to grade each test case from 1 to 5 stars based on how easy it was to complete using the MCP tools and instructions. 5 stars means it worked smoothly with no friction. 4 stars means it worked but hit minor snags (e.g. unclear parameter semantics, needed an extra read). 3 stars means it required significant effort or workarounds. 2 stars means it barely worked. 1 star means it failed or was essentially unusable. Include the star rating next to each PASS/FAIL result.
 
 All subagents run in parallel. Since each operates in its own sub-root with its own documents, there is no risk of version conflicts or cross-contamination.
 
@@ -57,7 +58,7 @@ All subagents run in parallel. Since each operates in its own sub-root with its 
 
 ### Step 3: Review results
 
-Each subagent returns a PASS/FAIL summary. Collect all summaries and note any failures. For failures, read the agent's detailed output to determine whether the issue is in the MCP server, the tool descriptions, or the test setup.
+Each subagent returns a PASS/FAIL summary with star ratings. Collect all summaries and note any failures. For failures, read the agent's detailed output to determine whether the issue is in the MCP server, the tool descriptions, or the test setup. Review star ratings to identify usability pain points: any test case rated below 5 stars warrants investigation into whether tool descriptions, MCP instructions, or parameter semantics can be improved.
 
 ### Cleanup
 
