@@ -73,14 +73,6 @@ Add to `~/.config/opencode/opencode.json`:
 }
 ```
 
-OpenCode does not currently pass MCP instructions to agents (see: [issue #7373](https://github.com/anomalyco/opencode/issues/7373)). Until that is fixed, add the following to your `AGENTS.md` so the agent reads the instructions explicitly at the start of each session:
-
-```markdown
-**CRITICAL**: Before your first Dynalist tool call in a session, read `<absolute-path-to>/dynalist-mcp/docs/instructions.md`.
-```
-
-Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
-
 #### Claude Desktop
 
 **Option A: `.mcpb` bundle**
@@ -96,6 +88,18 @@ Add the same JSON as the Claude Code config snippet to your Claude Desktop confi
 - **Windows**: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
 
 - **Windows (legacy)**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+#### Instructions fallback
+
+MCP clients may truncate or omit the server instructions that guide agent behavior (rendering format, sync tokens, confirmation workflow, etc.). To ensure the agent always has the full instructions, add the following to your agent instructions file (e.g. `CLAUDE.md`, `AGENTS.md`, or system prompt):
+
+```markdown
+**CRITICAL**: Before your first Dynalist tool call in a session, read `<absolute-path-to>/dynalist-mcp/docs/instructions.md`.
+```
+
+Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
+
+Claude Code has been observed to truncate MCP instructions. OpenCode does not include them at all (see [issue #7373](https://github.com/anomalyco/opencode/issues/7373)).
 
 ## Agent skills
 
