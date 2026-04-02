@@ -120,7 +120,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       description:
         `${CONFIRM_GUIDANCE} ` +
         "Edit one or more items in a document. Only specified fields are updated; " +
-        "omitted fields are unchanged.",
+        "omitted fields are unchanged. Only include fields the user explicitly asked " +
+        "to change; do NOT clear fields (e.g. color, heading) as a side effect.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         items: z.array(z.object({

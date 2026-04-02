@@ -457,7 +457,7 @@ Send an item to the Dynalist inbox. Target is the user's configured inbox. Retur
 
 ### `edit_items`
 
-Edit one or more items in a document. Only specified fields are updated; omitted fields are unchanged.
+Edit one or more items in a document. Only specified fields are updated; omitted fields are unchanged. Only include fields the user explicitly asked to change; do NOT clear fields (e.g. color, heading) as a side effect.
 
 **Parameters:**
 
