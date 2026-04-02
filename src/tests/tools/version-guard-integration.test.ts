@@ -98,7 +98,7 @@ describe("insert_items version guard", () => {
       position: "last_child",
       expected_sync_token: syncToken,
     });
-    expect(result.total_created).toBe(1);
+    expect(result.created_count).toBe(1);
     expect(result.sync_warning).toBeUndefined();
   });
 

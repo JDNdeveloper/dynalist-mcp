@@ -159,7 +159,7 @@ describe("insert_items TOCTOU", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.total_created).toBe(1);
+    expect(result.created_count).toBe(1);
   });
 
   test("last_child multiple items: concurrent edit during planning read emits warning", async () => {
@@ -177,7 +177,7 @@ describe("insert_items TOCTOU", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.total_created).toBe(3);
+    expect(result.created_count).toBe(3);
   });
 
   test("root resolution: concurrent edit during planning read emits warning", async () => {
@@ -194,7 +194,7 @@ describe("insert_items TOCTOU", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.total_created).toBe(1);
+    expect(result.created_count).toBe(1);
   });
 
   test("no concurrent edit has no sync_warning", async () => {

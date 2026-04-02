@@ -308,7 +308,7 @@ describe("insert_items response shape", () => {
     const data = assertSuccessEnvelope(raw);
 
     expect(typeof data.file_id).toBe("string");
-    expect(typeof data.total_created).toBe("number");
+    expect(typeof data.created_count).toBe("number");
     expect(Array.isArray(data.root_item_ids)).toBe(true);
   });
 

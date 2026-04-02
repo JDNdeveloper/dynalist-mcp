@@ -275,7 +275,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        total_created: z.number().describe("Total number of items created"),
+        created_count: z.number().describe("Number of items created"),
         root_item_ids: z.array(z.string()).describe("IDs of all top-level inserted items"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
       },
@@ -383,7 +383,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
 
       const data: Record<string, unknown> = {
         file_id,
-        total_created: insertResult.totalCreated,
+        created_count: insertResult.totalCreated,
         root_item_ids: insertResult.rootNodeIds,
       };
       if (guard.syncWarning) data.sync_warning = guard.syncWarning;

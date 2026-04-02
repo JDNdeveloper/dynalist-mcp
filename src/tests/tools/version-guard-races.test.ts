@@ -54,7 +54,7 @@ describe("insert_items race simulation", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.total_created).toBe(2);
+    expect(result.created_count).toBe(2);
   });
 
   test("first_child multi-item race: concurrent insert at position 0", async () => {
@@ -77,7 +77,7 @@ describe("insert_items race simulation", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.total_created).toBe(2);
+    expect(result.created_count).toBe(2);
   });
 
   test("after/before race: sibling reorder during position resolution", async () => {
@@ -101,7 +101,7 @@ describe("insert_items race simulation", () => {
     });
 
     expect(result.sync_warning).toBeDefined();
-    expect(result.total_created).toBe(1);
+    expect(result.created_count).toBe(1);
   });
 });
 
@@ -221,7 +221,7 @@ describe("version guard edge cases", () => {
       }],
     });
 
-    expect(result.total_created).toBe(3);
+    expect(result.created_count).toBe(3);
     expect(result.sync_warning).toBeUndefined();
   });
 

@@ -296,7 +296,7 @@ describe("insert_items with ACL", () => {
       position: "last_child",
     });
     expect(result.file_id).toBe("allowed_doc");
-    expect(result.total_created).toBe(2);
+    expect(result.created_count).toBe(2);
   });
 });
 

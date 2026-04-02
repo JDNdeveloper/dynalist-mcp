@@ -521,7 +521,7 @@ describe("insert_items", () => {
       position: "last_child",
     });
     expect(result.file_id).toBe("doc1");
-    expect(result.total_created).toBe(3);
+    expect(result.created_count).toBe(3);
     expect(result.root_item_ids).toBeDefined();
     expect((result.root_item_ids as string[]).length).toBe(3);
   });
@@ -541,7 +541,7 @@ describe("insert_items", () => {
         }],
       }],
     });
-    expect(result.total_created).toBe(3);
+    expect(result.created_count).toBe(3);
 
     // Verify the tree structure in the dummy server.
     const doc = ctx.server.documents.get("doc1")!;
@@ -575,7 +575,7 @@ describe("insert_items", () => {
       items: [{ content: "root-level item" }],
       position: "last_child",
     });
-    expect(result.total_created).toBe(1);
+    expect(result.created_count).toBe(1);
   });
 
   test("empty nodes array returns error", async () => {
@@ -605,7 +605,7 @@ describe("insert_items", () => {
         }],
       }],
     });
-    expect(result.total_created).toBe(3);
+    expect(result.created_count).toBe(3);
 
     const doc = ctx.server.documents.get("doc1")!;
     const l1 = doc.nodes.find((n) => n.content === "level1")!;
@@ -644,7 +644,7 @@ describe("insert_items", () => {
         },
       ],
     });
-    expect(result.total_created).toBe(7);
+    expect(result.created_count).toBe(7);
 
     const doc = ctx.server.documents.get("doc1")!;
     const nodeA = doc.nodes.find((n) => n.content === "A")!;
@@ -677,7 +677,7 @@ describe("insert_items", () => {
         { content: "Parent2", children: [{ content: "Child2a" }] },
       ],
     });
-    expect(result.total_created).toBe(5);
+    expect(result.created_count).toBe(5);
     expect((result.root_item_ids as string[]).length).toBe(2);
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -708,7 +708,7 @@ describe("insert_items", () => {
         },
       ],
     });
-    expect(result.total_created).toBe(5);
+    expect(result.created_count).toBe(5);
 
     const doc = ctx.server.documents.get("doc1")!;
     const shallow = doc.nodes.find((n) => n.content === "Shallow")!;
@@ -800,7 +800,7 @@ describe("insert_items", () => {
       position: "last_child",
     });
 
-    expect(result.total_created).toBe(2);
+    expect(result.created_count).toBe(2);
 
     const doc = ctx.server.documents.get("doc1")!;
     const n1a = doc.nodes.find(n => n.id === "n1a")!;
@@ -1096,7 +1096,7 @@ describe("insert_items", () => {
 
   // ─── response shape ───────────────────────────────────────────────
 
-  test("response includes file_id, total_created, root_item_ids", async () => {
+  test("response includes file_id, created_count, root_item_ids", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
@@ -1107,7 +1107,7 @@ describe("insert_items", () => {
     });
 
     expect(result.file_id).toBe("doc1");
-    expect(result.total_created).toBe(2);
+    expect(result.created_count).toBe(2);
     expect(Array.isArray(result.root_item_ids)).toBe(true);
     expect((result.root_item_ids as string[]).length).toBe(2);
   });
@@ -1223,7 +1223,7 @@ describe("insert_items", () => {
       position: "after",
     });
 
-    expect(result.total_created).toBe(2);
+    expect(result.created_count).toBe(2);
 
     const doc = ctx.server.documents.get("doc1")!;
     const parent = doc.nodes.find((n) => n.content === "Hier parent")!;
@@ -1282,7 +1282,7 @@ describe("insert_items", () => {
       reference_item_id: "n1",
       position: "first_child",
     });
-    expect(result.total_created).toBe(1);
+    expect(result.created_count).toBe(1);
 
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;
@@ -1300,7 +1300,7 @@ describe("insert_items", () => {
       reference_item_id: "n1",
       position: "last_child",
     });
-    expect(result.total_created).toBe(1);
+    expect(result.created_count).toBe(1);
 
     const doc = ctx.server.documents.get("doc1")!;
     const n1 = doc.nodes.find((n) => n.id === "n1")!;

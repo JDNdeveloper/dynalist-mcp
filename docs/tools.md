@@ -570,7 +570,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `total_created` | number | yes | Total number of items created |
+| `created_count` | number | yes | Number of items created |
 | `root_item_ids` | string[] | yes | IDs of all top-level inserted items |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
@@ -578,7 +578,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 ```json
 {
   "file_id": "f_abc123",
-  "total_created": 1,
+  "created_count": 1,
   "root_item_ids": [
     "n_new001"
   ]
