@@ -101,7 +101,9 @@ Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
 
 Claude Code has been observed to truncate MCP instructions. OpenCode does not include them at all (see [issue #7373](https://github.com/anomalyco/opencode/issues/7373)).
 
-## Agent skills
+## Tips
+
+### Agent skills
 
 You can create "skills" in Dynalist: items containing step-by-step instructions for how an agent can accomplish a task. You can then ask your agent to, for example, "follow my dynalist skill for weekly review".
 
@@ -115,6 +117,10 @@ Examples:
 
 - "Follow my dynalist skill for weekly review"
 - "Run my dynalist skill to plan the sprint"
+
+### Copying item links quickly
+
+When directing your agent to a specific Dynalist item (e.g. "handle this item: https://..."), you need the item's URL. The fastest way to get it is to bind a keyboard shortcut to **Copy current item link** in **Settings > Keymap**. With that bound, a single keystroke copies the deep link to your clipboard, ready to paste directly into your agent harness.
 
 ## Documentation
 
