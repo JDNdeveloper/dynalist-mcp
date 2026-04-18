@@ -2,6 +2,21 @@
 
 MCP servers communicate with AI agents through three layers of text: server-level instructions, tool descriptions, and parameter descriptions. This server uses all three layers to shape how agents present Dynalist content and interact with users, producing a UX that feels native to the outliner even though the agent has no built-in knowledge of Dynalist.
 
+## Instruction delivery
+
+MCP defines a native `instructions` field on the server initialization response. In principle, harnesses inject this into the agent's system prompt at session start. In practice, delivery is unreliable:
+
+- **Claude Code** has been observed to truncate server instructions, silently dropping later sections.
+- **OpenCode** does not forward server instructions at all (see [issue #7373](https://github.com/anomalyco/opencode/issues/7373)).
+
+Because rendering, confirmation, sync-token, and compositional guidance all live in these instructions, truncation or omission degrades the agent UX in ways the user will not see until something goes wrong.
+
+To sidestep this, the server delivers its full instructions through a `get_instructions` tool. The native `instructions` field carries a short directive telling the agent to call `get_instructions` before any other tool, and that tool returns the full INSTRUCTIONS body. The directive is short enough to survive truncation, and tool definitions are always forwarded in full, so the tool description itself re-states the "call me first" requirement as a second line of defense. This reduces the reliable payload to one imperative sentence instead of several kilobytes of prose.
+
+A second benefit is context efficiency. The native `instructions` field is preloaded into the system prompt for every session, whether the agent uses the server or not. Moving the body behind a tool call means the multi-kilobyte INSTRUCTIONS payload is only materialized in context when the agent actually invokes the server, keeping idle sessions cheap.
+
+The tradeoff is one extra round trip at session start. That cost is paid once per session in exchange for guaranteed delivery of the guidance that shapes every subsequent interaction.
+
 ## Content rendering
 
 Dynalist content is a tree of nested bullet points. Left to their own defaults, agents tend to render tree data as flat lists, numbered items, or markdown headings. The MCP instructions define a specific rendering format that mirrors what users see in the Dynalist UI:

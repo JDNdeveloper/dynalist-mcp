@@ -12,6 +12,7 @@ import { registerReadTools } from "../../tools/read";
 import { registerWriteTools } from "../../tools/write";
 import { registerStructureTools } from "../../tools/structure";
 import { registerFileTools } from "../../tools/files";
+import { registerMetaTools } from "../../tools/meta";
 import { DocumentStore } from "../../document-store";
 import { DummyDynalistServer, MockDynalistClient } from "../dummy-server";
 
@@ -55,6 +56,7 @@ export async function createTestContext(
   const store = new DocumentStore(mockClient);
 
   const mcpServer = new McpServer({ name: "test-server", version: "1.0.0" });
+  registerMetaTools(mcpServer);
   registerReadTools(mcpServer, mockClient, ac, store);
   registerWriteTools(mcpServer, mockClient, ac, store);
   registerStructureTools(mcpServer, mockClient, ac, store);

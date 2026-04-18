@@ -386,6 +386,7 @@ function exampleString(name: string): string {
   if (name === "reference_file_id") return "abc123def456";
   if (name === "sync_token" || name === "expected_sync_token") return "a1b2c";
   if (name === "value") return "a1b2c";
+  if (name === "instructions") return "Dynalist is an outliner for organizing information as nested bullet-point lists.\n\n...";
   throw new Error(`No example string for field '${name}'. Add it to exampleString() in generate-docs.ts.`);
 }
 
@@ -446,6 +447,7 @@ const { registerReadTools } = await import("../src/tools/read");
 const { registerWriteTools } = await import("../src/tools/write");
 const { registerStructureTools } = await import("../src/tools/structure");
 const { registerFileTools } = await import("../src/tools/files");
+const { registerMetaTools } = await import("../src/tools/meta");
 
 import type { DynalistClient } from "../src/dynalist-client";
 import type { AccessController } from "../src/access-control";
@@ -465,6 +467,7 @@ function captureGroup(title: string, registerFn: (...args: never[]) => void, ...
 }
 
 const CATEGORIES = [
+  captureGroup("Meta tools", registerMetaTools),
   captureGroup("Read tools", registerReadTools, dummyClient, dummyAc, dummyStore),
   captureGroup("Write tools", registerWriteTools, dummyClient, dummyAc, dummyStore),
   captureGroup("Structure tools", registerStructureTools, dummyClient, dummyAc, dummyStore),
@@ -911,11 +914,15 @@ function isWriteMethod(method: string): boolean {
   return method === "editDocument" || method === "editFiles" || method === "sendToInbox";
 }
 
+// Tools that intentionally do not hit the Dynalist API (meta/introspection tools).
+const NO_API_TOOLS = new Set(["get_instructions"]);
+
 function generateApiCoverageMarkdown(): string {
   const toolEndpoints = parseToolEndpoints();
 
   // Validate every registered tool has a detected endpoint.
   for (const tool of capturedTools) {
+    if (NO_API_TOOLS.has(tool.name)) continue;
     if (!toolEndpoints.has(tool.name)) {
       throw new Error(
         `Tool '${tool.name}' has no detected API endpoint. ` +

@@ -1,9 +1,16 @@
 /**
- * MCP server instructions injected into the LLM system prompt by MCP clients.
- * Extracted to a standalone module so both the server entry point and the doc
- * generator can import it without side effects.
+ * Short MCP-level server instructions. Delivered via the MCP protocol's
+ * `instructions` field so it is always surfaced to the agent at session start.
+ * Directs the agent to fetch the full INSTRUCTIONS via the get_instructions
+ * tool, keeping the startup surface small and robust against truncation.
  */
+export const SERVER_INSTRUCTIONS =
+  "IMPORTANT: Before using this MCP server, you MUST call get_instructions.";
 
+/**
+ * Full MCP server instructions. Returned by the get_instructions tool and
+ * also published as docs/instructions.md by the doc generator.
+ */
 export const INSTRUCTIONS = `\
 Dynalist is an outliner for organizing information as nested bullet-point lists. \
 Content is organized at two levels:

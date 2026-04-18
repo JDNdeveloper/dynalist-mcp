@@ -6,7 +6,7 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 
 ### Features
 
-- **17 tools** for reading, writing, searching, and organizing documents.
+- **18 tools** for reading, writing, searching, and organizing documents.
 - **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
 - **Configurable defaults** for read depth, collapsed items, notes, checked items, size warnings, and more.
 - **Structured responses** with JSON (`structuredContent`) on success and plain text on errors, for broad client compatibility.
@@ -89,18 +89,6 @@ Add the same JSON as the Claude Code config snippet to your Claude Desktop confi
 
 - **Windows (legacy)**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-#### Instructions fallback
-
-MCP clients may truncate or omit the server instructions that guide agent behavior (rendering format, sync tokens, confirmation workflow, etc.). To ensure the agent always has the full instructions, add the following to your agent instructions file (e.g. `CLAUDE.md`, `AGENTS.md`, or system prompt):
-
-```markdown
-**CRITICAL**: Before your first Dynalist tool call in a session, read `<absolute-path-to>/dynalist-mcp/docs/instructions.md`.
-```
-
-Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
-
-Claude Code has been observed to truncate MCP instructions. OpenCode does not include them at all (see [issue #7373](https://github.com/anomalyco/opencode/issues/7373)).
-
 ## Tips
 
 ### Agent skills
@@ -170,6 +158,7 @@ src/
 │   ├── index.ts                  # Aggregator - registers all tools
 │   ├── descriptions.ts           # Shared parameter descriptions and guidance constants
 │   ├── node-metadata.ts          # Heading/color string enums and API translation maps
+│   ├── meta.ts                   # Meta tools (get_instructions)
 │   ├── read.ts                   # Read tools
 │   ├── write.ts                  # Write tools
 │   ├── structure.ts              # Structure tools (delete, move)

@@ -16,7 +16,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { DynalistClient } from "./dynalist-client";
 import { log } from "./config";
 import { registerTools } from "./tools/index";
-import { INSTRUCTIONS } from "./instructions";
+import { SERVER_INSTRUCTIONS } from "./instructions";
 import pkg from "../package.json";
 
 // Get API token from environment.
@@ -40,7 +40,7 @@ const server = new McpServer(
     description: "Read, write, search, and organize content in Dynalist documents.",
   },
   {
-    instructions: INSTRUCTIONS,
+    instructions: SERVER_INSTRUCTIONS,
   },
 );
 

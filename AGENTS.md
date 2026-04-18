@@ -70,6 +70,7 @@ src/
 │   ├── index.ts                  # Aggregator - registers all tools
 │   ├── descriptions.ts           # Shared parameter descriptions and guidance constants
 │   ├── node-metadata.ts          # Heading/color string enums and API translation maps
+│   ├── meta.ts                   # Meta tools (get_instructions)
 │   ├── read.ts                   # Read tools (list, search, read_document, etc.)
 │   ├── write.ts                  # Write tools (inbox, edit, insert)
 │   ├── structure.ts              # Structure tools (delete, move)

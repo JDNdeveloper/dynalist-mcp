@@ -11,6 +11,7 @@ import { registerReadTools } from "./read";
 import { registerWriteTools } from "./write";
 import { registerStructureTools } from "./structure";
 import { registerFileTools } from "./files";
+import { registerMetaTools } from "./meta";
 
 /**
  * Register all Dynalist tools with the MCP server.
@@ -18,6 +19,7 @@ import { registerFileTools } from "./files";
 export function registerTools(server: McpServer, client: DynalistClient): void {
   const ac = new AccessController(client);
   const store = new DocumentStore(client);
+  registerMetaTools(server);
   registerReadTools(server, client, ac, store);
   registerWriteTools(server, client, ac, store);
   registerStructureTools(server, client, ac, store);

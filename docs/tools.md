@@ -4,6 +4,27 @@
 
 Examples are auto-generated to demonstrate response shape and available properties. Some examples may contain logically contradictory field combinations (e.g. `depth_limited: true` alongside `children`).
 
+## Meta tools
+
+### `get_instructions`
+
+Get additional instructions for working with this MCP server. You MUST call this before using any other tools.
+
+**Parameters**: none.
+
+**Response:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `instructions` | string | yes | Full MCP server instructions. |
+
+**Example response:**
+```json
+{
+  "instructions": "Dynalist is an outliner for organizing information as nested bullet-point lists.\n\n..."
+}
+```
+
 ## Read tools
 
 ### `list_documents`
