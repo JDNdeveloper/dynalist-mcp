@@ -43,6 +43,17 @@ Add the Claude Code config snippet (see below) to your Claude Desktop config fil
 }
 ```
 
+## Codex
+
+`~/.codex/config.toml`:
+
+```toml
+[mcp_servers.dynalist]
+command = "/absolute/path/to/bun"
+args = ["/absolute/path/to/dynalist-mcp/src/index.ts"]
+env = { DYNALIST_API_TOKEN = "your-api-token" }
+```
+
 ## OpenCode
 
 `~/.config/opencode/opencode.json`:

@@ -55,6 +55,17 @@ Add to `.mcp.json` in your project root (or `~/.claude.json` globally):
 }
 ```
 
+#### Codex
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.dynalist]
+command = "/absolute/path/to/bun"
+args = ["/absolute/path/to/dynalist-mcp/src/index.ts"]
+env = { DYNALIST_API_TOKEN = "your-api-token" }
+```
+
 #### OpenCode
 
 Add to `~/.config/opencode/opencode.json`:
