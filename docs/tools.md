@@ -544,7 +544,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `items` | object[] | yes | Array of items to insert |
+| `items` | object[] | yes | Array of item objects to insert. Each item can include recursive children. |
 | `reference_item_id` | string | no | For after/before: the sibling item (required). Cannot be the root item. For first_child/last_child: the parent item. Omit for document root. |
 | `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | yes | Insertion target. 'after'/'before': sibling-relative placement (reference_item_id required). 'first_child': prepend under parent. 'last_child' (most common): append under parent. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
@@ -559,7 +559,7 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | `show_checkbox` | boolean | no | Whether to add a checkbox. Controls whether a checkbox is rendered in the UI. Does not affect checked state. Only set if siblings use checkboxes or the user asked. |
 | `heading` | `"none"`, `"h1"`, `"h2"`, `"h3"` | no | Heading level. 'none' = no heading (removes heading), 'h1' = H1, 'h2' = H2, 'h3' = H3. |
 | `color` | `"none"`, `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label. 'none' = no color (removes color), 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. |
-| `children` | object[] | no | Child items |
+| `children` | object[] | no | Recursive child item objects. Each child uses the same fields as an items element and can contain its own children. Pass objects, not strings or item IDs, even if your client renders this field as a primitive array. |
 
 **Example input:**
 ```json

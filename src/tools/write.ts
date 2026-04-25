@@ -251,7 +251,11 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       ),
       heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
       color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
-      children: z.array(jsonInputNodeSchema).optional().describe("Child items"),
+      children: z.array(jsonInputNodeSchema).optional().describe(
+        "Recursive child item objects. Each child uses the same fields as an items element " +
+        "and can contain its own children. Pass objects, not strings or item IDs, " +
+        "even if your client renders this field as a primitive array."
+      ),
     }).strict()
   );
 
@@ -265,7 +269,9 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "per-item metadata.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        items: z.array(jsonInputNodeSchema).describe("Array of items to insert"),
+        items: z.array(jsonInputNodeSchema).describe(
+          "Array of item objects to insert. Each item can include recursive children."
+        ),
         reference_item_id: z.string().optional().describe(
           "For after/before: the sibling item (required). Cannot be the root item. " +
           "For first_child/last_child: the parent item. Omit for document root."
