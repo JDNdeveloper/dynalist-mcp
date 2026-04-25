@@ -189,6 +189,12 @@ The root item's `note` and `heading` are 17 lines away from its `content`. An ag
 
 Every item's metadata is immediately adjacent to its content, regardless of tree depth. This applies to all recursive output schemas (`outputNodeSchema`, `fileTreeFolderSchema`) and flat schemas with nested arrays (`searchMatchSchema`, `changeMatchSchema`). Input schemas follow the same convention so agents see a consistent shape when constructing requests.
 
+## Recursive input schema compatibility
+
+Recursive input schemas need explicit parameter text because MCP clients do not all render JSON Schema `$ref` trees the same way. As of April 2026, Codex renders `insert_items.items[].children` as `string[]` even though the schema represents recursive child item objects.
+
+Every recursive input property in a write-capable tool must state the recursive object shape directly. The `insert_items.items[].children` description says each child uses the same fields as an `items` element, can contain its own `children`, and must be passed as objects rather than strings or item IDs, even when the client renders the field as `string[]`. This wording is the compatibility layer for Codex's schema rendering.
+
 ## Compositional patterns
 
 The Dynalist API does not have an "ancestors" endpoint, and several common tasks require combining multiple tool calls. Rather than building monolithic tools, the instructions teach agents how to compose the existing primitives:
