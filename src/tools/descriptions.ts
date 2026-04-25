@@ -14,6 +14,8 @@ export const REREAD_GUIDANCE =
 export const CONFIRM_GUIDANCE =
   "ALWAYS preview intended changes and confirm with the user before calling. " +
   "NEVER preview and tool call in the same response.";
+export const INSTRUCTIONS_FIRST_GUIDANCE =
+  "MUST call get_instructions once before any other Dynalist tool.";
 export const SHOW_CHECKBOX_GUIDANCE =
   "Controls whether a checkbox is rendered in the UI. Does not affect " +
   "checked state. Only set if siblings use checkboxes or the user asked.";

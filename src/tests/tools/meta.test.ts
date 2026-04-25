@@ -5,6 +5,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { createTestContext, callToolOk, type TestContext } from "./test-helpers";
 import { INSTRUCTIONS } from "../../instructions";
+import { INSTRUCTIONS_FIRST_GUIDANCE } from "../../tools/descriptions";
 
 let ctx: TestContext;
 
@@ -28,5 +29,18 @@ describe("get_instructions", () => {
 
     expect(typeof result.instructions).toBe("string");
     expect((result.instructions as string).length).toBeGreaterThan(0);
+  });
+
+  test("requires instructions before every non-meta tool description", async () => {
+    const result = await ctx.mcpClient.listTools();
+    const prefix = `${INSTRUCTIONS_FIRST_GUIDANCE} `;
+
+    for (const tool of result.tools) {
+      if (tool.name === "get_instructions") {
+        expect(tool.description?.startsWith(prefix)).toBe(false);
+      } else {
+        expect(tool.description?.startsWith(prefix)).toBe(true);
+      }
+    }
   });
 });

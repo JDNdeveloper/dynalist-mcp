@@ -21,6 +21,7 @@ import {
   FILE_ID_DESCRIPTION, SYNC_WARNING_DESCRIPTION,
   CONFIRM_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
   REREAD_GUIDANCE,
+  INSTRUCTIONS_FIRST_GUIDANCE,
 } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
@@ -28,6 +29,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     "delete_items",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Delete items and their subtrees from a document.",
       inputSchema: {
@@ -228,6 +230,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
     "move_items",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Move items (with subtrees) to new positions in a document. Moves within a single " +
         "call are applied sequentially; later moves see earlier moves' effects.",

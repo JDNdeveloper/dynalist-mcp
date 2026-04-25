@@ -24,6 +24,7 @@ import {
   CHECKED_DESCRIPTION,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
   CONTENT_MULTILINE_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
+  INSTRUCTIONS_FIRST_GUIDANCE,
 } from "./descriptions";
 import { HEADING_VALUES, COLOR_VALUES, HEADING_TO_NUMBER, COLOR_TO_NUMBER } from "./node-metadata";
 import type { HeadingValue, ColorValue } from "./node-metadata";
@@ -59,6 +60,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "send_to_inbox",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Send an item to the Dynalist inbox. Target is the user's configured inbox. " +
         "Returns the inbox document's file_id and created item_id. " +
@@ -118,6 +120,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "edit_items",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Edit one or more items in a document. Only specified fields are updated; " +
         "omitted fields are unchanged. Only include fields the user explicitly asked " +
@@ -256,6 +259,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     "insert_items",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Insert items into a document as a JSON tree. Supports nested children and " +
         "per-item metadata.",

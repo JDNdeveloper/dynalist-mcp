@@ -25,6 +25,7 @@ import {
   DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
   SYNC_TOKEN_DESCRIPTION, SIZE_WARNING_DESCRIPTION, MATCH_COUNT_DESCRIPTION,
   BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION,
+  INSTRUCTIONS_FIRST_GUIDANCE,
 } from "./descriptions";
 import { makeSyncToken } from "../sync-token";
 
@@ -161,6 +162,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "list_documents",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "List documents and folders as a recursive tree.",
       inputSchema: {
         folder_id: z.string().optional().describe(
@@ -349,6 +351,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "search_documents",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "Search for documents and folders by title. Does not search document content; " +
         "use search_in_document for that.\n\n" +
         "Each match has a type field ('document' or 'folder'). Document matches include " +
@@ -419,6 +422,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "read_document",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "Read a document as a JSON item tree. Provide item_id to zoom into a subtree.\n\n" +
         "max_depth and include_collapsed_children are orthogonal: max_depth does NOT expand " +
         "collapsed items; include_collapsed_children does NOT bypass the depth limit.\n\n" +
@@ -533,6 +537,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "search_in_document",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "Search for text in a document. Returns matching items with metadata. " +
         "Use parent_levels for ancestor breadcrumbs without a separate read_document call.",
       inputSchema: {
@@ -648,6 +653,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "get_recent_changes",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "Get items created or modified within a time period. Accepts ISO 8601 date strings. " +
         "Date-only strings like '2025-03-11' are start-of-day for 'since' and " +
         "end-of-day for 'until'.",
@@ -798,6 +804,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
     "check_document_versions",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "Check document sync tokens without fetching content. " +
         "Detect changes before an expensive read_document call. " +
         "Empty string means not found or access denied.",

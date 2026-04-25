@@ -19,6 +19,7 @@ import {
   CONFIRM_GUIDANCE, FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION,
   PARENT_FOLDER_ID_OUTPUT_DESCRIPTION,
   DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
+  INSTRUCTIONS_FIRST_GUIDANCE,
 } from "./descriptions";
 
 const FILE_POSITION_DESCRIPTION =
@@ -34,6 +35,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "create_document",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Create an empty document in a folder. Use the returned file_id with " +
         "insert_items to add content.",
@@ -102,6 +104,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "create_folder",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Create an empty folder inside another folder.",
       inputSchema: {
@@ -169,6 +172,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "rename_document",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Rename a document. The file_id does not change when renaming.",
       inputSchema: {
@@ -213,6 +217,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "rename_folder",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Rename a folder. The file_id does not change when renaming.",
       inputSchema: {
@@ -257,6 +262,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "move_document",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Move a document to a different folder, or reorder within its current folder. " +
         "Operates on the file tree, not document items.",
@@ -347,6 +353,7 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
     "move_folder",
     {
       description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Move a folder to a different parent, or reorder within its current parent. " +
         "Contents move with it.",
