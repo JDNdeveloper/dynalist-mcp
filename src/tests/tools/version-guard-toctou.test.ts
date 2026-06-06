@@ -153,9 +153,11 @@ describe("insert_items TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      items: [{ content: "After n1" }],
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "n1",
+        items: [{ content: "After n1" }],
+      }],
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -171,9 +173,11 @@ describe("insert_items TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "A" }, { content: "B" }, { content: "C" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "A" }, { content: "B" }, { content: "C" }],
+      }],
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -189,8 +193,10 @@ describe("insert_items TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "Root child" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        items: [{ content: "Root child" }],
+      }],
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -202,9 +208,11 @@ describe("insert_items TOCTOU", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      items: [{ content: "New child" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{ content: "New child" }],
+      }],
     });
 
     expect(result.sync_warning).toBeUndefined();

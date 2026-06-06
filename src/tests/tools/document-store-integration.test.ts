@@ -61,9 +61,11 @@ describe("document store cache invalidation", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Newly inserted node" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Newly inserted node" }],
+      }],
     });
 
     const after = await callToolOk(ctx.mcpClient, "read_document", {

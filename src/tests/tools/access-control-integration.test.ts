@@ -271,8 +271,7 @@ describe("insert_items with ACL", () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "denied_doc",
       expected_sync_token: "zzzzz",
-      items: [{ content: "hacked" }],
-      position: "last_child",
+      insertions: [{ position: "last_child", items: [{ content: "hacked" }] }],
     });
     expect(err.error).toBe("NotFound");
   });
@@ -281,8 +280,7 @@ describe("insert_items with ACL", () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "readonly_doc",
       expected_sync_token: "zzzzz",
-      items: [{ content: "hacked" }],
-      position: "last_child",
+      insertions: [{ position: "last_child", items: [{ content: "hacked" }] }],
     });
     expect(err.error).toBe("Forbidden");
   });
@@ -292,8 +290,10 @@ describe("insert_items with ACL", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "allowed_doc",
       expected_sync_token: syncToken,
-      items: [{ content: "New item" }, { content: "Another item" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        items: [{ content: "New item" }, { content: "Another item" }],
+      }],
     });
     expect(result.file_id).toBe("allowed_doc");
     expect(result.created_count).toBe(2);

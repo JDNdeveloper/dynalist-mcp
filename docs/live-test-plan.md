@@ -129,9 +129,7 @@ Extract the `item_id` for each item from the response. Read back the document to
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `items`: `[{ "content": "Root First" }]`
-- (no `reference_item_id`)
-- `position`: `"first_child"`
+- `insertions`: `[{ "position": "first_child", "items": [{ "content": "Root First" }] }]`
 
 Read back the document. **PASS** if `Root First` is the first top-level item. **FAIL** otherwise.
 
@@ -140,9 +138,7 @@ Read back the document. **PASS** if `Root First` is the first top-level item. **
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `items`: `[{ "content": "Root Last" }]`
-- (no `reference_item_id`)
-- `position`: `"last_child"`
+- `insertions`: `[{ "position": "last_child", "items": [{ "content": "Root Last" }] }]`
 
 Read back the document. **PASS** if `Root Last` is the last top-level item. **FAIL** otherwise.
 
@@ -151,9 +147,7 @@ Read back the document. **PASS** if `Root Last` is the last top-level item. **FA
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `items`: `[{ "content": "New Sibling" }]`
-- `reference_item_id`: item_id of `Existing Parent`
-- `position`: `"last_child"`
+- `insertions`: `[{ "position": "last_child", "reference_item_id": <item_id of Existing Parent>, "items": [{ "content": "New Sibling" }] }]`
 
 Read back the document. **PASS** if children of `Existing Parent` are `[Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
@@ -162,9 +156,7 @@ Read back the document. **PASS** if children of `Existing Parent` are `[Child A,
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `items`: `[{ "content": "After Child A" }]`
-- `reference_item_id`: item_id of `Child A`
-- `position`: `"after"`
+- `insertions`: `[{ "position": "after", "reference_item_id": <item_id of Child A>, "items": [{ "content": "After Child A" }] }]`
 
 Read back. **PASS** if children of `Existing Parent` are `[Child A, After Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
@@ -173,9 +165,7 @@ Read back. **PASS** if children of `Existing Parent` are `[Child A, After Child 
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `items`: `[{ "content": "Before Child C" }]`
-- `reference_item_id`: item_id of `Child C`
-- `position`: `"before"`
+- `insertions`: `[{ "position": "before", "reference_item_id": <item_id of Child C>, "items": [{ "content": "Before Child C" }] }]`
 
 Read back. **PASS** if children of `Existing Parent` include `[..., Before Child C, Child C, ...]` with `Before Child C` immediately before `Child C`. **FAIL** otherwise.
 
@@ -184,22 +174,24 @@ Read back. **PASS** if children of `Existing Parent` include `[..., Before Child
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `items`:
+- `insertions`:
   ```json
   [{
-    "content": "H1 Parent",
-    "heading": "h1",
-    "color": "blue",
-    "note": "Parent note",
-    "children": [{
-      "content": "Checkbox Child",
-      "show_checkbox": true,
-      "checked": true,
-      "color": "green"
+    "position": "last_child",
+    "items": [{
+      "content": "H1 Parent",
+      "heading": "h1",
+      "color": "blue",
+      "note": "Parent note",
+      "children": [{
+        "content": "Checkbox Child",
+        "show_checkbox": true,
+        "checked": true,
+        "color": "green"
+      }]
     }]
   }]
   ```
-- `position`: `"last_child"`
 
 Read back the document. **PASS** if all of the following are true:
 - `H1 Parent` exists with `heading: "h1"`, `color: "blue"`, `note: "Parent note"`.

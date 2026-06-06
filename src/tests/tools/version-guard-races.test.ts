@@ -48,9 +48,11 @@ describe("insert_items race simulation", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      items: [{ content: "Item A" }, { content: "Item B" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{ content: "Item A" }, { content: "Item B" }],
+      }],
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -71,9 +73,11 @@ describe("insert_items race simulation", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      items: [{ content: "First A" }, { content: "First B" }],
-      position: "first_child",
+      insertions: [{
+        position: "first_child",
+        reference_item_id: "n1",
+        items: [{ content: "First A" }, { content: "First B" }],
+      }],
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -95,9 +99,11 @@ describe("insert_items race simulation", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      items: [{ content: "After n1" }],
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "n1",
+        items: [{ content: "After n1" }],
+      }],
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -210,13 +216,15 @@ describe("version guard edge cases", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      position: "last_child",
-      items: [{
-        content: "Level 1",
-        children: [{
-          content: "Level 2",
-          children: [{ content: "Level 3" }],
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{
+          content: "Level 1",
+          children: [{
+            content: "Level 2",
+            children: [{ content: "Level 3" }],
+          }],
         }],
       }],
     });
@@ -236,13 +244,15 @@ describe("version guard edge cases", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      position: "last_child",
-      items: [{
-        content: "Level 1",
-        children: [{
-          content: "Level 2",
-          children: [{ content: "Level 3" }],
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{
+          content: "Level 1",
+          children: [{
+            content: "Level 2",
+            children: [{ content: "Level 3" }],
+          }],
         }],
       }],
     });
@@ -269,11 +279,13 @@ describe("version guard edge cases", () => {
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      position: "last_child",
-      items: [{
-        content: "Partial parent",
-        children: [{ content: "Partial child" }],
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{
+          content: "Partial parent",
+          children: [{ content: "Partial child" }],
+        }],
       }],
     });
 

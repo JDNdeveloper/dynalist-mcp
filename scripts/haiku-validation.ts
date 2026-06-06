@@ -139,7 +139,7 @@ const PIPELINE_SPECS: PipelineSpec[] = [
         prompt:
           `Using Dynalist, read the document with file_id '${docId}'. ` +
           `Find the item 'Alpha'. Insert a new item 'After Alpha' immediately after it ` +
-          `using position 'after' with Alpha's item_id as reference_item_id.`,
+          `using a single insertion with position 'after' and Alpha's item_id as reference_item_id.`,
       },
       {
         category: "positioning",
@@ -147,7 +147,7 @@ const PIPELINE_SPECS: PipelineSpec[] = [
         prompt:
           `Using Dynalist, read the document with file_id '${docId}'. ` +
           `Find the item 'Beta'. Insert 'Child of Beta' as the first child of 'Beta' ` +
-          `using position 'first_child' with Beta's item_id as reference_item_id.`,
+          `using a single insertion with position 'first_child' and Beta's item_id as reference_item_id.`,
       },
       {
         category: "insert",

@@ -537,17 +537,23 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 
 ### `insert_items`
 
-Insert items into a document as a JSON tree. Supports nested children and per-item metadata.
+Insert items into a document as JSON trees. Each insertion targets an independent location, allowing inserts at different positions in a single call. Each insertion supports nested children and per-item metadata.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `items` | object[] | yes | Array of item objects to insert. Each item can include recursive children. |
-| `reference_item_id` | string | no | For after/before: the sibling item (required). Cannot be the root item. For first_child/last_child: the parent item. Omit for document root. |
-| `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | yes | Insertion target. 'after'/'before': sibling-relative placement (reference_item_id required). 'first_child': prepend under parent. 'last_child' (most common): append under parent. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `insertions` | object[] | yes | Array of independent insertions. Each targets its own location, so items can be placed at different parents or siblings in a single call. |
+
+**`insertions` element fields:**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `position` | `"after"`, `"before"`, `"first_child"`, `"last_child"` | yes | Insertion target. 'after'/'before': sibling-relative placement (reference_item_id required). 'first_child': prepend under parent. 'last_child' (most common): append under parent. |
+| `reference_item_id` | string | no | For after/before: the sibling item (required). Cannot be the root item. For first_child/last_child: the parent item. Omit for document root. |
+| `items` | object[] | yes | Array of item objects to insert. Each item can include recursive children. |
 
 **`items` element fields:**
 
@@ -565,24 +571,18 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 ```json
 {
   "file_id": "f_abc123",
-  "items": [
+  "expected_sync_token": "a1b2c",
+  "insertions": [
     {
-      "content": "Buy groceries",
-      "note": "Milk, eggs, bread",
-      "checked": true,
-      "show_checkbox": true,
-      "heading": "h1",
-      "color": "red",
-      "children": [
+      "position": "after",
+      "reference_item_id": "n_sibling012",
+      "items": [
         {
           "content": "Buy groceries"
         }
       ]
     }
-  ],
-  "reference_item_id": "n_sibling012",
-  "position": "after",
-  "expected_sync_token": "a1b2c"
+  ]
 }
 ```
 
@@ -591,17 +591,29 @@ Insert items into a document as a JSON tree. Supports nested children and per-it
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `created_count` | number | yes | Number of items created |
-| `root_item_ids` | string[] | yes | IDs of all top-level inserted items |
+| `created_count` | number | yes | Total number of items created across all insertions |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
+| `insertions` | object[] | yes | Per-insertion results in the same order as the input insertions |
+
+**`insertions` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `created_count` | number | yes | Number of items created by this insertion |
+| `root_item_ids` | string[] | yes | IDs of the top-level inserted items for this insertion |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
   "created_count": 1,
-  "root_item_ids": [
-    "n_new001"
+  "insertions": [
+    {
+      "created_count": 1,
+      "root_item_ids": [
+        "n_new001"
+      ]
+    }
   ]
 }
 ```

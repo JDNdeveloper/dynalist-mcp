@@ -265,45 +265,58 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       description:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
-        "Insert items into a document as a JSON tree. Supports nested children and " +
-        "per-item metadata.",
+        "Insert items into a document as JSON trees. Each insertion targets an " +
+        "independent location, allowing inserts at different positions in a single " +
+        "call. Each insertion supports nested children and per-item metadata.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        items: z.array(jsonInputNodeSchema).describe(
-          "Array of item objects to insert. Each item can include recursive children."
-        ),
-        reference_item_id: z.string().optional().describe(
-          "For after/before: the sibling item (required). Cannot be the root item. " +
-          "For first_child/last_child: the parent item. Omit for document root."
-        ),
-        position: z.enum(["after", "before", "first_child", "last_child"])
-          .describe(
-            "Insertion target. 'after'/'before': sibling-relative placement " +
-            "(reference_item_id required). 'first_child': prepend under parent. " +
-            "'last_child' (most common): append under parent."
-          ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
+        insertions: z.array(z.object({
+          position: z.enum(["after", "before", "first_child", "last_child"])
+            .describe(
+              "Insertion target. 'after'/'before': sibling-relative placement " +
+              "(reference_item_id required). 'first_child': prepend under parent. " +
+              "'last_child' (most common): append under parent."
+            ),
+          reference_item_id: z.string().optional().describe(
+            "For after/before: the sibling item (required). Cannot be the root item. " +
+            "For first_child/last_child: the parent item. Omit for document root."
+          ),
+          items: z.array(jsonInputNodeSchema).describe(
+            "Array of item objects to insert. Each item can include recursive children."
+          ),
+        }).strict()).describe(
+          "Array of independent insertions. Each targets its own location, so items " +
+          "can be placed at different parents or siblings in a single call."
+        ),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        created_count: z.number().describe("Number of items created"),
-        root_item_ids: z.array(z.string()).describe("IDs of all top-level inserted items"),
+        created_count: z.number().describe("Total number of items created across all insertions"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
+        insertions: z.array(z.object({
+          created_count: z.number().describe("Number of items created by this insertion"),
+          root_item_ids: z.array(z.string()).describe("IDs of the top-level inserted items for this insertion"),
+        }).strict()).describe("Per-insertion results in the same order as the input insertions"),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      items,
-      reference_item_id,
-      position,
       expected_sync_token,
+      insertions,
     }: {
       file_id: string;
-      items: unknown[];
-      reference_item_id?: string;
-      position: string;
       expected_sync_token: string;
+      insertions: Array<{
+        position: string;
+        reference_item_id?: string;
+        items: unknown[];
+      }>;
     }) => {
+      if (insertions.length === 0) {
+        return makeErrorResponse("InvalidInput", "No insertions specified (empty array).");
+      }
+
       const config = getConfig();
 
       // Access check: requires write (allow) policy.
@@ -311,93 +324,130 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      const isSiblingPosition = position === "after" || position === "before";
-
-      // Validate parameter combinations.
-      if (isSiblingPosition && reference_item_id === undefined) {
-        return makeErrorResponse("InvalidInput", "after/before requires reference_item_id; root has no siblings.");
-      }
-
-      // Convert JSON input to ParsedNode tree (no doc read needed).
-      const tree = jsonInputToTree(items as JsonInputNode[]);
-      if (tree.length === 0) {
-        return makeErrorResponse("InvalidInput", "No items to insert (empty array)");
+      // Validate all insertions upfront before any API calls.
+      for (const insertion of insertions) {
+        const isSibling = insertion.position === "after" || insertion.position === "before";
+        if (isSibling && insertion.reference_item_id === undefined) {
+          return makeErrorResponse("InvalidInput", "after/before requires reference_item_id.");
+        }
+        if ((insertion.items as JsonInputNode[]).length === 0) {
+          return makeErrorResponse("InvalidInput", "Each insertion must have at least one item (empty items array).");
+        }
       }
 
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
         async () => {
-          let parentNodeId: string | undefined;
-          let startIndex: number | undefined;
+          // Read the document once upfront. Resolving all positions before any writes
+          // avoids N-1 re-reads inside the loop and enables semantic conflict detection
+          // (e.g. first_child of P and before-P's-first-child both map to index 0 under
+          // P and must be rejected regardless of how they were expressed).
+          const doc = await store.read(file_id);
+          const rootId = findRootNodeId(doc.nodes);
+          const parentMap = buildParentMap(doc.nodes);
+          const nodeMap = buildNodeMap(doc.nodes);
 
-          if (isSiblingPosition) {
-            // Sibling-relative positioning: resolve parent and index from the reference node.
-            const doc = await store.read(file_id);
-            const rootId = findRootNodeId(doc.nodes);
+          // Resolve each insertion to (parentNodeId, resolvedStartIndex). Detect
+          // semantic conflicts: two insertions mapping to the same (parent, index)
+          // would produce unpredictable ordering because each resolves from the
+          // pre-insertion document state without knowing what the other will add.
+          const resolvedInsertions: Array<{ parentNodeId: string; resolvedStartIndex: number }> = [];
+          const conflictKeys = new Set<string>();
 
-            // The root item has no parent, so it cannot be used as a sibling reference.
-            if (reference_item_id === rootId) {
-              throw new ToolInputError("InvalidInput", "Cannot use root item as reference for after/before; root has no parent.");
-            }
+          for (const insertion of insertions) {
+            const isSiblingPosition = insertion.position === "after" || insertion.position === "before";
+            let parentNodeId: string;
+            let resolvedStartIndex: number;
 
-            const parentMap = buildParentMap(doc.nodes);
-            const refInfo = parentMap.get(reference_item_id!);
-
-            if (!refInfo) {
-              throw new ToolInputError("ItemNotFound", `Reference item '${reference_item_id}' not found in document.`);
-            }
-
-            parentNodeId = refInfo.parentId;
-            startIndex = position === "after" ? refInfo.index + 1 : refInfo.index;
-          } else {
-            // Child positioning (first_child / last_child).
-            // reference_item_id is the parent for child positions.
-            parentNodeId = reference_item_id;
-
-            // The Dynalist API snapshots parent state before processing a batch,
-            // so sending index -1 for every item in a batch causes them to all
-            // resolve to the same position and reverse. For multi-item inserts we
-            // resolve to explicit indices to preserve input order.
-            const doc = await store.read(file_id);
-            if (!parentNodeId) {
-              parentNodeId = findRootNodeId(doc.nodes);
-            } else {
-              // Validate that the specified parent node exists in the document.
-              const parentNode = doc.nodes.find(n => n.id === parentNodeId);
-              if (!parentNode) {
-                throw new ToolInputError("ItemNotFound", `Parent item '${parentNodeId}' not found in document.`);
+            if (isSiblingPosition) {
+              if (insertion.reference_item_id === rootId) {
+                throw new ToolInputError("InvalidInput", "Cannot use root item as reference for after/before; root has no parent.");
               }
+              const refInfo = parentMap.get(insertion.reference_item_id!);
+              if (!refInfo) {
+                throw new ToolInputError("ItemNotFound", `Reference item '${insertion.reference_item_id}' not found in document.`);
+              }
+              parentNodeId = refInfo.parentId;
+              resolvedStartIndex = insertion.position === "after" ? refInfo.index + 1 : refInfo.index;
+            } else {
+              if (!insertion.reference_item_id) {
+                parentNodeId = rootId;
+              } else {
+                if (!nodeMap.has(insertion.reference_item_id)) {
+                  throw new ToolInputError("ItemNotFound", `Parent item '${insertion.reference_item_id}' not found in document.`);
+                }
+                parentNodeId = insertion.reference_item_id;
+              }
+              const parentNode = nodeMap.get(parentNodeId);
+              resolvedStartIndex = insertion.position === "first_child" ? 0 : (parentNode?.children?.length ?? 0);
             }
 
-            if (position === "first_child") {
-              startIndex = 0;
-            } else if (items.length <= 1) {
-              // Single item: index -1 is unambiguous, no read needed.
-              startIndex = undefined;
-            } else {
-              // last_child with multiple items. Resolve to the parent's current
-              // child count so each item gets a distinct index instead of all
-              // resolving to the same position.
-              const parentNode = doc.nodes.find(n => n.id === parentNodeId);
-              startIndex = parentNode?.children?.length ?? 0;
+            const conflictKey = `${parentNodeId}:${resolvedStartIndex}`;
+            if (conflictKeys.has(conflictKey)) {
+              throw new ToolInputError(
+                "InvalidInput",
+                "Conflicting insertions: two or more insertions resolve to the same position in the document. " +
+                "Use distinct target positions, or combine them into a single insertion with multiple items."
+              );
             }
+            conflictKeys.add(conflictKey);
+            resolvedInsertions.push({ parentNodeId, resolvedStartIndex });
           }
 
-          const insertResult = await insertTreeUnderParent(client, file_id, parentNodeId, tree, {
-            startIndex,
+          // Apply offset accounting. After insertion j commits k top-level items at
+          // resolvedStartIndex_j under its parent, all subsequent insertions to the
+          // same parent at resolvedStartIndex >= j's are shifted up by k. Using
+          // resolved (pre-offset) indices for the comparison is correct: each prior
+          // insertion's contribution is independent and additive.
+          //
+          // `<=` is intentional: any prior insertion at an equal resolvedStartIndex
+          // would also shift subsequent insertions. The conflict check above ensures
+          // no two insertions share the same (parentId, resolvedStartIndex), so the
+          // equal case is unreachable in practice — but `<=` is still semantically
+          // correct if that invariant ever changes.
+          //
+          // `items.length` counts only top-level items because only those occupy
+          // slots directly in the parent's children array. Nested children are
+          // inserted under their own parents and do not affect sibling indices.
+          const effectiveInsertions = resolvedInsertions.map((resolved, i) => {
+            let offset = 0;
+            for (let j = 0; j < i; j++) {
+              if (
+                resolvedInsertions[j].parentNodeId === resolved.parentNodeId &&
+                resolvedInsertions[j].resolvedStartIndex <= resolved.resolvedStartIndex
+              ) {
+                offset += (insertions[j].items as JsonInputNode[]).length;
+              }
+            }
+            return { parentNodeId: resolved.parentNodeId, startIndex: resolved.resolvedStartIndex + offset };
           });
-          return { result: insertResult, apiCallCount: insertResult.batchesSent };
+
+          // Execute insertions with pre-computed positions. No per-iteration re-reads needed.
+          const insertionResults: Array<{ totalCreated: number; rootNodeIds: string[]; batchesSent: number }> = [];
+          for (let i = 0; i < insertions.length; i++) {
+            const { parentNodeId, startIndex } = effectiveInsertions[i];
+            const tree = jsonInputToTree(insertions[i].items as JsonInputNode[]);
+            const insertResult = await insertTreeUnderParent(client, file_id, parentNodeId, tree, { startIndex });
+            insertionResults.push(insertResult);
+          }
+
+          const totalApiCallCount = insertionResults.reduce((sum, r) => sum + r.batchesSent, 0);
+          return { result: insertionResults, apiCallCount: totalApiCallCount };
         },
       );
 
-      const insertResult = guard.result;
+      const insertionResults = guard.result;
+      const totalCreated = insertionResults.reduce((sum, r) => sum + r.totalCreated, 0);
 
       const data: Record<string, unknown> = {
         file_id,
-        created_count: insertResult.totalCreated,
-        root_item_ids: insertResult.rootNodeIds,
+        created_count: totalCreated,
       };
       if (guard.syncWarning) data.sync_warning = guard.syncWarning;
+      data.insertions = insertionResults.map(r => ({
+        created_count: r.totalCreated,
+        root_item_ids: r.rootNodeIds,
+      }));
 
       return makeResponse(data);
     })

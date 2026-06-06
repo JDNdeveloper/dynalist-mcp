@@ -191,9 +191,9 @@ Every item's metadata is immediately adjacent to its content, regardless of tree
 
 ## Recursive input schema compatibility
 
-Recursive input schemas need explicit parameter text because MCP clients do not all render JSON Schema `$ref` trees the same way. As of April 2026, Codex renders `insert_items.items[].children` as `string[]` even though the schema represents recursive child item objects.
+Recursive input schemas need explicit parameter text because MCP clients do not all render JSON Schema `$ref` trees the same way. As of April 2026, Codex renders `insert_items.insertions[].items[].children` as `string[]` even though the schema represents recursive child item objects.
 
-Every recursive input property in a write-capable tool must state the recursive object shape directly. The `insert_items.items[].children` description says each child uses the same fields as an `items` element, can contain its own `children`, and must be passed as objects rather than strings or item IDs, even when the client renders the field as `string[]`. This wording is the compatibility layer for Codex's schema rendering.
+Every recursive input property in a write-capable tool must state the recursive object shape directly. The `insert_items.insertions[].items[].children` description says each child uses the same fields as an `items` element, can contain its own `children`, and must be passed as objects rather than strings or item IDs, even when the client renders the field as `string[]`. This wording is the compatibility layer for Codex's schema rendering.
 
 ## Compositional patterns
 

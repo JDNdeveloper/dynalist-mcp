@@ -516,14 +516,17 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "item1" }, { content: "item2" }, { content: "item3" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "item1" }, { content: "item2" }, { content: "item3" }],
+      }],
     });
     expect(result.file_id).toBe("doc1");
     expect(result.created_count).toBe(3);
-    expect(result.root_item_ids).toBeDefined();
-    expect((result.root_item_ids as string[]).length).toBe(3);
+    const insertions = result.insertions as Array<{ created_count: number; root_item_ids: string[] }>;
+    expect(insertions[0].root_item_ids).toBeDefined();
+    expect(insertions[0].root_item_ids.length).toBe(3);
   });
 
   test("inserts nested hierarchy", async () => {
@@ -531,13 +534,15 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1",
-      position: "last_child",
-      items: [{
-        content: "parent",
-        children: [{
-          content: "child",
-          children: [{ content: "grandchild" }],
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{
+          content: "parent",
+          children: [{
+            content: "child",
+            children: [{ content: "grandchild" }],
+          }],
         }],
       }],
     });
@@ -557,9 +562,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "top item" }],
-      position: "first_child",
+      insertions: [{
+        position: "first_child",
+        reference_item_id: "root",
+        items: [{ content: "top item" }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -572,18 +579,28 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "root-level item" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        items: [{ content: "root-level item" }],
+      }],
     });
     expect(result.created_count).toBe(1);
   });
 
-  test("empty nodes array returns error", async () => {
+  test("empty insertions array returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: "zzzzz",
-      items: [],
-      position: "last_child",
+      insertions: [],
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("empty items array in an insertion returns error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: "zzzzz",
+      insertions: [{ position: "last_child", items: [] }],
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -595,13 +612,15 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      position: "last_child",
-      items: [{
-        content: "level1",
-        children: [{
-          content: "level2",
-          children: [{ content: "level3" }],
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{
+          content: "level1",
+          children: [{
+            content: "level2",
+            children: [{ content: "level3" }],
+          }],
         }],
       }],
     });
@@ -622,27 +641,29 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      position: "last_child",
-      items: [
-        {
-          content: "A",
-          children: [
-            {
-              content: "A1",
-              children: [{
-                content: "A1a",
-                children: [{ content: "A1a-deep" }],
-              }],
-            },
-            { content: "A2" },
-          ],
-        },
-        {
-          content: "B",
-          children: [{ content: "B1" }],
-        },
-      ],
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [
+          {
+            content: "A",
+            children: [
+              {
+                content: "A1",
+                children: [{
+                  content: "A1a",
+                  children: [{ content: "A1a-deep" }],
+                }],
+              },
+              { content: "A2" },
+            ],
+          },
+          {
+            content: "B",
+            children: [{ content: "B1" }],
+          },
+        ],
+      }],
     });
     expect(result.created_count).toBe(7);
 
@@ -670,15 +691,18 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      position: "last_child",
-      items: [
-        { content: "Parent1", children: [{ content: "Child1a" }, { content: "Child1b" }] },
-        { content: "Parent2", children: [{ content: "Child2a" }] },
-      ],
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [
+          { content: "Parent1", children: [{ content: "Child1a" }, { content: "Child1b" }] },
+          { content: "Parent2", children: [{ content: "Child2a" }] },
+        ],
+      }],
     });
     expect(result.created_count).toBe(5);
-    expect((result.root_item_ids as string[]).length).toBe(2);
+    const insertions = result.insertions as Array<{ created_count: number; root_item_ids: string[] }>;
+    expect(insertions[0].root_item_ids.length).toBe(2);
 
     const doc = ctx.server.documents.get("doc1")!;
     const p1 = doc.nodes.find((n) => n.content === "Parent1")!;
@@ -692,21 +716,23 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      position: "last_child",
-      items: [
-        { content: "Shallow" },
-        {
-          content: "Deep",
-          children: [{
-            content: "D1",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [
+          { content: "Shallow" },
+          {
+            content: "Deep",
             children: [{
-              content: "D2",
-              children: [{ content: "D3" }],
+              content: "D1",
+              children: [{
+                content: "D2",
+                children: [{ content: "D3" }],
+              }],
             }],
-          }],
-        },
-      ],
+          },
+        ],
+      }],
     });
     expect(result.created_count).toBe(5);
 
@@ -728,9 +754,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "appended item" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "appended item" }],
+      }],
     });
 
     // The new node should be after the original last child.
@@ -750,9 +778,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "prepended item" }],
-      position: "first_child",
+      insertions: [{
+        position: "first_child",
+        reference_item_id: "root",
+        items: [{ content: "prepended item" }],
+      }],
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -773,9 +803,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Order A" }, { content: "Order B" }, { content: "Order C" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Order A" }, { content: "Order B" }, { content: "Order C" }],
+      }],
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -795,9 +827,11 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "n1a",
-      items: [{ content: "Leaf A" }, { content: "Leaf B" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1a",
+        items: [{ content: "Leaf A" }, { content: "Leaf B" }],
+      }],
     });
 
     expect(result.created_count).toBe(2);
@@ -814,9 +848,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "First A" }, { content: "First B" }, { content: "First C" }],
-      position: "first_child",
+      insertions: [{
+        position: "first_child",
+        reference_item_id: "root",
+        items: [{ content: "First A" }, { content: "First B" }, { content: "First C" }],
+      }],
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -836,9 +872,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "new item" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "new item" }],
+      }],
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -854,9 +892,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Noted item", note: "This is a note" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Noted item", note: "This is a note" }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Noted item")!;
@@ -868,9 +908,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Todo", show_checkbox: true, checked: false }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Todo", show_checkbox: true, checked: false }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Todo")!;
@@ -883,9 +925,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Checked no checkbox", checked: true }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Checked no checkbox", checked: true }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Checked no checkbox")!;
@@ -899,9 +943,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "No checkbox explicit", show_checkbox: false }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "No checkbox explicit", show_checkbox: false }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No checkbox explicit")!;
@@ -913,9 +959,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Heading node", heading: "h2" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Heading node", heading: "h2" }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Heading node")!;
@@ -927,9 +975,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "No heading node", heading: "none" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "No heading node", heading: "none" }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No heading node")!;
@@ -941,9 +991,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Colored node", color: "yellow" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Colored node", color: "yellow" }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Colored node")!;
@@ -955,9 +1007,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "No color node", color: "none" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "No color node", color: "none" }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No color node")!;
@@ -969,9 +1023,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Line 1\nLine 2\nLine 3" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Line 1\nLine 2\nLine 3" }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Line 1\nLine 2\nLine 3")!;
@@ -984,9 +1040,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "Code item", note: noteContent }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "Code item", note: noteContent }],
+      }],
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Code item")!;
@@ -998,17 +1056,19 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      position: "last_child",
-      items: [{
-        content: "Parent",
-        heading: "h1",
-        children: [{
-          content: "Child",
-          note: "child note",
-          color: "blue",
-          show_checkbox: true,
-          checked: true,
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{
+          content: "Parent",
+          heading: "h1",
+          children: [{
+            content: "Child",
+            note: "child note",
+            color: "blue",
+            show_checkbox: true,
+            checked: true,
+          }],
         }],
       }],
     });
@@ -1034,15 +1094,17 @@ describe("insert_items", () => {
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      position: "last_child",
-      items: [{
-        content: "A",
-        children: [{
-          content: "B",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{
+          content: "A",
           children: [{
-            content: "C",
-            children: [{ content: "D" }],
+            content: "B",
+            children: [{
+              content: "C",
+              children: [{ content: "D" }],
+            }],
           }],
         }],
       }],
@@ -1063,15 +1125,17 @@ describe("insert_items", () => {
     await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      position: "last_child",
-      items: [{
-        content: "PersistA",
-        children: [{
-          content: "PersistB",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{
+          content: "PersistA",
           children: [{
-            content: "PersistC",
-            children: [{ content: "PersistD" }],
+            content: "PersistB",
+            children: [{
+              content: "PersistC",
+              children: [{ content: "PersistD" }],
+            }],
           }],
         }],
       }],
@@ -1096,20 +1160,234 @@ describe("insert_items", () => {
 
   // ─── response shape ───────────────────────────────────────────────
 
-  test("response includes file_id, created_count, root_item_ids", async () => {
+  test("response includes file_id, created_count, per-insertion root_item_ids", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      reference_item_id: "root",
-      items: [{ content: "shape test a" }, { content: "shape test b" }],
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "root",
+        items: [{ content: "shape test a" }, { content: "shape test b" }],
+      }],
     });
 
     expect(result.file_id).toBe("doc1");
     expect(result.created_count).toBe(2);
-    expect(Array.isArray(result.root_item_ids)).toBe(true);
-    expect((result.root_item_ids as string[]).length).toBe(2);
+    const insertions = result.insertions as Array<{ created_count: number; root_item_ids: string[] }>;
+    expect(Array.isArray(insertions)).toBe(true);
+    expect(insertions.length).toBe(1);
+    expect(insertions[0].created_count).toBe(2);
+    expect(Array.isArray(insertions[0].root_item_ids)).toBe(true);
+    expect(insertions[0].root_item_ids.length).toBe(2);
+  });
+
+  // ─── multi-parent insertions ──────────────────────────────────────
+
+  test("two insertions target different parents", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: syncToken,
+      insertions: [
+        {
+          position: "last_child",
+          reference_item_id: "n1",
+          items: [{ content: "Child of n1" }],
+        },
+        {
+          position: "last_child",
+          reference_item_id: "n2",
+          items: [{ content: "Child of n2" }],
+        },
+      ],
+    });
+
+    expect(result.created_count).toBe(2);
+    const insertions = result.insertions as Array<{ created_count: number; root_item_ids: string[] }>;
+    expect(insertions.length).toBe(2);
+    expect(insertions[0].created_count).toBe(1);
+    expect(insertions[1].created_count).toBe(1);
+
+    // Verify each item landed under its intended parent.
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find(n => n.id === "n1")!;
+    const n2 = doc.nodes.find(n => n.id === "n2")!;
+    const childOfN1 = doc.nodes.find(n => n.content === "Child of n1")!;
+    const childOfN2 = doc.nodes.find(n => n.content === "Child of n2")!;
+    expect(n1.children).toContain(childOfN1.id);
+    expect(n2.children).toContain(childOfN2.id);
+  });
+
+  test("three insertions: two child and one sibling", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: syncToken,
+      insertions: [
+        {
+          position: "last_child",
+          reference_item_id: "n1",
+          items: [{ content: "Under n1" }],
+        },
+        {
+          position: "last_child",
+          reference_item_id: "n2",
+          items: [{ content: "Under n2" }],
+        },
+        {
+          position: "after",
+          reference_item_id: "n3",
+          items: [{ content: "After n3" }],
+        },
+      ],
+    });
+
+    expect(result.created_count).toBe(3);
+    const insertions = result.insertions as Array<{ created_count: number; root_item_ids: string[] }>;
+    expect(insertions.length).toBe(3);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find(n => n.id === "n1")!;
+    const n2 = doc.nodes.find(n => n.id === "n2")!;
+    const root = doc.nodes.find(n => n.id === "root")!;
+    expect(n1.children).toContain(insertions[0].root_item_ids[0]);
+    expect(n2.children).toContain(insertions[1].root_item_ids[0]);
+
+    // After n3: n3 is a direct child of root, so the new item should follow it.
+    const n3Index = root.children!.indexOf("n3");
+    expect(root.children![n3Index + 1]).toBe(insertions[2].root_item_ids[0]);
+  });
+
+  // ─── offset accounting ────────────────────────────────────────────
+
+  test("earlier insertion to same parent shifts later insertion's effective index", async () => {
+    // before n2 resolves to (root, 1); after n2 resolves to (root, 2).
+    // The first insertion adds 2 items at index 1, so the second must land at 4, not 2.
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    await callToolOk(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: syncToken,
+      insertions: [
+        { position: "before", reference_item_id: "n2", items: [{ content: "A" }, { content: "B" }] },
+        { position: "after", reference_item_id: "n2", items: [{ content: "C" }] },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find(n => n.id === "root")!;
+    const n2Index = root.children!.indexOf("n2");
+    const nodeA = doc.nodes.find(n => n.content === "A")!;
+    const nodeB = doc.nodes.find(n => n.content === "B")!;
+    const nodeC = doc.nodes.find(n => n.content === "C")!;
+    // A and B land immediately before n2.
+    expect(root.children![n2Index - 2]).toBe(nodeA.id);
+    expect(root.children![n2Index - 1]).toBe(nodeB.id);
+    // C lands immediately after n2.
+    expect(root.children![n2Index + 1]).toBe(nodeC.id);
+  });
+
+  test("insertion at higher index does not shift earlier insertion in same parent", async () => {
+    // after n3 resolves to (root, 3); before n2 resolves to (root, 1).
+    // The first insertion is after the second's resolved index, so no offset is applied.
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    await callToolOk(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: syncToken,
+      insertions: [
+        { position: "after", reference_item_id: "n3", items: [{ content: "X" }] },
+        { position: "before", reference_item_id: "n2", items: [{ content: "Y" }] },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find(n => n.id === "root")!;
+    const n2Index = root.children!.indexOf("n2");
+    const n3Index = root.children!.indexOf("n3");
+    const nodeX = doc.nodes.find(n => n.content === "X")!;
+    const nodeY = doc.nodes.find(n => n.content === "Y")!;
+    expect(root.children![n2Index - 1]).toBe(nodeY.id);
+    expect(root.children![n3Index + 1]).toBe(nodeX.id);
+  });
+
+  test("three insertions to same parent apply cumulative offsets", async () => {
+    // Insertions: before n2 (resolved 1), after n2 (resolved 2), after n3 (resolved 3).
+    // Effective: 1, 3 (+1 from ins0), 5 (+1 from ins0 + 1 from ins1).
+    // Final order: [n1, A, n2, B, n3, C].
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    await callToolOk(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: syncToken,
+      insertions: [
+        { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
+        { position: "after", reference_item_id: "n2", items: [{ content: "B" }] },
+        { position: "after", reference_item_id: "n3", items: [{ content: "C" }] },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find(n => n.id === "root")!;
+    const n2Index = root.children!.indexOf("n2");
+    const n3Index = root.children!.indexOf("n3");
+    const nodeA = doc.nodes.find(n => n.content === "A")!;
+    const nodeB = doc.nodes.find(n => n.content === "B")!;
+    const nodeC = doc.nodes.find(n => n.content === "C")!;
+    expect(root.children![n2Index - 1]).toBe(nodeA.id);
+    expect(root.children![n2Index + 1]).toBe(nodeB.id);
+    expect(root.children![n3Index + 1]).toBe(nodeC.id);
+  });
+
+  test("before followed by last_child to same parent applies offset to last_child", async () => {
+    // before n2 (resolved 1, 1 item) then last_child of root (resolved 3).
+    // Offset for last_child: ins0.resolved=1 <= 3, so +1. Effective: 4.
+    // Without the offset, last_child would land at index 3 (before n3), not after it.
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    await callToolOk(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: syncToken,
+      insertions: [
+        { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
+        { position: "last_child", reference_item_id: "root", items: [{ content: "B" }] },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find(n => n.id === "root")!;
+    const n2Index = root.children!.indexOf("n2");
+    const nodeA = doc.nodes.find(n => n.content === "A")!;
+    const nodeB = doc.nodes.find(n => n.content === "B")!;
+    // A lands immediately before n2.
+    expect(root.children![n2Index - 1]).toBe(nodeA.id);
+    // B lands at the very end (not before n3, which would happen without the offset).
+    expect(root.children![root.children!.length - 1]).toBe(nodeB.id);
+  });
+
+  test("multi-item middle insertion compounds offset for the third", async () => {
+    // before n2 (resolved 1, 1 item), after n2 (resolved 2, 3 items), after n3 (resolved 3).
+    // Effective: 1, 3, 7 (offset = 1 + 3 = 4, not 1 + 1 = 2).
+    // Final order: [n1, A, n2, B1, B2, B3, n3, C].
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    await callToolOk(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: syncToken,
+      insertions: [
+        { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
+        { position: "after", reference_item_id: "n2", items: [{ content: "B1" }, { content: "B2" }, { content: "B3" }] },
+        { position: "after", reference_item_id: "n3", items: [{ content: "C" }] },
+      ],
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find(n => n.id === "root")!;
+    const n2Index = root.children!.indexOf("n2");
+    const n3Index = root.children!.indexOf("n3");
+    const nodeA = doc.nodes.find(n => n.content === "A")!;
+    const nodeB1 = doc.nodes.find(n => n.content === "B1")!;
+    const nodeC = doc.nodes.find(n => n.content === "C")!;
+    expect(root.children![n2Index - 1]).toBe(nodeA.id);
+    expect(root.children![n2Index + 1]).toBe(nodeB1.id);
+    // n3 is 3 slots after n2 (B1, B2, B3 between them). C follows n3.
+    expect(root.children![n3Index + 1]).toBe(nodeC.id);
   });
 
   // ─── sibling-relative positioning (after/before) ─────────────────
@@ -1120,9 +1398,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "After n1" }],
-      reference_item_id: "n1",
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "n1",
+        items: [{ content: "After n1" }],
+      }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1138,9 +1418,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "Before n2" }],
-      reference_item_id: "n2",
-      position: "before",
+      insertions: [{
+        position: "before",
+        reference_item_id: "n2",
+        items: [{ content: "Before n2" }],
+      }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1160,9 +1442,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "After last" }],
-      reference_item_id: "n3",
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "n3",
+        items: [{ content: "After last" }],
+      }],
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -1177,9 +1461,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "Before first" }],
-      reference_item_id: "n1",
-      position: "before",
+      insertions: [{
+        position: "before",
+        reference_item_id: "n1",
+        items: [{ content: "Before first" }],
+      }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1194,9 +1480,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "Multi A" }, { content: "Multi B" }, { content: "Multi C" }],
-      reference_item_id: "n1",
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "n1",
+        items: [{ content: "Multi A" }, { content: "Multi B" }, { content: "Multi C" }],
+      }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1215,12 +1503,14 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{
-        content: "Hier parent",
-        children: [{ content: "Hier child" }],
+      insertions: [{
+        position: "after",
+        reference_item_id: "n2",
+        items: [{
+          content: "Hier parent",
+          children: [{ content: "Hier child" }],
+        }],
       }],
-      reference_item_id: "n2",
-      position: "after",
     });
 
     expect(result.created_count).toBe(2);
@@ -1238,9 +1528,11 @@ describe("insert_items", () => {
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "After n1a" }],
-      reference_item_id: "n1a",
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "n1a",
+        items: [{ content: "After n1a" }],
+      }],
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1257,8 +1549,7 @@ describe("insert_items", () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: "zzzzz",
-      items: [{ content: "test" }],
-      position: "after",
+      insertions: [{ position: "after", items: [{ content: "test" }] }],
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -1267,8 +1558,7 @@ describe("insert_items", () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: "zzzzz",
-      items: [{ content: "test" }],
-      position: "before",
+      insertions: [{ position: "before", items: [{ content: "test" }] }],
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -1278,9 +1568,11 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "first child of n1" }],
-      reference_item_id: "n1",
-      position: "first_child",
+      insertions: [{
+        position: "first_child",
+        reference_item_id: "n1",
+        items: [{ content: "first child of n1" }],
+      }],
     });
     expect(result.created_count).toBe(1);
 
@@ -1296,9 +1588,11 @@ describe("insert_items", () => {
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "last child of n1" }],
-      reference_item_id: "n1",
-      position: "last_child",
+      insertions: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{ content: "last child of n1" }],
+      }],
     });
     expect(result.created_count).toBe(1);
 
@@ -1314,9 +1608,11 @@ describe("insert_items", () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "test" }],
-      reference_item_id: "root",
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "root",
+        items: [{ content: "test" }],
+      }],
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("root item");
@@ -1327,9 +1623,11 @@ describe("insert_items", () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: syncToken,
-      items: [{ content: "test" }],
-      reference_item_id: "root",
-      position: "before",
+      insertions: [{
+        position: "before",
+        reference_item_id: "root",
+        items: [{ content: "test" }],
+      }],
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("root item");
@@ -1339,11 +1637,97 @@ describe("insert_items", () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
       expected_sync_token: makeSyncToken("doc1", 1),
-      items: [{ content: "test" }],
-      reference_item_id: "nonexistent",
-      position: "after",
+      insertions: [{
+        position: "after",
+        reference_item_id: "nonexistent",
+        items: [{ content: "test" }],
+      }],
     });
     expect(err.error).toBe("ItemNotFound");
+  });
+
+  // ─── conflict detection ──────────────────────────────────────────────
+
+  test("two first_child insertions under the same parent return error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: makeSyncToken("doc1", 1),
+      insertions: [
+        { position: "first_child", reference_item_id: "n1", items: [{ content: "A" }] },
+        { position: "first_child", reference_item_id: "n1", items: [{ content: "B" }] },
+      ],
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("resolve to the same position");
+  });
+
+  test("two after insertions with the same reference item return error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: makeSyncToken("doc1", 1),
+      insertions: [
+        { position: "after", reference_item_id: "n1", items: [{ content: "A" }] },
+        { position: "after", reference_item_id: "n1", items: [{ content: "B" }] },
+      ],
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("resolve to the same position");
+  });
+
+  test("two before insertions with the same reference item return error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: makeSyncToken("doc1", 1),
+      insertions: [
+        { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
+        { position: "before", reference_item_id: "n2", items: [{ content: "B" }] },
+      ],
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("resolve to the same position");
+  });
+
+  test("two last_child insertions under the same parent return error", async () => {
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: makeSyncToken("doc1", 1),
+      insertions: [
+        { position: "last_child", reference_item_id: "n1", items: [{ content: "Last A" }] },
+        { position: "last_child", reference_item_id: "n1", items: [{ content: "Last B" }] },
+      ],
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("resolve to the same position");
+  });
+
+  test("first_child and before-first-child resolve to same index: error", async () => {
+    // first_child of root resolves to (root, 0). before n1 also resolves to (root, 0)
+    // because n1 is root's first child. The syntactic check misses this; semantic does not.
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: makeSyncToken("doc1", 1),
+      insertions: [
+        { position: "first_child", reference_item_id: "root", items: [{ content: "A" }] },
+        { position: "before", reference_item_id: "n1", items: [{ content: "B" }] },
+      ],
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("resolve to the same position");
+  });
+
+  test("after X and before X+1 resolve to same index: error", async () => {
+    // after n1 resolves to (root, 1). before n2 also resolves to (root, 1)
+    // because n2 is immediately after n1.
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      expected_sync_token: makeSyncToken("doc1", 1),
+      insertions: [
+        { position: "after", reference_item_id: "n1", items: [{ content: "A" }] },
+        { position: "before", reference_item_id: "n2", items: [{ content: "B" }] },
+      ],
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("resolve to the same position");
   });
 });
 
