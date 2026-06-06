@@ -55,8 +55,8 @@ export async function withVersionGuard<T>(
   const currentToken = makeSyncToken(fileId, preWriteVersion);
   if (expectedSyncToken !== currentToken) {
     throw new SyncTokenMismatchError(
-      "Sync token mismatch: the document has changed. " +
-      "You MUST call read_document to get a fresh sync_token before retrying.",
+      "Sync token mismatch: the document has changed since your last read. " +
+      "Re-read the document, check what changed, then retry.",
     );
   }
 

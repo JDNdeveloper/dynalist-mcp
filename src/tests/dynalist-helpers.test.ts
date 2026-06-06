@@ -398,7 +398,7 @@ describe("editDocumentWithPartialGuard", () => {
       expect(error).toBeInstanceOf(PartialWriteError);
       const pwe = error as PartialWriteError;
       expect(pwe.fileId).toBe("f1");
-      expect(pwe.message).toContain("read_document");
+      expect(pwe.message).toContain("Re-read");
     }
   });
 

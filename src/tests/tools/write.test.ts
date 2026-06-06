@@ -1052,7 +1052,7 @@ describe("insert_items", () => {
     const parsedError = parseErrorContent(result);
     expect(parsedError.error).toBe("PartialWrite");
     expect(parsedError.file_id).toBe("doc1");
-    expect(parsedError.message).toContain("read_document");
+    expect(parsedError.message).toContain("Re-read");
   });
 
   test("partial failure persists nodes inserted before the fault", async () => {
