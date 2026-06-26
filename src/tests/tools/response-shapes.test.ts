@@ -301,11 +301,11 @@ describe("insert_items response shape", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         items: [{ content: "Item A" }, { content: "Item B" }],
       }],
+      expected_sync_token: syncToken,
     });
     const data = assertSuccessEnvelope(raw);
 
@@ -319,8 +319,8 @@ describe("insert_items response shape", () => {
   test("error response for empty insertions array has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: "zzzzz",
       insertions: [],
+      expected_sync_token: "zzzzz",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("InvalidInput");
@@ -329,8 +329,8 @@ describe("insert_items response shape", () => {
   test("error response for non-existent document has correct envelope", async () => {
     const raw = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "nonexistent",
-      expected_sync_token: "zzzzz",
       insertions: [{ position: "last_child", items: [{ content: "test" }] }],
+      expected_sync_token: "zzzzz",
     });
     const err = assertErrorEnvelope(raw);
     expect(err.error).toBe("NotFound");

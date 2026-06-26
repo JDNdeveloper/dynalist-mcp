@@ -270,7 +270,6 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "call. Each insertion supports nested children and per-item metadata.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
         insertions: z.array(z.object({
           position: z.enum(["after", "before", "first_child", "last_child"])
             .describe(
@@ -289,6 +288,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "Array of independent insertions. Each targets its own location, so items " +
           "can be placed at different parents or siblings in a single call."
         ),
+        expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -302,16 +302,16 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
     },
     wrapToolHandler(async ({
       file_id,
-      expected_sync_token,
       insertions,
+      expected_sync_token,
     }: {
       file_id: string;
-      expected_sync_token: string;
       insertions: Array<{
         position: string;
         reference_item_id?: string;
         items: unknown[];
       }>;
+      expected_sync_token: string;
     }) => {
       if (insertions.length === 0) {
         return makeErrorResponse("InvalidInput", "No insertions specified (empty array).");

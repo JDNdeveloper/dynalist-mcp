@@ -544,8 +544,8 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 | `insertions` | object[] | yes | Array of independent insertions. Each targets its own location, so items can be placed at different parents or siblings in a single call. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **`insertions` element fields:**
 
@@ -571,7 +571,6 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 ```json
 {
   "file_id": "f_abc123",
-  "expected_sync_token": "a1b2c",
   "insertions": [
     {
       "position": "after",
@@ -582,7 +581,8 @@ Insert items into a document as JSON trees. Each insertion targets an independen
         }
       ]
     }
-  ]
+  ],
+  "expected_sync_token": "a1b2c"
 }
 ```
 

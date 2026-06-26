@@ -47,12 +47,12 @@ describe("insert_items race simulation", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "Item A" }, { content: "Item B" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -72,12 +72,12 @@ describe("insert_items race simulation", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "first_child",
         reference_item_id: "n1",
         items: [{ content: "First A" }, { content: "First B" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -98,12 +98,12 @@ describe("insert_items race simulation", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "after",
         reference_item_id: "n1",
         items: [{ content: "After n1" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -215,7 +215,6 @@ describe("version guard edge cases", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "n1",
@@ -227,6 +226,7 @@ describe("version guard edge cases", () => {
           }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.created_count).toBe(3);
@@ -243,7 +243,6 @@ describe("version guard edge cases", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "n1",
@@ -255,6 +254,7 @@ describe("version guard edge cases", () => {
           }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.sync_warning).toBeDefined();
@@ -278,7 +278,6 @@ describe("version guard edge cases", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "n1",
@@ -287,6 +286,7 @@ describe("version guard edge cases", () => {
           children: [{ content: "Partial child" }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.isError).toBe(true);

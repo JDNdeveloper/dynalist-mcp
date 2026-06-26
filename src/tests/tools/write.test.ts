@@ -515,12 +515,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "item1" }, { content: "item2" }, { content: "item3" }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
     expect(result.created_count).toBe(3);
@@ -533,7 +533,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "n1",
@@ -545,6 +544,7 @@ describe("insert_items", () => {
           }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(3);
 
@@ -561,12 +561,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "first_child",
         reference_item_id: "root",
         items: [{ content: "top item" }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const root = doc.nodes.find((n) => n.id === "root")!;
@@ -578,11 +578,11 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         items: [{ content: "root-level item" }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(1);
   });
@@ -590,8 +590,8 @@ describe("insert_items", () => {
   test("empty insertions array returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: "zzzzz",
       insertions: [],
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -599,8 +599,8 @@ describe("insert_items", () => {
   test("empty items array in an insertion returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: "zzzzz",
       insertions: [{ position: "last_child", items: [] }],
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -611,7 +611,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
@@ -623,6 +622,7 @@ describe("insert_items", () => {
           }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(3);
 
@@ -640,7 +640,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
@@ -664,6 +663,7 @@ describe("insert_items", () => {
           },
         ],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(7);
 
@@ -690,7 +690,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
@@ -699,6 +698,7 @@ describe("insert_items", () => {
           { content: "Parent2", children: [{ content: "Child2a" }] },
         ],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(5);
     const insertions = result.insertions as Array<{ created_count: number; root_item_ids: string[] }>;
@@ -715,7 +715,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
@@ -733,6 +732,7 @@ describe("insert_items", () => {
           },
         ],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(5);
 
@@ -753,12 +753,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "appended item" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     // The new node should be after the original last child.
@@ -777,12 +777,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "first_child",
         reference_item_id: "root",
         items: [{ content: "prepended item" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -802,12 +802,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Order A" }, { content: "Order B" }, { content: "Order C" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -826,12 +826,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "n1a",
         items: [{ content: "Leaf A" }, { content: "Leaf B" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.created_count).toBe(2);
@@ -847,12 +847,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "first_child",
         reference_item_id: "root",
         items: [{ content: "First A" }, { content: "First B" }, { content: "First C" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -871,12 +871,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "new item" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -891,12 +891,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Noted item", note: "This is a note" }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Noted item")!;
@@ -907,12 +907,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Todo", show_checkbox: true, checked: false }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Todo")!;
@@ -924,12 +924,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Checked no checkbox", checked: true }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Checked no checkbox")!;
@@ -942,12 +942,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "No checkbox explicit", show_checkbox: false }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No checkbox explicit")!;
@@ -958,12 +958,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Heading node", heading: "h2" }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Heading node")!;
@@ -974,12 +974,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "No heading node", heading: "none" }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No heading node")!;
@@ -990,12 +990,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Colored node", color: "yellow" }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Colored node")!;
@@ -1006,12 +1006,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "No color node", color: "none" }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "No color node")!;
@@ -1022,12 +1022,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Line 1\nLine 2\nLine 3" }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Line 1\nLine 2\nLine 3")!;
@@ -1039,12 +1039,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "Code item", note: noteContent }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const newNode = doc.nodes.find((n) => n.content === "Code item")!;
@@ -1055,7 +1055,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
@@ -1071,6 +1070,7 @@ describe("insert_items", () => {
           }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
     const doc = ctx.server.documents.get("doc1")!;
     const parent = doc.nodes.find((n) => n.content === "Parent")!;
@@ -1093,7 +1093,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
@@ -1108,6 +1107,7 @@ describe("insert_items", () => {
           }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.isError).toBe(true);
@@ -1124,7 +1124,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
@@ -1139,6 +1138,7 @@ describe("insert_items", () => {
           }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
 
     // Levels 0 and 1 should have been committed to the document.
@@ -1164,12 +1164,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "shape test a" }, { content: "shape test b" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.file_id).toBe("doc1");
@@ -1188,7 +1188,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [
         {
           position: "last_child",
@@ -1201,6 +1200,7 @@ describe("insert_items", () => {
           items: [{ content: "Child of n2" }],
         },
       ],
+      expected_sync_token: syncToken,
     });
 
     expect(result.created_count).toBe(2);
@@ -1223,7 +1223,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [
         {
           position: "last_child",
@@ -1241,6 +1240,7 @@ describe("insert_items", () => {
           items: [{ content: "After n3" }],
         },
       ],
+      expected_sync_token: syncToken,
     });
 
     expect(result.created_count).toBe(3);
@@ -1267,11 +1267,11 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [
         { position: "before", reference_item_id: "n2", items: [{ content: "A" }, { content: "B" }] },
         { position: "after", reference_item_id: "n2", items: [{ content: "C" }] },
       ],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1293,11 +1293,11 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [
         { position: "after", reference_item_id: "n3", items: [{ content: "X" }] },
         { position: "before", reference_item_id: "n2", items: [{ content: "Y" }] },
       ],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1317,12 +1317,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [
         { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
         { position: "after", reference_item_id: "n2", items: [{ content: "B" }] },
         { position: "after", reference_item_id: "n3", items: [{ content: "C" }] },
       ],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1344,11 +1344,11 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [
         { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
         { position: "last_child", reference_item_id: "root", items: [{ content: "B" }] },
       ],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1369,12 +1369,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [
         { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
         { position: "after", reference_item_id: "n2", items: [{ content: "B1" }, { content: "B2" }, { content: "B3" }] },
         { position: "after", reference_item_id: "n3", items: [{ content: "C" }] },
       ],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1397,12 +1397,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "after",
         reference_item_id: "n1",
         items: [{ content: "After n1" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1417,12 +1417,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "before",
         reference_item_id: "n2",
         items: [{ content: "Before n2" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1441,12 +1441,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "after",
         reference_item_id: "n3",
         items: [{ content: "After last" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const rootAfter = doc.nodes.find((n) => n.id === "root")!;
@@ -1460,12 +1460,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "before",
         reference_item_id: "n1",
         items: [{ content: "Before first" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1479,12 +1479,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "after",
         reference_item_id: "n1",
         items: [{ content: "Multi A" }, { content: "Multi B" }, { content: "Multi C" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1502,7 +1502,6 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "after",
         reference_item_id: "n2",
@@ -1511,6 +1510,7 @@ describe("insert_items", () => {
           children: [{ content: "Hier child" }],
         }],
       }],
+      expected_sync_token: syncToken,
     });
 
     expect(result.created_count).toBe(2);
@@ -1527,12 +1527,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "after",
         reference_item_id: "n1a",
         items: [{ content: "After n1a" }],
       }],
+      expected_sync_token: syncToken,
     });
 
     const doc = ctx.server.documents.get("doc1")!;
@@ -1548,8 +1548,8 @@ describe("insert_items", () => {
   test("after without reference_item_id returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: "zzzzz",
       insertions: [{ position: "after", items: [{ content: "test" }] }],
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -1557,8 +1557,8 @@ describe("insert_items", () => {
   test("before without reference_item_id returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: "zzzzz",
       insertions: [{ position: "before", items: [{ content: "test" }] }],
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
   });
@@ -1567,12 +1567,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "first_child",
         reference_item_id: "n1",
         items: [{ content: "first child of n1" }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(1);
 
@@ -1587,12 +1587,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "last child of n1" }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.created_count).toBe(1);
 
@@ -1607,12 +1607,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "after",
         reference_item_id: "root",
         items: [{ content: "test" }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("root item");
@@ -1622,12 +1622,12 @@ describe("insert_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "before",
         reference_item_id: "root",
         items: [{ content: "test" }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("root item");
@@ -1636,12 +1636,12 @@ describe("insert_items", () => {
   test("nonexistent reference_item_id returns error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: makeSyncToken("doc1", 1),
       insertions: [{
         position: "after",
         reference_item_id: "nonexistent",
         items: [{ content: "test" }],
       }],
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("ItemNotFound");
   });
@@ -1651,11 +1651,11 @@ describe("insert_items", () => {
   test("two first_child insertions under the same parent return error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: makeSyncToken("doc1", 1),
       insertions: [
         { position: "first_child", reference_item_id: "n1", items: [{ content: "A" }] },
         { position: "first_child", reference_item_id: "n1", items: [{ content: "B" }] },
       ],
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("resolve to the same position");
@@ -1664,11 +1664,11 @@ describe("insert_items", () => {
   test("two after insertions with the same reference item return error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: makeSyncToken("doc1", 1),
       insertions: [
         { position: "after", reference_item_id: "n1", items: [{ content: "A" }] },
         { position: "after", reference_item_id: "n1", items: [{ content: "B" }] },
       ],
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("resolve to the same position");
@@ -1677,11 +1677,11 @@ describe("insert_items", () => {
   test("two before insertions with the same reference item return error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: makeSyncToken("doc1", 1),
       insertions: [
         { position: "before", reference_item_id: "n2", items: [{ content: "A" }] },
         { position: "before", reference_item_id: "n2", items: [{ content: "B" }] },
       ],
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("resolve to the same position");
@@ -1690,11 +1690,11 @@ describe("insert_items", () => {
   test("two last_child insertions under the same parent return error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: makeSyncToken("doc1", 1),
       insertions: [
         { position: "last_child", reference_item_id: "n1", items: [{ content: "Last A" }] },
         { position: "last_child", reference_item_id: "n1", items: [{ content: "Last B" }] },
       ],
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("resolve to the same position");
@@ -1705,11 +1705,11 @@ describe("insert_items", () => {
     // because n1 is root's first child. The syntactic check misses this; semantic does not.
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: makeSyncToken("doc1", 1),
       insertions: [
         { position: "first_child", reference_item_id: "root", items: [{ content: "A" }] },
         { position: "before", reference_item_id: "n1", items: [{ content: "B" }] },
       ],
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("resolve to the same position");
@@ -1720,11 +1720,11 @@ describe("insert_items", () => {
     // because n2 is immediately after n1.
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      expected_sync_token: makeSyncToken("doc1", 1),
       insertions: [
         { position: "after", reference_item_id: "n1", items: [{ content: "A" }] },
         { position: "before", reference_item_id: "n2", items: [{ content: "B" }] },
       ],
+      expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
     expect(err.message).toContain("resolve to the same position");

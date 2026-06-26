@@ -270,8 +270,8 @@ describe("insert_items with ACL", () => {
   test("denied document returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "denied_doc",
-      expected_sync_token: "zzzzz",
       insertions: [{ position: "last_child", items: [{ content: "hacked" }] }],
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("NotFound");
   });
@@ -279,8 +279,8 @@ describe("insert_items with ACL", () => {
   test("read-policy document returns Forbidden error", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "readonly_doc",
-      expected_sync_token: "zzzzz",
       insertions: [{ position: "last_child", items: [{ content: "hacked" }] }],
+      expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("Forbidden");
   });
@@ -289,11 +289,11 @@ describe("insert_items with ACL", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "allowed_doc");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "allowed_doc",
-      expected_sync_token: syncToken,
       insertions: [{
         position: "last_child",
         items: [{ content: "New item" }, { content: "Another item" }],
       }],
+      expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("allowed_doc");
     expect(result.created_count).toBe(2);
