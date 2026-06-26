@@ -74,7 +74,7 @@ describe("insert_items version guard", () => {
   test("stale expected_sync_token aborts with SyncTokenMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "New child" }],
@@ -95,7 +95,7 @@ describe("insert_items version guard", () => {
 
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "New child" }],
@@ -109,7 +109,7 @@ describe("insert_items version guard", () => {
   test("omitted expected_sync_token returns schema validation error", async () => {
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "New child" }],
@@ -268,7 +268,7 @@ describe("post-write concurrent modification detection", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "New" }],

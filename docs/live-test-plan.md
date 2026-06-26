@@ -34,6 +34,7 @@ Run `pwd` to verify the working directory is `/tmp/dynalist-live-test`. If it is
       "mcp__dynalist__edit_items",
       "mcp__dynalist__delete_items",
       "mcp__dynalist__move_items",
+      "mcp__dynalist__reorder_items",
       "mcp__dynalist__send_to_inbox",
       "mcp__dynalist__create_document",
       "mcp__dynalist__create_folder",
@@ -129,7 +130,7 @@ Extract the `item_id` for each item from the response. Read back the document to
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `insertions`: `[{ "position": "first_child", "items": [{ "content": "Root First" }] }]`
+- `inserts`: `[{ "position": "first_child", "items": [{ "content": "Root First" }] }]`
 
 Read back the document. **PASS** if `Root First` is the first top-level item. **FAIL** otherwise.
 
@@ -138,7 +139,7 @@ Read back the document. **PASS** if `Root First` is the first top-level item. **
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `insertions`: `[{ "position": "last_child", "items": [{ "content": "Root Last" }] }]`
+- `inserts`: `[{ "position": "last_child", "items": [{ "content": "Root Last" }] }]`
 
 Read back the document. **PASS** if `Root Last` is the last top-level item. **FAIL** otherwise.
 
@@ -147,7 +148,7 @@ Read back the document. **PASS** if `Root Last` is the last top-level item. **FA
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `insertions`: `[{ "position": "last_child", "reference_item_id": <item_id of Existing Parent>, "items": [{ "content": "New Sibling" }] }]`
+- `inserts`: `[{ "position": "last_child", "reference_item_id": <item_id of Existing Parent>, "items": [{ "content": "New Sibling" }] }]`
 
 Read back the document. **PASS** if children of `Existing Parent` are `[Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
@@ -156,7 +157,7 @@ Read back the document. **PASS** if children of `Existing Parent` are `[Child A,
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `insertions`: `[{ "position": "after", "reference_item_id": <item_id of Child A>, "items": [{ "content": "After Child A" }] }]`
+- `inserts`: `[{ "position": "after", "reference_item_id": <item_id of Child A>, "items": [{ "content": "After Child A" }] }]`
 
 Read back. **PASS** if children of `Existing Parent` are `[Child A, After Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
@@ -165,7 +166,7 @@ Read back. **PASS** if children of `Existing Parent` are `[Child A, After Child 
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `insertions`: `[{ "position": "before", "reference_item_id": <item_id of Child C>, "items": [{ "content": "Before Child C" }] }]`
+- `inserts`: `[{ "position": "before", "reference_item_id": <item_id of Child C>, "items": [{ "content": "Before Child C" }] }]`
 
 Read back. **PASS** if children of `Existing Parent` include `[..., Before Child C, Child C, ...]` with `Before Child C` immediately before `Child C`. **FAIL** otherwise.
 
@@ -174,7 +175,7 @@ Read back. **PASS** if children of `Existing Parent` include `[..., Before Child
 Call `insert_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `insertions`:
+- `inserts`:
   ```json
   [{
     "position": "last_child",
@@ -510,3 +511,56 @@ Call `get_recent_changes` with:
 - `since`: today's date in ISO 8601 format (e.g. `"2026-03-20"`)
 
 **PASS** if the response includes at least one match. **FAIL** if the response is empty or contains no matches.
+
+---
+
+## Agent 08: reorder_items
+
+Create a test document "Reorder Tests" in the sub-root folder.
+
+### Setup
+
+Call `read_document` on the new document to get the initial `sync_token`. Then call `insert_items` once to create:
+
+```
+• Alpha
+  • Child 1
+  • Child 2
+• Beta
+• Gamma
+```
+
+Read back to get item_ids and the updated sync_token.
+
+### Test 8a: Reorder document root children
+
+Call `reorder_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `reorders`: `[{ "item_ids": [<Gamma>, <Alpha>, <Beta>] }]`
+
+Read back. **PASS** if the top-level order is `[Gamma, Alpha, Beta]`. **FAIL** otherwise.
+
+### Test 8b: Reorder children of a specific parent
+
+Call `reorder_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `reorders`: `[{ "parent_item_id": <Alpha>, "item_ids": [<Child 2>, <Child 1>] }]`
+
+Read back. **PASS** if Alpha's children are `[Child 2, Child 1]`. **FAIL** otherwise.
+
+### Test 8c: Reorder multiple parents in one call
+
+Call `reorder_items` with:
+- `file_id`: test document
+- `expected_sync_token`: current sync token
+- `reorderings`:
+  ```json
+  { "reorders": [
+    { "item_ids": [<Beta>, <Gamma>, <Alpha>] },
+    { "parent_item_id": <Alpha>, "item_ids": [<Child 1>, <Child 2>] }
+  ] }
+  ```
+
+Read back. **PASS** if the top-level order is `[Beta, Gamma, Alpha]` AND Alpha's children are `[Child 1, Child 2]`. **FAIL** otherwise.

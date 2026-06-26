@@ -152,7 +152,7 @@ describe("insert_items TOCTOU", () => {
 
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "after",
         reference_item_id: "n1",
         items: [{ content: "After n1" }],
@@ -172,7 +172,7 @@ describe("insert_items TOCTOU", () => {
 
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "root",
         items: [{ content: "A" }, { content: "B" }, { content: "C" }],
@@ -192,7 +192,7 @@ describe("insert_items TOCTOU", () => {
 
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         items: [{ content: "Root child" }],
       }],
@@ -207,7 +207,7 @@ describe("insert_items TOCTOU", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "New child" }],

@@ -191,9 +191,9 @@ Every item's metadata is immediately adjacent to its content, regardless of tree
 
 ## Recursive input schema compatibility
 
-Recursive input schemas need explicit parameter text because MCP clients do not all render JSON Schema `$ref` trees the same way. As of April 2026, Codex renders `insert_items.insertions[].items[].children` as `string[]` even though the schema represents recursive child item objects.
+Recursive input schemas need explicit parameter text because MCP clients do not all render JSON Schema `$ref` trees the same way. As of April 2026, Codex renders `insert_items.inserts[].items[].children` as `string[]` even though the schema represents recursive child item objects.
 
-Every recursive input property in a write-capable tool must state the recursive object shape directly. The `insert_items.insertions[].items[].children` description says each child uses the same fields as an `items` element, can contain its own `children`, and must be passed as objects rather than strings or item IDs, even when the client renders the field as `string[]`. This wording is the compatibility layer for Codex's schema rendering.
+Every recursive input property in a write-capable tool must state the recursive object shape directly. The `insert_items.inserts[].items[].children` description says each child uses the same fields as an `items` element, can contain its own `children`, and must be passed as objects rather than strings or item IDs, even when the client renders the field as `string[]`. This wording is the compatibility layer for Codex's schema rendering.
 
 ## Compositional patterns
 
@@ -215,6 +215,14 @@ This design exists because numeric indexes are unreliable in the agent's view:
 - **LLMs are bad at counting.** Relative positioning ("after X", "before Y") is more natural for language models than computing a numeric array index.
 
 The `position` enum values and semantics are consistent across all tools: `after`/`before` treat the reference as a sibling, and `first_child`/`last_child` treat it as a parent.
+
+## Sorting via reorder_items
+
+Sorting a list of items using relative-position moves (`move_items`) requires the agent to compute a correct sequence of moves that transforms the current order into the target order. This is a non-trivial planning problem: each move changes the sibling indices that subsequent moves must target, so the agent must either simulate the intermediate states or use a known algorithm (e.g. insertion sort). In practice, LLMs reliably fail at this: they generate plausible-looking move sequences that leave items in the wrong final order, particularly when the list is long or the target order differs significantly from the current order.
+
+`reorder_items` sidesteps this entirely. The agent states the desired final order as a complete ordered list of item IDs, and the server computes and applies the minimal sequence of moves internally. The agent only needs to read the document, sort the IDs to the desired order, and pass the result. LLMs handle this correctly even for large lists.
+
+The tool accepts a `reorders` array so multiple parents can be sorted in a single call. Each element is independent: a `parent_item_id` (or omitted for the document root) and the complete ordered `item_ids` for that parent. The server validates completeness (all children must be present) before making any API calls.
 
 ## Sync token workflow
 

@@ -1638,7 +1638,7 @@ describe("reorder_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n3", "n2", "n1"],
+      reorders: [{ item_ids: ["n3", "n2", "n1"] }],
       expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
@@ -1654,8 +1654,7 @@ describe("reorder_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      parent_item_id: "n1",
-      item_ids: ["n1b", "n1a"],
+      reorders: [{ parent_item_id: "n1", item_ids: ["n1b", "n1a"] }],
       expected_sync_token: syncToken,
     });
     expect(result.reordered_count).toBe(2);
@@ -1671,7 +1670,7 @@ describe("reorder_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n2", "n3", "n1"],
+      reorders: [{ item_ids: ["n2", "n3", "n1"] }],
       expected_sync_token: syncToken,
     });
 
@@ -1690,7 +1689,7 @@ describe("reorder_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n1", "n2", "n3"],
+      reorders: [{ item_ids: ["n1", "n2", "n3"] }],
       expected_sync_token: syncToken,
     });
     expect(result.reordered_count).toBe(3);
@@ -1704,7 +1703,7 @@ describe("reorder_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n3", "n1", "n2"],
+      reorders: [{ item_ids: ["n3", "n1", "n2"] }],
       expected_sync_token: syncToken,
     });
 
@@ -1717,6 +1716,26 @@ describe("reorder_items", () => {
     expect(children.map((c) => c.item_id)).toEqual(["n3", "n1", "n2"]);
   });
 
+  test("multiple reorders in one call each apply to their own parent", async () => {
+    // Reorder root children [n1, n2, n3] -> [n3, n2, n1] AND n1's children [n1a, n1b] -> [n1b, n1a].
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      reorders: [
+        { item_ids: ["n3", "n2", "n1"] },
+        { parent_item_id: "n1", item_ids: ["n1b", "n1a"] },
+      ],
+      expected_sync_token: syncToken,
+    });
+    expect(result.reordered_count).toBe(5);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n3", "n2", "n1"]);
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children).toEqual(["n1b", "n1a"]);
+  });
+
   // ─── Document root children ───────────────────────────────────────
 
   test("reorders document root children when parent_item_id is omitted", async () => {
@@ -1724,7 +1743,7 @@ describe("reorder_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n2", "n1", "n3"],
+      reorders: [{ item_ids: ["n2", "n1", "n3"] }],
       expected_sync_token: syncToken,
     });
     expect(result.reordered_count).toBe(3);
@@ -1736,10 +1755,45 @@ describe("reorder_items", () => {
 
   // ─── Validation and error cases ───────────────────────────────────
 
+  test("empty reorders array returns InvalidInput", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      reorders: [],
+      expected_sync_token: "zzzzz",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("duplicate parent_item_id across reorders returns InvalidInput", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      reorders: [
+        { item_ids: ["n1", "n2", "n3"] },
+        { item_ids: ["n1", "n2", "n3"] },
+      ],
+      expected_sync_token: "zzzzz",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("duplicate");
+  });
+
+  test("duplicate parent_item_id (explicit) across reorders returns InvalidInput", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      reorders: [
+        { parent_item_id: "n1", item_ids: ["n1a", "n1b"] },
+        { parent_item_id: "n1", item_ids: ["n1b", "n1a"] },
+      ],
+      expected_sync_token: "zzzzz",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("duplicate");
+  });
+
   test("empty item_ids returns InvalidInput", async () => {
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: [],
+      reorders: [{ item_ids: [] }],
       expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
@@ -1748,7 +1802,7 @@ describe("reorder_items", () => {
   test("duplicate item_id in array returns InvalidInput", async () => {
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n1", "n2", "n1"],
+      reorders: [{ item_ids: ["n1", "n2", "n1"] }],
       expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
@@ -1758,7 +1812,7 @@ describe("reorder_items", () => {
   test("unknown item_id (not a child of parent) returns ItemNotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n1", "n2", "nonexistent"],
+      reorders: [{ item_ids: ["n1", "n2", "nonexistent"] }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("ItemNotFound");
@@ -1769,7 +1823,7 @@ describe("reorder_items", () => {
     // n1a is a child of n1, not root. Providing it for root reorder should fail.
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n1", "n2", "n1a"],
+      reorders: [{ item_ids: ["n1", "n2", "n1a"] }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("ItemNotFound");
@@ -1780,7 +1834,7 @@ describe("reorder_items", () => {
     // Root has [n1, n2, n3] but we only provide [n1, n2].
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n1", "n2"],
+      reorders: [{ item_ids: ["n1", "n2"] }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("InvalidInput");
@@ -1791,8 +1845,7 @@ describe("reorder_items", () => {
   test("nonexistent parent_item_id returns ItemNotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      parent_item_id: "nonexistent",
-      item_ids: ["n1"],
+      reorders: [{ parent_item_id: "nonexistent", item_ids: ["n1"] }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("ItemNotFound");
@@ -1802,8 +1855,7 @@ describe("reorder_items", () => {
     // n3 is a leaf. Any item_ids would fail the "not a child" check.
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      parent_item_id: "n3",
-      item_ids: ["n1"],
+      reorders: [{ parent_item_id: "n3", item_ids: ["n1"] }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("ItemNotFound");
@@ -1814,8 +1866,7 @@ describe("reorder_items", () => {
     // n1 is the parent; passing n1 in item_ids is not a child of itself.
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      parent_item_id: "n1",
-      item_ids: ["n1a", "n1"],
+      reorders: [{ parent_item_id: "n1", item_ids: ["n1a", "n1"] }],
       expected_sync_token: makeSyncToken("doc1", 1),
     });
     expect(err.error).toBe("ItemNotFound");
@@ -1825,7 +1876,7 @@ describe("reorder_items", () => {
   test("nonexistent file_id returns NotFound", async () => {
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "nonexistent",
-      item_ids: ["n1"],
+      reorders: [{ item_ids: ["n1"] }],
       expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("NotFound");
@@ -1834,7 +1885,7 @@ describe("reorder_items", () => {
   test("stale sync token returns SyncTokenMismatch", async () => {
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n1", "n2", "n3"],
+      reorders: [{ item_ids: ["n1", "n2", "n3"] }],
       expected_sync_token: makeSyncToken("doc1", 0),
     });
     expect(err.error).toBe("SyncTokenMismatch");
@@ -1843,7 +1894,7 @@ describe("reorder_items", () => {
   test("literal 'root' in item_ids returns InvalidInput", async () => {
     const err = await callToolError(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["root"],
+      reorders: [{ item_ids: ["root"] }],
       expected_sync_token: "zzzzz",
     });
     expect(err.error).toBe("InvalidInput");
@@ -1855,7 +1906,7 @@ describe("reorder_items", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "doc1",
-      item_ids: ["n3", "n2", "n1"],
+      reorders: [{ item_ids: ["n3", "n2", "n1"] }],
       expected_sync_token: syncToken,
     });
     expect(result.file_id).toBe("doc1");
@@ -1879,8 +1930,7 @@ describe("reorder_items batching", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "reorder_bulk");
     const result = await callToolOk(ctx.mcpClient, "reorder_items", {
       file_id: "reorder_bulk",
-      parent_item_id: "rc_parent",
-      item_ids: reversed,
+      reorders: [{ parent_item_id: "rc_parent", item_ids: reversed }],
       expected_sync_token: syncToken,
     });
     expect(result.reordered_count).toBe(250);

@@ -544,10 +544,10 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `insertions` | object[] | yes | Array of independent insertions. Each targets its own location, so items can be placed at different parents or siblings in a single call. |
+| `inserts` | object[] | yes | Array of independent inserts. Each targets its own location, so items can be placed at different parents or siblings in a single call. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
-**`insertions` element fields:**
+**`inserts` element fields:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -571,7 +571,7 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 ```json
 {
   "file_id": "f_abc123",
-  "insertions": [
+  "inserts": [
     {
       "position": "after",
       "reference_item_id": "n_sibling012",
@@ -591,11 +591,11 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `created_count` | number | yes | Total number of items created across all insertions |
+| `created_count` | number | yes | Total number of items created across all inserts |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
-| `insertions` | object[] | yes | Per-insertion results in the same order as the input insertions |
+| `inserts` | object[] | yes | Per-insertion results in the same order as the input inserts |
 
-**`insertions` element fields:**
+**`inserts` element fields:**
 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
@@ -607,7 +607,7 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 {
   "file_id": "f_abc123",
   "created_count": 1,
-  "insertions": [
+  "inserts": [
     {
       "created_count": 1,
       "root_item_ids": [
@@ -715,24 +715,34 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 
 ### `reorder_items`
 
-Sort or reorder the children of a parent item by providing its complete ordered child list. All children must be present.
+Sort or reorder the children of one or more parent items by providing each parent's complete ordered child list. All children of each parent must be present.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
+| `reorders` | object[] | yes | Array of reorders to apply. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+
+**`reorders` element fields:**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
 | `parent_item_id` | string | no | Parent item whose children are being reordered. Omit to reorder the document root's children. |
 | `item_ids` | string[] | yes | Ordered array of ALL children of the parent in the desired final order. |
-| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
 
 **Example input:**
 ```json
 {
   "file_id": "f_abc123",
-  "parent_item_id": "n_item789",
-  "item_ids": [
-    "n_item789"
+  "reorders": [
+    {
+      "parent_item_id": "n_item789",
+      "item_ids": [
+        "n_item789"
+      ]
+    }
   ],
   "expected_sync_token": "a1b2c"
 }
@@ -743,7 +753,7 @@ Sort or reorder the children of a parent item by providing its complete ordered 
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
-| `reordered_count` | number | yes | Total number of children reordered (length of item_ids). |
+| `reordered_count` | number | yes | Total number of children reordered across all reorders. |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
 
 **Example response:**

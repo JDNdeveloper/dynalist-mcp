@@ -235,6 +235,39 @@ const PIPELINE_SPECS: PipelineSpec[] = [
     ],
   },
 
+  // Reorder items.
+  {
+    name: "reorder-items",
+    needsDoc: true,
+    tasksFn: ({ docId }) => [
+      {
+        category: "setup",
+        id: "insert-items",
+        prompt:
+          `Using Dynalist, read the document with file_id '${docId}'. Insert ` +
+          `three top-level items: 'Alpha', 'Beta', 'Gamma'. Then insert two children ` +
+          `under 'Alpha': 'Child 1' and 'Child 2'.`,
+      },
+      {
+        category: "reorder",
+        id: "reorder-root-children",
+        prompt:
+          `Using Dynalist, read the document with file_id '${docId}'. ` +
+          `Reorder the top-level items so the order is 'Gamma', 'Alpha', 'Beta' ` +
+          `using a single reorder_items call with one reordering targeting the document root.`,
+      },
+      {
+        category: "reorder",
+        id: "reorder-multiple-parents",
+        prompt:
+          `Using Dynalist, read the document with file_id '${docId}'. ` +
+          `In a single reorder_items call, reorder the top-level items to 'Beta', 'Gamma', 'Alpha' ` +
+          `AND reverse the children of 'Alpha' to 'Child 2', 'Child 1'. ` +
+          `Use two reorders in the same call.`,
+      },
+    ],
+  },
+
   // File management. Uses folderId directly; no pre-created document.
   {
     name: "file-mgmt",
@@ -581,6 +614,7 @@ async function writeWorkDirSettings(): Promise<void> {
         "mcp__dynalist__edit_items",
         "mcp__dynalist__delete_items",
         "mcp__dynalist__move_items",
+        "mcp__dynalist__reorder_items",
         "mcp__dynalist__send_to_inbox",
         "mcp__dynalist__create_document",
         "mcp__dynalist__create_folder",

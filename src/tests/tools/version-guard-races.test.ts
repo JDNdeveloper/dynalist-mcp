@@ -47,7 +47,7 @@ describe("insert_items race simulation", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{ content: "Item A" }, { content: "Item B" }],
@@ -72,7 +72,7 @@ describe("insert_items race simulation", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "first_child",
         reference_item_id: "n1",
         items: [{ content: "First A" }, { content: "First B" }],
@@ -98,7 +98,7 @@ describe("insert_items race simulation", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "after",
         reference_item_id: "n1",
         items: [{ content: "After n1" }],
@@ -215,7 +215,7 @@ describe("version guard edge cases", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{
@@ -243,7 +243,7 @@ describe("version guard edge cases", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callToolOk(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{
@@ -278,7 +278,7 @@ describe("version guard edge cases", () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
     const result = await callTool(ctx.mcpClient, "insert_items", {
       file_id: "doc1",
-      insertions: [{
+      inserts: [{
         position: "last_child",
         reference_item_id: "n1",
         items: [{

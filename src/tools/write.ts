@@ -270,7 +270,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "call. Each insertion supports nested children and per-item metadata.",
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        insertions: z.array(z.object({
+        inserts: z.array(z.object({
           position: z.enum(["after", "before", "first_child", "last_child"])
             .describe(
               "Insertion target. 'after'/'before': sibling-relative placement " +
@@ -285,36 +285,36 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             "Array of item objects to insert. Each item can include recursive children."
           ),
         }).strict()).describe(
-          "Array of independent insertions. Each targets its own location, so items " +
+          "Array of independent inserts. Each targets its own location, so items " +
           "can be placed at different parents or siblings in a single call."
         ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
-        created_count: z.number().describe("Total number of items created across all insertions"),
+        created_count: z.number().describe("Total number of items created across all inserts"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
-        insertions: z.array(z.object({
+        inserts: z.array(z.object({
           created_count: z.number().describe("Number of items created by this insertion"),
           root_item_ids: z.array(z.string()).describe("IDs of the top-level inserted items for this insertion"),
-        }).strict()).describe("Per-insertion results in the same order as the input insertions"),
+        }).strict()).describe("Per-insertion results in the same order as the input inserts"),
       },
     },
     wrapToolHandler(async ({
       file_id,
-      insertions,
+      inserts,
       expected_sync_token,
     }: {
       file_id: string;
-      insertions: Array<{
+      inserts: Array<{
         position: string;
         reference_item_id?: string;
         items: unknown[];
       }>;
       expected_sync_token: string;
     }) => {
-      if (insertions.length === 0) {
-        return makeErrorResponse("InvalidInput", "No insertions specified (empty array).");
+      if (inserts.length === 0) {
+        return makeErrorResponse("InvalidInput", "No inserts specified (empty array).");
       }
 
       const config = getConfig();
@@ -324,8 +324,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const accessError = requireAccess(policy, "write");
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
-      // Validate all insertions upfront before any API calls.
-      for (const insertion of insertions) {
+      // Validate all inserts upfront before any API calls.
+      for (const insertion of inserts) {
         const isSibling = insertion.position === "after" || insertion.position === "before";
         if (isSibling && insertion.reference_item_id === undefined) {
           return makeErrorResponse("InvalidInput", "after/before requires reference_item_id.");
@@ -348,13 +348,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           const nodeMap = buildNodeMap(doc.nodes);
 
           // Resolve each insertion to (parentNodeId, resolvedStartIndex). Detect
-          // semantic conflicts: two insertions mapping to the same (parent, index)
+          // semantic conflicts: two inserts mapping to the same (parent, index)
           // would produce unpredictable ordering because each resolves from the
           // pre-insertion document state without knowing what the other will add.
           const resolvedInsertions: Array<{ parentNodeId: string; resolvedStartIndex: number }> = [];
           const conflictKeys = new Set<string>();
 
-          for (const insertion of insertions) {
+          for (const insertion of inserts) {
             const isSiblingPosition = insertion.position === "after" || insertion.position === "before";
             let parentNodeId: string;
             let resolvedStartIndex: number;
@@ -386,7 +386,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
             if (conflictKeys.has(conflictKey)) {
               throw new ToolInputError(
                 "InvalidInput",
-                "Conflicting insertions: two or more insertions resolve to the same position in the document. " +
+                "Conflicting inserts: two or more inserts resolve to the same position in the document. " +
                 "Use distinct target positions, or combine them into a single insertion with multiple items."
               );
             }
@@ -395,14 +395,14 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           }
 
           // Apply offset accounting. After insertion j commits k top-level items at
-          // resolvedStartIndex_j under its parent, all subsequent insertions to the
+          // resolvedStartIndex_j under its parent, all subsequent inserts to the
           // same parent at resolvedStartIndex >= j's are shifted up by k. Using
           // resolved (pre-offset) indices for the comparison is correct: each prior
           // insertion's contribution is independent and additive.
           //
           // `<=` is intentional: any prior insertion at an equal resolvedStartIndex
-          // would also shift subsequent insertions. The conflict check above ensures
-          // no two insertions share the same (parentId, resolvedStartIndex), so the
+          // would also shift subsequent inserts. The conflict check above ensures
+          // no two inserts share the same (parentId, resolvedStartIndex), so the
           // equal case is unreachable in practice — but `<=` is still semantically
           // correct if that invariant ever changes.
           //
@@ -416,17 +416,17 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
                 resolvedInsertions[j].parentNodeId === resolved.parentNodeId &&
                 resolvedInsertions[j].resolvedStartIndex <= resolved.resolvedStartIndex
               ) {
-                offset += (insertions[j].items as JsonInputNode[]).length;
+                offset += (inserts[j].items as JsonInputNode[]).length;
               }
             }
             return { parentNodeId: resolved.parentNodeId, startIndex: resolved.resolvedStartIndex + offset };
           });
 
-          // Execute insertions with pre-computed positions. No per-iteration re-reads needed.
+          // Execute inserts with pre-computed positions. No per-iteration re-reads needed.
           const insertionResults: Array<{ totalCreated: number; rootNodeIds: string[]; batchesSent: number }> = [];
-          for (let i = 0; i < insertions.length; i++) {
+          for (let i = 0; i < inserts.length; i++) {
             const { parentNodeId, startIndex } = effectiveInsertions[i];
-            const tree = jsonInputToTree(insertions[i].items as JsonInputNode[]);
+            const tree = jsonInputToTree(inserts[i].items as JsonInputNode[]);
             const insertResult = await insertTreeUnderParent(client, file_id, parentNodeId, tree, { startIndex });
             insertionResults.push(insertResult);
           }
@@ -444,7 +444,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         created_count: totalCreated,
       };
       if (guard.syncWarning) data.sync_warning = guard.syncWarning;
-      data.insertions = insertionResults.map(r => ({
+      data.inserts = insertionResults.map(r => ({
         created_count: r.totalCreated,
         root_item_ids: r.rootNodeIds,
       }));
