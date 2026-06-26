@@ -1,5 +1,5 @@
 /**
- * Structure tools: delete_items, move_items.
+ * Structure tools: delete_items, move_items, reorder_items.
  */
 
 import { z } from "zod";
@@ -419,6 +419,149 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       const data: Record<string, unknown> = {
         file_id,
         moved_count: moves.length,
+      };
+      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
+
+      return makeResponse(data);
+    })
+  );
+
+  server.registerTool(
+    "reorder_items",
+    {
+      description:
+        `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
+        `${CONFIRM_GUIDANCE} ` +
+        "Sort or reorder the children of a parent item by providing its complete ordered child list. " +
+        "All children must be present.",
+      inputSchema: {
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        parent_item_id: z.string().optional().describe(
+          "Parent item whose children are being reordered. Omit to reorder the document root's children."
+        ),
+        item_ids: z.array(z.string()).describe(
+          "Ordered array of ALL children of the parent in the desired final order."
+        ),
+        expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
+      },
+      outputSchema: {
+        file_id: z.string().describe(FILE_ID_DESCRIPTION),
+        reordered_count: z.number().describe("Total number of children reordered (length of item_ids)."),
+        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
+      },
+    },
+    wrapToolHandler(async ({
+      file_id,
+      parent_item_id,
+      item_ids,
+      expected_sync_token,
+    }: {
+      file_id: string;
+      parent_item_id?: string;
+      item_ids: string[];
+      expected_sync_token: string;
+    }) => {
+      if (item_ids.length === 0) {
+        return makeErrorResponse("InvalidInput", "item_ids must not be empty.");
+      }
+
+      // Reject duplicates.
+      const seen = new Set<string>();
+      for (const id of item_ids) {
+        if (seen.has(id)) {
+          return makeErrorResponse("InvalidInput", "item_ids contains one or more duplicates.");
+        }
+        seen.add(id);
+      }
+
+      // Reject reordering the root item (literal "root" string check, no read needed).
+      if (item_ids.includes("root")) {
+        return makeErrorResponse("InvalidInput", "item_ids cannot include the root item.");
+      }
+
+      const config = getConfig();
+
+      // Access check: requires write (allow) policy.
+      const policy = await ac.getPolicy(file_id, config);
+      const accessError = requireAccess(policy, "write");
+      if (accessError) return makeErrorResponse(accessError.error, accessError.message);
+
+      const guard = await withVersionGuard(
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
+        async () => {
+          const doc = await store.read(file_id);
+          const rootId = findRootNodeId(doc.nodes);
+          const nodeMap = buildNodeMap(doc.nodes);
+
+          // Resolve the parent: use rootId if parent_item_id not provided.
+          const parentId = parent_item_id ?? rootId;
+
+          // Root protection (by actual root ID).
+          if (item_ids.includes(rootId)) {
+            throw new ToolInputError("InvalidInput", "item_ids cannot include the root item.");
+          }
+
+          // Parent existence check.
+          if (!nodeMap.has(parentId)) {
+            throw new ToolInputError("ItemNotFound", "parent_item_id not found in document.");
+          }
+
+          const parentNode = nodeMap.get(parentId)!;
+          const currentChildren = parentNode.children ?? [];
+          const currentSet = new Set(currentChildren);
+
+          // Extra/unknown items: any item_id not a child of the parent.
+          for (const id of item_ids) {
+            if (!currentSet.has(id)) {
+              throw new ToolInputError("ItemNotFound", "item_ids contains one or more items that are not children of the parent.");
+            }
+          }
+
+          // Missing items: any child of the parent not present in item_ids.
+          const requestedSet = new Set(item_ids);
+          for (const id of currentChildren) {
+            if (!requestedSet.has(id)) {
+              throw new ToolInputError(
+                "InvalidInput",
+                "item_ids is missing one or more children of the parent.",
+              );
+            }
+          }
+
+          // Track mutable child order so each iteration sees the effects of prior moves.
+          const siblings = [...currentChildren];
+          const indexMap = new Map<string, number>();
+          for (let i = 0; i < siblings.length; i++) {
+            indexMap.set(siblings[i], i);
+          }
+
+          const allChanges: Array<{ action: "move"; node_id: string; parent_id: string; index: number }> = [];
+
+          for (let targetIndex = 0; targetIndex < item_ids.length; targetIndex++) {
+            const itemId = item_ids[targetIndex];
+            const currentIndex = indexMap.get(itemId)!;
+
+            // Positions 0..targetIndex-1 are already occupied by item_ids[0..targetIndex-1],
+            // so currentIndex >= targetIndex always. The API's post-removal indexing therefore
+            // never shifts the target position, and apiIndex equals targetIndex directly.
+            allChanges.push({ action: "move", node_id: itemId, parent_id: parentId, index: targetIndex });
+
+            siblings.splice(currentIndex, 1);
+            siblings.splice(targetIndex, 0, itemId);
+
+            for (let i = 0; i < siblings.length; i++) {
+              indexMap.set(siblings[i], i);
+            }
+          }
+
+          const response = await editDocumentWithPartialGuard(client, file_id, allChanges);
+          return { result: undefined, apiCallCount: response.batches_sent };
+        },
+      );
+
+      const data: Record<string, unknown> = {
+        file_id,
+        reordered_count: item_ids.length,
       };
       if (guard.syncWarning) data.sync_warning = guard.syncWarning;
 

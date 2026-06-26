@@ -713,6 +713,47 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 }
 ```
 
+### `reorder_items`
+
+Sort or reorder the children of a parent item by providing its complete ordered child list. All children must be present.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `file_id` | string | yes | Document file ID |
+| `parent_item_id` | string | no | Parent item whose children are being reordered. Omit to reorder the document root's children. |
+| `item_ids` | string[] | yes | Ordered array of ALL children of the parent in the desired final order. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+
+**Example input:**
+```json
+{
+  "file_id": "f_abc123",
+  "parent_item_id": "n_item789",
+  "item_ids": [
+    "n_item789"
+  ],
+  "expected_sync_token": "a1b2c"
+}
+```
+
+**Response:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `file_id` | string | yes | Document file ID |
+| `reordered_count` | number | yes | Total number of children reordered (length of item_ids). |
+| `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
+
+**Example response:**
+```json
+{
+  "file_id": "f_abc123",
+  "reordered_count": 1
+}
+```
+
 ## File management tools
 
 ### `create_document`

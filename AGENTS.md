@@ -73,7 +73,7 @@ src/
 │   ├── meta.ts                   # Meta tools (get_instructions)
 │   ├── read.ts                   # Read tools (list, search, read_document, etc.)
 │   ├── write.ts                  # Write tools (inbox, edit, insert)
-│   ├── structure.ts              # Structure tools (delete, move)
+│   ├── structure.ts              # Structure tools (delete, move, reorder)
 │   └── files.ts                  # File management tools (create, rename, move)
 ├── utils/
 │   └── dynalist-helpers.ts       # Shared tool helpers (size check, tree builder, etc.)

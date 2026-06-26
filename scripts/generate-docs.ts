@@ -365,7 +365,7 @@ function exampleString(name: string): string {
   if (name === "file_id" || name === "file_ids") return "f_abc123";
   if (name === "folder_id") return "f_folder456";
   if (name === "parent_folder_id") return "f_folder456";
-  if (name === "item_id" || name === "item_ids") return "n_item789";
+  if (name === "item_id" || name === "item_ids" || name === "parent_item_id") return "n_item789";
   if (name === "reference_item_id") return "n_sibling012";
   if (name === "root_file_id") return "f_root000";
   if (name === "root_item_ids") return "n_new001";
@@ -396,7 +396,7 @@ function exampleString(name: string): string {
 function exampleNumber(name: string): number {
   if (name === "value") return 42;
   // Counts match auto-generated array lengths (1 element each).
-  if (name === "count" || name === "document_count" || name === "edited_count" || name === "moved_count" || name === "deleted_count" || name === "created_count") return 1;
+  if (name === "count" || name === "document_count" || name === "edited_count" || name === "moved_count" || name === "deleted_count" || name === "created_count" || name === "reordered_count") return 1;
   if (name === "promoted_children_count") return 1;
   if (name === "child_count") return 3;
   if (name === "max_depth") return 3;

@@ -6,7 +6,7 @@ Claude and other AI assistants can read, write, search, and organize Dynalist do
 
 ### Features
 
-- **18 tools** for reading, writing, searching, and organizing documents.
+- **19 tools** for reading, writing, searching, and organizing documents.
 - **Path-based access control** with deny/read/allow policies, glob matching, and ID anchoring.
 - **Configurable defaults** for read depth, collapsed items, notes, checked items, size warnings, and more.
 - **Structured responses** with JSON (`structuredContent`) on success and plain text on errors, for broad client compatibility.
@@ -172,7 +172,7 @@ src/
 │   ├── meta.ts                   # Meta tools (get_instructions)
 │   ├── read.ts                   # Read tools
 │   ├── write.ts                  # Write tools
-│   ├── structure.ts              # Structure tools (delete, move)
+│   ├── structure.ts              # Structure tools (delete, move, reorder)
 │   └── files.ts                  # File management tools
 ├── utils/
 │   └── dynalist-helpers.ts       # Shared tool helpers

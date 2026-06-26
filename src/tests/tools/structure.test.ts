@@ -1627,3 +1627,266 @@ describe("move_items cross-parent sequential moves", () => {
     expect(p3.children).toEqual(["c"]);
   });
 });
+
+// ─── reorder_items ───────────────────────────────────────────────────
+
+describe("reorder_items", () => {
+  // ─── Happy path ───────────────────────────────────────────────────
+
+  test("reverses children of a non-root parent", async () => {
+    // doc1: root -> [n1, n2, n3]. Reorder to [n3, n2, n1].
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n3", "n2", "n1"],
+      expected_sync_token: syncToken,
+    });
+    expect(result.file_id).toBe("doc1");
+    expect(result.reordered_count).toBe(3);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n3", "n2", "n1"]);
+  });
+
+  test("reorders children of a specific parent item", async () => {
+    // n1 has children [n1a, n1b]. Reverse them.
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      parent_item_id: "n1",
+      item_ids: ["n1b", "n1a"],
+      expected_sync_token: syncToken,
+    });
+    expect(result.reordered_count).toBe(2);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children).toEqual(["n1b", "n1a"]);
+  });
+
+  test("children with their own subtrees reorder correctly and keep subtrees intact", async () => {
+    // n1 -> [n1a, n1b] and n2 -> [n2a] are children under root.
+    // Reorder root children from [n1, n2, n3] to [n2, n3, n1].
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n2", "n3", "n1"],
+      expected_sync_token: syncToken,
+    });
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n2", "n3", "n1"]);
+
+    // Subtrees must be intact.
+    const n1 = doc.nodes.find((n) => n.id === "n1")!;
+    expect(n1.children).toEqual(["n1a", "n1b"]);
+    const n2 = doc.nodes.find((n) => n.id === "n2")!;
+    expect(n2.children).toEqual(["n2a"]);
+  });
+
+  test("no-op reorder (same order) succeeds", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n1", "n2", "n3"],
+      expected_sync_token: syncToken,
+    });
+    expect(result.reordered_count).toBe(3);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n1", "n2", "n3"]);
+  });
+
+  test("state round-trip: reorder then verify via read_document", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n3", "n1", "n2"],
+      expected_sync_token: syncToken,
+    });
+
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 1,
+    });
+    const tree = result.item as Record<string, unknown>;
+    const children = tree.children as Record<string, unknown>[];
+    expect(children.map((c) => c.item_id)).toEqual(["n3", "n1", "n2"]);
+  });
+
+  // ─── Document root children ───────────────────────────────────────
+
+  test("reorders document root children when parent_item_id is omitted", async () => {
+    // Omitting parent_item_id targets the document root.
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n2", "n1", "n3"],
+      expected_sync_token: syncToken,
+    });
+    expect(result.reordered_count).toBe(3);
+
+    const doc = ctx.server.documents.get("doc1")!;
+    const root = doc.nodes.find((n) => n.id === "root")!;
+    expect(root.children).toEqual(["n2", "n1", "n3"]);
+  });
+
+  // ─── Validation and error cases ───────────────────────────────────
+
+  test("empty item_ids returns InvalidInput", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: [],
+      expected_sync_token: "zzzzz",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  test("duplicate item_id in array returns InvalidInput", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n1", "n2", "n1"],
+      expected_sync_token: "zzzzz",
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("one or more duplicates");
+  });
+
+  test("unknown item_id (not a child of parent) returns ItemNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n1", "n2", "nonexistent"],
+      expected_sync_token: makeSyncToken("doc1", 1),
+    });
+    expect(err.error).toBe("ItemNotFound");
+    expect(err.message).toContain("not children of the parent");
+  });
+
+  test("item_id that exists but belongs to a different parent returns ItemNotFound", async () => {
+    // n1a is a child of n1, not root. Providing it for root reorder should fail.
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n1", "n2", "n1a"],
+      expected_sync_token: makeSyncToken("doc1", 1),
+    });
+    expect(err.error).toBe("ItemNotFound");
+    expect(err.message).toContain("not children of the parent");
+  });
+
+  test("missing a child returns InvalidInput", async () => {
+    // Root has [n1, n2, n3] but we only provide [n1, n2].
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n1", "n2"],
+      expected_sync_token: makeSyncToken("doc1", 1),
+    });
+    expect(err.error).toBe("InvalidInput");
+    expect(err.message).toContain("missing");
+    expect(err.message).not.toContain("n3");
+  });
+
+  test("nonexistent parent_item_id returns ItemNotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      parent_item_id: "nonexistent",
+      item_ids: ["n1"],
+      expected_sync_token: makeSyncToken("doc1", 1),
+    });
+    expect(err.error).toBe("ItemNotFound");
+  });
+
+  test("parent_item_id pointing to a leaf item rejects item_ids as not children", async () => {
+    // n3 is a leaf. Any item_ids would fail the "not a child" check.
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      parent_item_id: "n3",
+      item_ids: ["n1"],
+      expected_sync_token: makeSyncToken("doc1", 1),
+    });
+    expect(err.error).toBe("ItemNotFound");
+    expect(err.message).toContain("not children of the parent");
+  });
+
+  test("item_ids containing parent_item_id itself returns ItemNotFound", async () => {
+    // n1 is the parent; passing n1 in item_ids is not a child of itself.
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      parent_item_id: "n1",
+      item_ids: ["n1a", "n1"],
+      expected_sync_token: makeSyncToken("doc1", 1),
+    });
+    expect(err.error).toBe("ItemNotFound");
+    expect(err.message).toContain("not children of the parent");
+  });
+
+  test("nonexistent file_id returns NotFound", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "nonexistent",
+      item_ids: ["n1"],
+      expected_sync_token: "zzzzz",
+    });
+    expect(err.error).toBe("NotFound");
+  });
+
+  test("stale sync token returns SyncTokenMismatch", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n1", "n2", "n3"],
+      expected_sync_token: makeSyncToken("doc1", 0),
+    });
+    expect(err.error).toBe("SyncTokenMismatch");
+  });
+
+  test("literal 'root' in item_ids returns InvalidInput", async () => {
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["root"],
+      expected_sync_token: "zzzzz",
+    });
+    expect(err.error).toBe("InvalidInput");
+  });
+
+  // ─── Response shape ───────────────────────────────────────────────
+
+  test("response includes file_id and reordered_count", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+    const result = await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      item_ids: ["n3", "n2", "n1"],
+      expected_sync_token: syncToken,
+    });
+    expect(result.file_id).toBe("doc1");
+    expect(typeof result.reordered_count).toBe("number");
+  });
+});
+
+// ─── reorder_items batching ───────────────────────────────────────────
+
+describe("reorder_items batching", () => {
+  test("reordering 250 children (two batches) produces the correct final order", async () => {
+    const childIds = Array.from({ length: 250 }, (_, i) => `rc_${i}`);
+    ctx.server.addDocument("reorder_bulk", "Reorder Bulk", "folder_a", [
+      ctx.server.makeNode("root", "Reorder Bulk", ["rc_parent"]),
+      ctx.server.makeNode("rc_parent", "Parent", childIds),
+      ...childIds.map((id) => ctx.server.makeNode(id, id, [])),
+    ]);
+
+    const reversed = [...childIds].reverse();
+
+    const syncToken = await getSyncToken(ctx.mcpClient, "reorder_bulk");
+    const result = await callToolOk(ctx.mcpClient, "reorder_items", {
+      file_id: "reorder_bulk",
+      parent_item_id: "rc_parent",
+      item_ids: reversed,
+      expected_sync_token: syncToken,
+    });
+    expect(result.reordered_count).toBe(250);
+
+    const doc = ctx.server.documents.get("reorder_bulk")!;
+    const parent = doc.nodes.find((n) => n.id === "rc_parent")!;
+    expect(parent.children).toEqual(reversed);
+  });
+});
