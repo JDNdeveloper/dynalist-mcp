@@ -207,8 +207,19 @@ const PIPELINE_SPECS: PipelineSpec[] = [
         id: "insert-items",
         prompt:
           `Using Dynalist, read the document with file_id '${docId}'. Insert ` +
-          `a top-level item 'Parent' with one child 'Child'. Also insert three ` +
-          `more top-level items: 'Alpha', 'Beta', 'Gamma'.`,
+          `a top-level item 'Parent' with one child 'Child'. Also insert five ` +
+          `more top-level items: 'Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'.`,
+      },
+      // Unlike other tasks, this prompt says nothing about batch_index, sync
+      // tokens, or avoiding a re-read. It observes whether the model
+      // spontaneously batches the move and delete under one sync_token per
+      // the MCP instructions, rather than re-reading between them.
+      {
+        category: "batch",
+        id: "move-and-delete",
+        prompt:
+          `Using Dynalist, read the document with file_id '${docId}'. ` +
+          `Move 'Delta' to be the first_child of 'Gamma', and delete 'Epsilon'.`,
       },
       {
         category: "delete",

@@ -401,6 +401,7 @@ function exampleNumber(name: string): number {
   if (name === "child_count") return 3;
   if (name === "max_depth") return 3;
   if (name === "index") return 0;
+  if (name === "batch_index") return 0;
   throw new Error(`No example number for field '${name}'. Add it to exampleNumber() in generate-docs.ts.`);
 }
 

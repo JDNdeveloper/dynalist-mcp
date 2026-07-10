@@ -205,4 +205,55 @@ describe("withVersionGuard", () => {
       ),
     ).rejects.toThrow(DynalistApiError);
   });
+
+  describe("batchIndex", () => {
+    test("passes when live version equals expectedSyncToken's version plus batchIndex", async () => {
+      // Token was issued at version 5. Two prior batch members have already
+      // applied, so the live pre-write version is 7.
+      const client = createMockClient({ preVersion: 7, postVersion: 8 });
+
+      const guard = await withVersionGuard(
+        { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5), batchIndex: 2 },
+        async () => ({ result: "ok", apiCallCount: 1 }),
+      );
+
+      expect(guard.result).toBe("ok");
+      expect(guard.preWriteVersion).toBe(7);
+    });
+
+    test("defaults batchIndex to 0, matching today's plain equality check", async () => {
+      const client = createMockClient({ preVersion: 5, postVersion: 6 });
+
+      const guard = await withVersionGuard(
+        { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5) },
+        async () => ({ result: "ok", apiCallCount: 1 }),
+      );
+
+      expect(guard.result).toBe("ok");
+    });
+
+    test("aborts with SyncTokenMismatchError when live version does not account for batchIndex", async () => {
+      // Token issued at version 5, batchIndex 2 implies live version should be
+      // 7, but the live version is only 6 (one prior batch member missing).
+      const client = createMockClient({ preVersion: 6, postVersion: 7 });
+
+      await expect(
+        withVersionGuard(
+          { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 5), batchIndex: 2 },
+          async () => ({ result: "ok", apiCallCount: 1 }),
+        ),
+      ).rejects.toThrow(SyncTokenMismatchError);
+    });
+
+    test("aborts when batchIndex overshoots the live version (negative implied original version)", async () => {
+      const client = createMockClient({ preVersion: 1, postVersion: 2 });
+
+      await expect(
+        withVersionGuard(
+          { client, fileId: "test_doc", expectedSyncToken: makeSyncToken("test_doc", 1), batchIndex: 5 },
+          async () => ({ result: "ok", apiCallCount: 1 }),
+        ),
+      ).rejects.toThrow(SyncTokenMismatchError);
+    });
+  });
 });

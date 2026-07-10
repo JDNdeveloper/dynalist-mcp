@@ -51,6 +51,10 @@ export const MATCH_COUNT_DESCRIPTION = "Number of matches found";
 export const EXPECTED_SYNC_TOKEN_DESCRIPTION =
   "Sync token from your most recent read_document. " +
   "If stale, the tool aborts and requests a re-read.";
+export const BATCH_INDEX_DESCRIPTION =
+  "Zero-based position of this call within a batch of writes issued in " +
+  "the same turn against the same document. Omit for a single write. " +
+  "All calls in a batch pass the same expected_sync_token.";
 export const BYPASS_WARNING_DESCRIPTION =
   "ONLY set true AFTER receiving a size warning. NEVER set true on first request.";
 export const PARENT_LEVELS_DESCRIPTION =

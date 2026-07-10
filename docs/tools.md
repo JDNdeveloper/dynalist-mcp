@@ -499,6 +499,7 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 | `file_id` | string | yes | Document file ID |
 | `items` | object[] | yes | Array of item edits to apply. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`items` element fields:**
 
@@ -527,7 +528,8 @@ Edit one or more items in a document. Only specified fields are updated; omitted
       "color": "red"
     }
   ],
-  "expected_sync_token": "a1b2c"
+  "expected_sync_token": "a1b2c",
+  "batch_index": 0
 }
 ```
 
@@ -558,6 +560,7 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 | `file_id` | string | yes | Document file ID |
 | `inserts` | object[] | yes | Array of independent inserts. Each targets its own location, so items can be placed at different parents or siblings in a single call. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`inserts` element fields:**
 
@@ -594,7 +597,8 @@ Insert items into a document as JSON trees. Each insertion targets an independen
       ]
     }
   ],
-  "expected_sync_token": "a1b2c"
+  "expected_sync_token": "a1b2c",
+  "batch_index": 0
 }
 ```
 
@@ -644,6 +648,7 @@ Delete items and their subtrees from a document.
 | `item_ids` | string[] | yes |  | Item IDs to delete. |
 | `children` | `"delete"`, `"promote"` | no | "delete" | What to do with children of deleted items. 'delete': remove entire subtree. 'promote': re-parent children to the deleted item's parent (single-item only; use to remove a grouping item while keeping its children). |
 | `expected_sync_token` | string | yes |  | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `batch_index` | number | no |  | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **Example input:**
 ```json
@@ -652,7 +657,8 @@ Delete items and their subtrees from a document.
   "item_ids": [
     "n_item789"
   ],
-  "expected_sync_token": "a1b2c"
+  "expected_sync_token": "a1b2c",
+  "batch_index": 0
 }
 ```
 
@@ -685,6 +691,7 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 | `file_id` | string | yes | Document file ID |
 | `moves` | object[] | yes | Array of moves to apply sequentially. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`moves` element fields:**
 
@@ -705,7 +712,8 @@ Move items (with subtrees) to new positions in a document. Moves within a single
       "position": "after"
     }
   ],
-  "expected_sync_token": "a1b2c"
+  "expected_sync_token": "a1b2c",
+  "batch_index": 0
 }
 ```
 
@@ -736,6 +744,7 @@ Sort or reorder the children of one or more parent items by providing each paren
 | `file_id` | string | yes | Document file ID |
 | `reorders` | object[] | yes | Array of reorders to apply. |
 | `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`reorders` element fields:**
 
@@ -756,7 +765,8 @@ Sort or reorder the children of one or more parent items by providing each paren
       ]
     }
   ],
-  "expected_sync_token": "a1b2c"
+  "expected_sync_token": "a1b2c",
+  "batch_index": 0
 }
 ```
 

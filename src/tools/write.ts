@@ -24,7 +24,7 @@ import {
   CHECKED_DESCRIPTION,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
   CONTENT_MULTILINE_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
-  INSTRUCTIONS_FIRST_GUIDANCE,
+  INSTRUCTIONS_FIRST_GUIDANCE, BATCH_INDEX_DESCRIPTION,
 } from "./descriptions";
 import { HEADING_VALUES, COLOR_VALUES, HEADING_TO_NUMBER, COLOR_TO_NUMBER } from "./node-metadata";
 import type { HeadingValue, ColorValue } from "./node-metadata";
@@ -139,6 +139,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
         }).strict()).describe("Array of item edits to apply."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
+        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -150,6 +151,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       file_id,
       items,
       expected_sync_token,
+      batch_index,
     }: {
       file_id: string;
       items: Array<{
@@ -162,6 +164,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         color?: ColorValue;
       }>;
       expected_sync_token: string;
+      batch_index?: number;
     }) => {
       if (items.length === 0) {
         return makeErrorResponse("InvalidInput", "No items to edit (empty array).");
@@ -206,7 +209,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, batchIndex: batch_index, store },
         async () => {
           // Pre-validate that all item IDs exist in the document.
           const doc = await store.read(file_id);
@@ -289,6 +292,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "can be placed at different parents or siblings in a single call."
         ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
+        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -304,6 +308,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       file_id,
       inserts,
       expected_sync_token,
+      batch_index,
     }: {
       file_id: string;
       inserts: Array<{
@@ -312,6 +317,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         items: unknown[];
       }>;
       expected_sync_token: string;
+      batch_index?: number;
     }) => {
       if (inserts.length === 0) {
         return makeErrorResponse("InvalidInput", "No inserts specified (empty array).");
@@ -336,7 +342,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, batchIndex: batch_index, store },
         async () => {
           // Read the document once upfront. Resolving all positions before any writes
           // avoids N-1 re-reads inside the loop and enables semantic conflict detection

@@ -231,6 +231,117 @@ describe("move_items version guard", () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
+// batch_index across write tools
+// ═════════════════════════════════════════════════════════════════════
+describe("batch_index across write tools", () => {
+  test("edit_items accepts batch_index and checks the offset version", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const syncToken = makeSyncToken("doc1", doc.version);
+
+    // batch_index 1 implies the live version is one bump ahead of the token.
+    const err = await callToolError(ctx.mcpClient, "edit_items", {
+      file_id: "doc1",
+      items: [{ item_id: "n1", content: "Updated" }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(err.error).toBe("SyncTokenMismatch");
+  });
+
+  test("insert_items accepts batch_index and checks the offset version", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const syncToken = makeSyncToken("doc1", doc.version);
+
+    const err = await callToolError(ctx.mcpClient, "insert_items", {
+      file_id: "doc1",
+      inserts: [{
+        position: "last_child",
+        reference_item_id: "n1",
+        items: [{ content: "New child" }],
+      }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(err.error).toBe("SyncTokenMismatch");
+  });
+
+  test("delete_items accepts batch_index and checks the offset version", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const syncToken = makeSyncToken("doc1", doc.version);
+
+    const err = await callToolError(ctx.mcpClient, "delete_items", {
+      file_id: "doc1",
+      item_ids: ["n1a"],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(err.error).toBe("SyncTokenMismatch");
+  });
+
+  test("move_items accepts batch_index and checks the offset version", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const syncToken = makeSyncToken("doc1", doc.version);
+
+    const err = await callToolError(ctx.mcpClient, "move_items", {
+      file_id: "doc1",
+      moves: [{ item_id: "n1a", reference_item_id: "n2", position: "last_child" }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(err.error).toBe("SyncTokenMismatch");
+  });
+
+  test("reorder_items accepts batch_index and checks the offset version", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const syncToken = makeSyncToken("doc1", doc.version);
+
+    const err = await callToolError(ctx.mcpClient, "reorder_items", {
+      file_id: "doc1",
+      reorders: [{ parent_item_id: "n1", item_ids: ["n1b", "n1a"] }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(err.error).toBe("SyncTokenMismatch");
+  });
+
+  // Simulates the intended usage: two calls sharing one expected_sync_token,
+  // numbered 0 and 1, both succeed without an intervening read_document.
+  test("two sequential calls sharing one expected_sync_token with batch_index 0 and 1 both succeed", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+
+    const first = await callToolOk(ctx.mcpClient, "edit_items", {
+      file_id: "doc1",
+      items: [{ item_id: "n1", content: "First update" }],
+      expected_sync_token: syncToken,
+      batch_index: 0,
+    });
+    expect(first.sync_warning).toBeUndefined();
+
+    const second = await callToolOk(ctx.mcpClient, "edit_items", {
+      file_id: "doc1",
+      items: [{ item_id: "n2", content: "Second update" }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(second.sync_warning).toBeUndefined();
+  });
+
+  test("a batch call with a mismatched batch_index aborts with SyncTokenMismatch", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+
+    // batch_index 1 without a prior batch member having applied means the
+    // live version does not match the implied original version.
+    const err = await callToolError(ctx.mcpClient, "edit_items", {
+      file_id: "doc1",
+      items: [{ item_id: "n1", content: "Updated" }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(err.error).toBe("SyncTokenMismatch");
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════
 // Post-write concurrent modification detection
 // ═════════════════════════════════════════════════════════════════════
 describe("post-write concurrent modification detection", () => {

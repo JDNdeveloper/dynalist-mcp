@@ -4,7 +4,7 @@ MCP tool calls happen at agent-turn granularity: the agent reads a document, rea
 
 ## Version guards (compare-and-swap)
 
-Every write tool (`edit_items`, `insert_items`, `delete_items`, `move_items`) is wrapped in `withVersionGuard()`, which performs a two-phase version check around the actual write.
+Every write tool (`edit_items`, `insert_items`, `delete_items`, `move_items`, `reorder_items`) is wrapped in `withVersionGuard()`, which performs a two-phase version check around the actual write.
 
 ### Pre-write check
 
@@ -19,6 +19,12 @@ The post-write check is best-effort: if the version fetch itself fails (network 
 ### Multi-batch writes
 
 Tree inserts and large change sets may require multiple `editDocument` calls (one per depth level for inserts, batches of 200 for bulk changes). The version guard tracks the total `apiCallCount` across all batches and validates the cumulative delta. A concurrent edit during any batch is detected.
+
+### Batched writes
+
+`withVersionGuard` accepts an optional `batchIndex`, generalizing the pre-write equality check into an offset check: it computes `impliedOriginalVersion = preWriteVersion - batchIndex`, hashes that into a token, and compares it against `expected_sync_token`. `batchIndex` counts how many prior batch members (each causing exactly one version bump) are expected to have already applied, so `impliedOriginalVersion` reconstructs what the live version was when the token was issued. This lets an agent issue several independent writes in one turn, all sharing the token from a single `read_document`, numbered by `batch_index` instead of re-reading between each call.
+
+The scheme relies on each batch member causing exactly one version bump. A write whose change list spans more than one `/doc/edit` call (see `CHANGES_BATCH_SIZE` in `dynalist-client.ts`) breaks this for later indices in the same batch; the next indexed call's pre-write check simply fails like any other stale token, with no special-cased error path.
 
 ## Relative positioning
 

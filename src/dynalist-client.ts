@@ -34,6 +34,11 @@ const MAX_RETRY_DELAY_MS = 10000;
 // Batch config: the API silently drops changes beyond its burst limit
 // (~500 changes). Batches of 200 stay safely within the limit. No
 // inter-batch delay. The retry logic handles rate limits if needed.
+//
+// withVersionGuard's batch_index arithmetic (version-guard.ts) assumes
+// each write causes exactly one version bump. A change list that spans
+// more than one batch here breaks that assumption for any later index in
+// the same agent-issued batch; see the comment there.
 export const CHANGES_BATCH_SIZE = 200;
 const INTER_BATCH_DELAY_MS = 0;
 

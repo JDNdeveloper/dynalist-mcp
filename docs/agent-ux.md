@@ -232,6 +232,10 @@ The instructions establish a mandatory workflow: read a document before any writ
 
 Early versions exposed the numeric document version directly. Claude Opus 4.6 exploited this after a write: it called `insert_items`, incremented the version by 1, received a sync warning saying the version had actually advanced by 2 (the insert made two API calls under the hood), then used that leaked version number directly in the next mutation without re-reading the document. The arithmetic happened to be correct, but the behavior is unsafe because it bypasses the re-read that the version guard is designed to enforce. By hashing the version into a short opaque hex token, agents cannot predict the next value and are forced to re-read.
 
+### Batched writes without re-reading
+
+Opaque tokens close the version-leak hole, but a naive "one read per write" workflow still forces agents to re-read between every independent mutation in a turn, even when nothing else can have changed the document in the meantime. `batch_index` reopens that door safely: an agent issuing several independent writes in one turn passes the *same* `expected_sync_token` from a single read to each call, numbered `0, 1, 2, ...`. The server takes the live version, subtracts `batch_index` to get what the version would have been when the token was issued, hashes that, and compares the result against `expected_sync_token`. This gets the token-per-write economy of a stateless, hash-based CAS scheme without the agent ever decoding or predicting a token value; a stale or wrong `batch_index` still fails closed with the ordinary `SyncTokenMismatchError`. See [concurrency.md](concurrency.md#batched-writes) for the arithmetic.
+
 ## Checkbox and checked state guidance
 
 Dynalist's checkbox semantics are subtle: items can be checked with or without a visible checkbox, and checking a parent visually greys out descendants in the UI. Shared guidance constants teach agents to:

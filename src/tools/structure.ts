@@ -21,7 +21,7 @@ import {
   FILE_ID_DESCRIPTION, SYNC_WARNING_DESCRIPTION,
   CONFIRM_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
   REREAD_GUIDANCE,
-  INSTRUCTIONS_FIRST_GUIDANCE,
+  INSTRUCTIONS_FIRST_GUIDANCE, BATCH_INDEX_DESCRIPTION,
 } from "./descriptions";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
@@ -41,6 +41,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           "(single-item only; use to remove a grouping item while keeping its children)."
         ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
+        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -54,11 +55,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       item_ids,
       children: childrenMode,
       expected_sync_token,
+      batch_index,
     }: {
       file_id: string;
       item_ids: string[];
       children: "delete" | "promote";
       expected_sync_token: string;
+      batch_index?: number;
     }) => {
       if (item_ids.length === 0) {
         return makeErrorResponse("InvalidInput", "No items to delete (empty array).");
@@ -93,7 +96,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       }
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, batchIndex: batch_index, store },
         async (): Promise<{ result: { deleted_count: number; promoted_children_count?: number }; apiCallCount: number }> => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
@@ -245,6 +248,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           ),
         }).strict()).describe("Array of moves to apply sequentially."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
+        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -256,6 +260,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       file_id,
       moves,
       expected_sync_token,
+      batch_index,
     }: {
       file_id: string;
       moves: Array<{
@@ -264,6 +269,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         position: string;
       }>;
       expected_sync_token: string;
+      batch_index?: number;
     }) => {
       if (moves.length === 0) {
         return makeErrorResponse("InvalidInput", "No moves to apply (empty array).");
@@ -287,7 +293,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, batchIndex: batch_index, store },
         async () => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
@@ -445,6 +451,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           ),
         }).strict()).describe("Array of reorders to apply."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
+        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -456,10 +463,12 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       file_id,
       reorders,
       expected_sync_token,
+      batch_index,
     }: {
       file_id: string;
       reorders: Array<{ parent_item_id?: string; item_ids: string[] }>;
       expected_sync_token: string;
+      batch_index?: number;
     }) => {
       if (reorders.length === 0) {
         return makeErrorResponse("InvalidInput", "reorders must not be empty.");
@@ -504,7 +513,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       if (accessError) return makeErrorResponse(accessError.error, accessError.message);
 
       const guard = await withVersionGuard(
-        { client, fileId: file_id, expectedSyncToken: expected_sync_token, store },
+        { client, fileId: file_id, expectedSyncToken: expected_sync_token, batchIndex: batch_index, store },
         async () => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);

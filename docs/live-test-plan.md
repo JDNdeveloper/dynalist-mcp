@@ -244,6 +244,14 @@ Call `edit_items` with:
 
 Read back. **PASS** if the `note` field is absent (cleared) on `Edit Target A`, and all other fields (`content`, `heading`, `color`) are unchanged. **FAIL** otherwise.
 
+### Test 2d: Batched writes with batch_index
+
+Without an intervening `read_document`, call `edit_items` twice using the *same* `expected_sync_token` (the one from Test 2c's read-back):
+1. `items`: `[{ "item_id": <Edit Target A>, "content": "Batch A" }]`, `batch_index: 0`
+2. `items`: `[{ "item_id": <Edit Target B>, "content": "Batch B" }]`, `batch_index: 1`
+
+Read back. **PASS** if both calls succeed with no `sync_warning`, `Edit Target A` has content `Batch A`, and `Edit Target B` has content `Batch B`. **FAIL** if either call errors, returns `sync_warning`, or an item's content did not update as expected.
+
 ---
 
 ## Agent 03: delete_items

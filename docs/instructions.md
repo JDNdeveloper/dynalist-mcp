@@ -120,6 +120,7 @@ Example:
 
 - Call read_document before any mutating tool to obtain the sync_token.
 - Pass the sync_token as expected_sync_token to mutating tools.
+- To issue several independent writes in one turn, pass the same expected_sync_token to each call and number them with batch_index: 0, 1, 2, ... A later call in the batch that needs an ID from an earlier call's result cannot be batched; issue it as a separate turn instead.
 - If a mutating tool returns sync_warning, a concurrent edit may have occurred. Re-read and verify before further edits.
 - Do NOT modify or fabricate sync tokens. They are opaque and unpredictable.
 

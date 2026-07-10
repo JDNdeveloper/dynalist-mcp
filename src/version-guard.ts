@@ -12,6 +12,7 @@ export interface VersionGuardOptions {
   client: Pick<DynalistClient, "checkForUpdates">;
   fileId: string;
   expectedSyncToken: string;
+  batchIndex?: number;
   store?: DocumentStore;
 }
 
@@ -40,7 +41,7 @@ export async function withVersionGuard<T>(
   options: VersionGuardOptions,
   guardedFn: () => Promise<{ result: T; apiCallCount: number }>,
 ): Promise<VersionGuardResult<T>> {
-  const { client, fileId, expectedSyncToken, store } = options;
+  const { client, fileId, expectedSyncToken, batchIndex = 0, store } = options;
 
   // Pre-write: get current version.
   const preCheck = await client.checkForUpdates([fileId]);
@@ -51,8 +52,20 @@ export async function withVersionGuard<T>(
     throw new DynalistApiError("NotFound", "Document not found.");
   }
 
-  // CAS check: abort if the document changed since the agent's last read.
-  const currentToken = makeSyncToken(fileId, preWriteVersion);
+  // CAS check, generalized for batched calls. batchIndex counts how many
+  // prior batch members (each causing exactly one version bump) are
+  // expected to have already applied, so the version at token-issue time
+  // should be preWriteVersion - batchIndex. The token is a one-way hash,
+  // so we re-derive that implied original version and hash forward rather
+  // than decoding it. batchIndex 0 (the default) reduces to plain equality.
+  //
+  // A batch member whose write spans more than one /doc/edit call (see
+  // CHANGES_BATCH_SIZE in dynalist-client.ts) advances the live version by
+  // more than 1, desyncing every later index in the batch. This needs no
+  // special handling: the next indexed call's pre-write check fails this
+  // same comparison, producing the ordinary SyncTokenMismatchError.
+  const impliedOriginalVersion = preWriteVersion - batchIndex;
+  const currentToken = makeSyncToken(fileId, impliedOriginalVersion);
   if (expectedSyncToken !== currentToken) {
     throw new SyncTokenMismatchError(
       "Sync token mismatch: the document has changed since your last read. " +
