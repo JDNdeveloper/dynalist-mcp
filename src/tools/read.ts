@@ -164,6 +164,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       description:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "List documents and folders as a recursive tree.",
+      annotations: { readOnlyHint: true },
       inputSchema: {
         folder_id: z.string().optional().describe(
           "Starting folder. Omit to list from the top level."
@@ -356,6 +357,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "use search_in_document for that.\n\n" +
         "Each match has a type field ('document' or 'folder'). Document matches include " +
         "permission.",
+      annotations: { readOnlyHint: true },
       inputSchema: {
         query: z.string().describe("Regex pattern to match against document/folder names. Case-insensitive by default."),
         type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
@@ -429,6 +431,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "The starting item always shows its children regardless of collapsed state.\n\n" +
         "Hidden children are signaled by depth_limited: true (max_depth cut off traversal). " +
         "Call read_document with that item_id to expand.",
+      annotations: { readOnlyHint: true },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_id: z.string().optional().describe(
@@ -540,6 +543,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "Search for text in a document. Returns matching items with metadata. " +
         "Use parent_levels for ancestor breadcrumbs without a separate read_document call.",
+      annotations: { readOnlyHint: true },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         query: z.string().describe("Regex pattern to match against item content and notes. Case-insensitive by default."),
@@ -657,6 +661,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "Get items created or modified within a time period. Accepts ISO 8601 date strings. " +
         "Date-only strings like '2025-03-11' are start-of-day for 'since' and " +
         "end-of-day for 'until'.",
+      annotations: { readOnlyHint: true },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         since: z.string().describe("Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z')"),
@@ -808,6 +813,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         "Check document sync tokens without fetching content. " +
         "Detect changes before an expensive read_document call. " +
         "Empty string means not found or access denied.",
+      annotations: { readOnlyHint: true },
       inputSchema: {
         file_ids: z.array(z.string()).describe("Array of document file IDs to check"),
       },

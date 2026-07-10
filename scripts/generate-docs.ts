@@ -422,6 +422,7 @@ function exampleBoolean(name: string): boolean {
 interface CapturedTool {
   name: string;
   description: string;
+  readOnly: boolean;
   inputSchema: Record<string, ZodTypeAny>;
   outputSchema: Record<string, ZodTypeAny>;
 }
@@ -429,10 +430,11 @@ interface CapturedTool {
 const capturedTools: CapturedTool[] = [];
 
 const mockServer = {
-  registerTool(name: string, options: { description?: string; inputSchema?: Record<string, ZodTypeAny>; outputSchema?: Record<string, ZodTypeAny> }) {
+  registerTool(name: string, options: { description?: string; annotations?: { readOnlyHint?: boolean }; inputSchema?: Record<string, ZodTypeAny>; outputSchema?: Record<string, ZodTypeAny> }) {
     capturedTools.push({
       name,
       description: options.description ?? "",
+      readOnly: options.annotations?.readOnlyHint ?? false,
       inputSchema: options.inputSchema ?? {},
       outputSchema: options.outputSchema ?? {},
     });
@@ -571,6 +573,11 @@ function generateToolsMarkdown(): string {
         .replace(CONFIRM_GUIDANCE, "")
         .trimStart();
       lines.push(desc);
+
+      if (tool.readOnly) {
+        lines.push("");
+        lines.push("**Read-only.**");
+      }
 
       // Input parameters.
       const inputFields = extractFields(tool.inputSchema);

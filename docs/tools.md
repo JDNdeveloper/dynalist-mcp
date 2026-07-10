@@ -31,6 +31,8 @@ Get additional instructions for working with this MCP server. You MUST call this
 
 List documents and folders as a recursive tree.
 
+**Read-only.**
+
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
@@ -95,6 +97,8 @@ Search for documents and folders by title. Does not search document content; use
 
 Each match has a type field ('document' or 'folder'). Document matches include permission.
 
+**Read-only.**
+
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
@@ -152,6 +156,8 @@ max_depth and include_collapsed_children are orthogonal: max_depth does NOT expa
 The starting item always shows its children regardless of collapsed state.
 
 Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that item_id to expand.
+
+**Read-only.**
 
 **Parameters:**
 
@@ -229,6 +235,8 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 ### `search_in_document`
 
 Search for text in a document. Returns matching items with metadata. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
+
+**Read-only.**
 
 **Parameters:**
 
@@ -310,6 +318,8 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 ### `get_recent_changes`
 
 Get items created or modified within a time period. Accepts ISO 8601 date strings. Date-only strings like '2025-03-11' are start-of-day for 'since' and end-of-day for 'until'.
+
+**Read-only.**
 
 **Parameters:**
 
@@ -401,6 +411,8 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 ### `check_document_versions`
 
 Check document sync tokens without fetching content. Detect changes before an expensive read_document call. Empty string means not found or access denied.
+
+**Read-only.**
 
 **Parameters:**
 

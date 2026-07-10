@@ -244,6 +244,10 @@ Dynalist's checkbox semantics are subtle: items can be checked with or without a
 
 Any mutation that requires multiple API calls (multi-level inserts, large batched edits/deletes, child promotion) can partially succeed. If a later API call fails after earlier ones succeeded, the tool returns a `PartialWrite` error with a message telling the agent to re-read the document and verify the result. The error carries the `file_id` so the agent knows which document to re-read.
 
+## Read-only annotations
+
+Every tool in `read.ts` sets `annotations: { readOnlyHint: true }` in its `registerTool` config, a standard MCP annotation delivered at the protocol level. Some harnesses use it to run read-only calls concurrently instead of serializing every tool call, speeding up multi-call fetches (e.g. several `read_document` calls, or `search_in_document` combined with `read_document`).
+
 ## Description architecture
 
 The text that reaches agents is factored into three levels to avoid duplication and keep each piece of guidance where it belongs:
