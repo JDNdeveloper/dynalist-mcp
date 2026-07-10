@@ -450,7 +450,7 @@ describe("CAS check fires with sync token 0", () => {
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
-      expected_sync_token: "00000",
+      expected_sync_token: "000000",
     });
     expect(err.error).toBe("SyncTokenMismatch");
   });
@@ -465,7 +465,7 @@ describe("read_document sync_token", () => {
       file_id: "doc1",
     });
     expect(typeof result.sync_token).toBe("string");
-    expect((result.sync_token as string).length).toBe(5);
+    expect((result.sync_token as string).length).toBe(6);
   });
 
   test("sync_token changes after edits", async () => {

@@ -210,7 +210,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 {
   "file_id": "f_abc123",
   "title": "Project Notes",
-  "sync_token": "a1b2c",
+  "sync_token": "a1b2c3",
   "item": {
     "item_id": "n_item789",
     "content": "Buy groceries",
@@ -293,7 +293,7 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 {
   "file_id": "f_abc123",
   "title": "Project Notes",
-  "sync_token": "a1b2c",
+  "sync_token": "a1b2c3",
   "count": 1,
   "matches": [
     {
@@ -382,7 +382,7 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 {
   "file_id": "f_abc123",
   "title": "Project Notes",
-  "sync_token": "a1b2c",
+  "sync_token": "a1b2c3",
   "count": 1,
   "matches": [
     {
@@ -439,7 +439,7 @@ Check document sync tokens without fetching content. Detect changes before an ex
 ```json
 {
   "sync_tokens": {
-    "f_abc123": "a1b2c"
+    "f_abc123": "a1b2c3"
   }
 }
 ```
@@ -528,7 +528,7 @@ Edit one or more items in a document. Only specified fields are updated; omitted
       "color": "red"
     }
   ],
-  "expected_sync_token": "a1b2c",
+  "expected_sync_token": "a1b2c3",
   "batch_index": 0
 }
 ```
@@ -597,7 +597,7 @@ Insert items into a document as JSON trees. Each insertion targets an independen
       ]
     }
   ],
-  "expected_sync_token": "a1b2c",
+  "expected_sync_token": "a1b2c3",
   "batch_index": 0
 }
 ```
@@ -657,7 +657,7 @@ Delete items and their subtrees from a document.
   "item_ids": [
     "n_item789"
   ],
-  "expected_sync_token": "a1b2c",
+  "expected_sync_token": "a1b2c3",
   "batch_index": 0
 }
 ```
@@ -712,7 +712,7 @@ Move items (with subtrees) to new positions in a document. Moves within a single
       "position": "after"
     }
   ],
-  "expected_sync_token": "a1b2c",
+  "expected_sync_token": "a1b2c3",
   "batch_index": 0
 }
 ```
@@ -765,7 +765,7 @@ Sort or reorder the children of one or more parent items by providing each paren
       ]
     }
   ],
-  "expected_sync_token": "a1b2c",
+  "expected_sync_token": "a1b2c3",
   "batch_index": 0
 }
 ```

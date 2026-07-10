@@ -20,6 +20,32 @@ The post-write check is best-effort: if the version fetch itself fails (network 
 
 Tree inserts and large change sets may require multiple `editDocument` calls (one per depth level for inserts, batches of 200 for bulk changes). The version guard tracks the total `apiCallCount` across all batches and validates the cumulative delta. A concurrent edit during any batch is detected.
 
+### Sync token length
+
+`makeSyncToken` (`sync-token.ts`) truncates the SHA-256 hash to 6 hex characters (24 bits). The only collision that matters is a stale token from version V matching the token for V+1, since that's the one comparison the pre-write check actually makes; this is a single fresh, uniform hash compared against one fixed target, not a birthday-paradox search over history. Each write is an independent Bernoulli trial with collision probability p = 1/16^N (N = hex chars), so the expected number of writes until the first collision is the mean of a geometric distribution, 1/p = 16^N.
+
+Converting to wall-clock time at an assumed write rate R (writes/day):
+
+```
+expected_days = 16^N / R
+```
+
+Worst case assumes every write races a stale token (R = 10 writes/min × 1,440 min/day = 14,400 writes/day). A more realistic estimate assumes only 1 in 10 writes has a concurrent second writer actually holding a stale token to collide with (p_contention = 0.1); scaling the per-write hazard by p_contention scales the geometric mean by 1/p_contention, so:
+
+```
+expected_days_contention_adjusted = 16^N / (R × p_contention) = expected_days / p_contention
+```
+
+At p_contention = 0.1 this is a flat 10x multiplier on expected days, independent of N:
+
+| Hex chars | Bits | Expected days (always contending) | Expected days (1/10 contention) |
+|---|---|---|---|
+| 5 (previous) | 20 | ~73 | ~728 (~2 yr) |
+| 6 (current) | 24 | ~1,165 (~3.2 yr) | ~11,651 (~32 yr) |
+| 7 | 28 | ~18,641 (~51 yr) | ~186,414 (~511 yr) |
+
+6 characters clears the worst-case bound by a wide margin while keeping the token short.
+
 ### Batched writes
 
 `withVersionGuard` accepts an optional `batchIndex`, generalizing the pre-write equality check into an offset check: it computes `impliedOriginalVersion = preWriteVersion - batchIndex`, hashes that into a token, and compares it against `expected_sync_token`. `batchIndex` counts how many prior batch members (each causing exactly one version bump) are expected to have already applied, so `impliedOriginalVersion` reconstructs what the live version was when the token was issued. This lets an agent issue several independent writes in one turn, all sharing the token from a single `read_document`, numbered by `batch_index` instead of re-reading between each call.

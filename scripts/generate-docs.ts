@@ -387,8 +387,8 @@ function exampleString(name: string): string {
   if (name === "permission") return "owner";
   if (name === "access_policy") return "read";
   if (name === "reference_file_id") return "abc123def456";
-  if (name === "sync_token" || name === "expected_sync_token") return "a1b2c";
-  if (name === "value") return "a1b2c";
+  if (name === "sync_token" || name === "expected_sync_token") return "a1b2c3";
+  if (name === "value") return "a1b2c3";
   if (name === "instructions") return "Dynalist is an outliner for organizing information as nested bullet-point lists.\n\n...";
   throw new Error(`No example string for field '${name}'. Add it to exampleString() in generate-docs.ts.`);
 }

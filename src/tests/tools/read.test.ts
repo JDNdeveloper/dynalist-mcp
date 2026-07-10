@@ -2126,9 +2126,9 @@ describe("check_document_versions", () => {
     });
     const syncTokens = result.sync_tokens as Record<string, string>;
     expect(typeof syncTokens.doc1).toBe("string");
-    expect((syncTokens.doc1 as string).length).toBe(5);
+    expect((syncTokens.doc1 as string).length).toBe(6);
     expect(typeof syncTokens.doc2).toBe("string");
-    expect((syncTokens.doc2 as string).length).toBe(5);
+    expect((syncTokens.doc2 as string).length).toBe(6);
   });
 
   test("non-existent document gets empty string sync_token", async () => {

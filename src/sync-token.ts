@@ -8,11 +8,11 @@ import { createHash } from "node:crypto";
 
 /**
  * Generate a deterministic, opaque sync token from a file ID and version.
- * Returns a 5-character hex string.
+ * Returns a 6-character hex string.
  */
 export function makeSyncToken(fileId: string, version: number): string {
   return createHash("sha256")
     .update(`${fileId}:${version}`)
     .digest("hex")
-    .slice(0, 5);
+    .slice(0, 6);
 }

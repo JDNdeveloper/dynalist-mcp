@@ -764,7 +764,7 @@ describe("check_document_versions with ACL", () => {
     });
     const syncTokens = result.sync_tokens as Record<string, string>;
     expect(typeof syncTokens.allowed_doc).toBe("string");
-    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(syncTokens.allowed_doc.length).toBe(6);
   });
 
   test("denied documents get empty string (indistinguishable from not-found)", async () => {
@@ -782,7 +782,7 @@ describe("check_document_versions with ACL", () => {
     });
     const syncTokens = result.sync_tokens as Record<string, string>;
     expect(typeof syncTokens.readonly_doc).toBe("string");
-    expect(syncTokens.readonly_doc.length).toBe(5);
+    expect(syncTokens.readonly_doc.length).toBe(6);
   });
 
   test("mixed batch: denied gets empty string, allowed and read get real tokens", async () => {
@@ -791,9 +791,9 @@ describe("check_document_versions with ACL", () => {
     });
     const syncTokens = result.sync_tokens as Record<string, string>;
     expect(typeof syncTokens.allowed_doc).toBe("string");
-    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(syncTokens.allowed_doc.length).toBe(6);
     expect(typeof syncTokens.readonly_doc).toBe("string");
-    expect(syncTokens.readonly_doc.length).toBe(5);
+    expect(syncTokens.readonly_doc.length).toBe(6);
     expect(syncTokens.denied_doc).toBe("");
     expect(result.denied).toBeUndefined();
   });
@@ -813,9 +813,9 @@ describe("check_document_versions with ACL", () => {
     });
     const syncTokens = result.sync_tokens as Record<string, string>;
     expect(typeof syncTokens.allowed_doc).toBe("string");
-    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(syncTokens.allowed_doc.length).toBe(6);
     expect(typeof syncTokens.readonly_doc).toBe("string");
-    expect(syncTokens.readonly_doc.length).toBe(5);
+    expect(syncTokens.readonly_doc.length).toBe(6);
     expect(result.denied).toBeUndefined();
   });
 });
@@ -1191,7 +1191,7 @@ describe("check_document_versions mixed allowed/denied IDs", () => {
     });
     const syncTokens = result.sync_tokens as Record<string, string>;
     expect(typeof syncTokens.allowed_doc).toBe("string");
-    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(syncTokens.allowed_doc.length).toBe(6);
     expect(syncTokens.denied_doc).toBe("");
   });
 
@@ -1209,7 +1209,7 @@ describe("check_document_versions mixed allowed/denied IDs", () => {
     });
     const syncTokens = result.sync_tokens as Record<string, string>;
     expect(typeof syncTokens.allowed_doc).toBe("string");
-    expect(syncTokens.allowed_doc.length).toBe(5);
+    expect(syncTokens.allowed_doc.length).toBe(6);
     expect(syncTokens.denied_doc).toBe("");
     expect(syncTokens.fake_id).toBe("");
   });
