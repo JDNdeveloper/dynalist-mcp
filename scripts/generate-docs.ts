@@ -422,8 +422,11 @@ function exampleBoolean(name: string): boolean {
 
 interface CapturedTool {
   name: string;
+  title: string;
   description: string;
   readOnly: boolean;
+  destructiveHint: boolean | undefined;
+  idempotentHint: boolean | undefined;
   inputSchema: Record<string, ZodTypeAny>;
   outputSchema: Record<string, ZodTypeAny>;
 }
@@ -431,11 +434,14 @@ interface CapturedTool {
 const capturedTools: CapturedTool[] = [];
 
 const mockServer = {
-  registerTool(name: string, options: { description?: string; annotations?: { readOnlyHint?: boolean }; inputSchema?: Record<string, ZodTypeAny>; outputSchema?: Record<string, ZodTypeAny> }) {
+  registerTool(name: string, options: { description?: string; annotations?: { title?: string; readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean }; inputSchema?: Record<string, ZodTypeAny>; outputSchema?: Record<string, ZodTypeAny> }) {
     capturedTools.push({
       name,
+      title: options.annotations?.title ?? "",
       description: options.description ?? "",
       readOnly: options.annotations?.readOnlyHint ?? false,
+      destructiveHint: options.annotations?.destructiveHint,
+      idempotentHint: options.annotations?.idempotentHint,
       inputSchema: options.inputSchema ?? {},
       outputSchema: options.outputSchema ?? {},
     });
@@ -564,7 +570,7 @@ function generateToolsMarkdown(): string {
       const tool = toolMap.get(toolName)!;
 
       lines.push("");
-      lines.push(`### \`${toolName}\``);
+      lines.push(`### \`${toolName}\` (${tool.title})`);
       lines.push("");
 
       // Tool description as intro text.
@@ -575,9 +581,14 @@ function generateToolsMarkdown(): string {
         .trimStart();
       lines.push(desc);
 
-      if (tool.readOnly) {
+      const hintPhrases: string[] = [];
+      if (tool.readOnly) hintPhrases.push("read-only");
+      if (tool.destructiveHint !== undefined) hintPhrases.push(tool.destructiveHint ? "destructive" : "not destructive");
+      if (tool.idempotentHint !== undefined) hintPhrases.push(tool.idempotentHint ? "idempotent" : "not idempotent");
+      if (hintPhrases.length > 0) {
+        const sentence = hintPhrases[0]![0]!.toUpperCase() + hintPhrases[0]!.slice(1) + hintPhrases.slice(1).map(p => `, ${p}`).join("");
         lines.push("");
-        lines.push("**Read-only.**");
+        lines.push(`**${sentence}.**`);
       }
 
       // Input parameters.

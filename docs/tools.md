@@ -6,9 +6,11 @@ Examples are auto-generated to demonstrate response shape and available properti
 
 ## Meta tools
 
-### `get_instructions`
+### `get_instructions` (Get Instructions)
 
 Get additional instructions for working with this MCP server. You MUST call this before using any other tools.
+
+**Read-only.**
 
 **Parameters**: none.
 
@@ -27,7 +29,7 @@ Get additional instructions for working with this MCP server. You MUST call this
 
 ## Read tools
 
-### `list_documents`
+### `list_documents` (List Documents)
 
 List documents and folders as a recursive tree.
 
@@ -91,7 +93,7 @@ List documents and folders as a recursive tree.
 }
 ```
 
-### `search_documents`
+### `search_documents` (Search Documents)
 
 Search for documents and folders by title. Does not search document content; use search_in_document for that.
 
@@ -147,7 +149,7 @@ Each match has a type field ('document' or 'folder'). Document matches include p
 }
 ```
 
-### `read_document`
+### `read_document` (Read Document)
 
 Read a document as a JSON item tree. Provide item_id to zoom into a subtree.
 
@@ -232,7 +234,7 @@ Hidden children are signaled by depth_limited: true (max_depth cut off traversal
 }
 ```
 
-### `search_in_document`
+### `search_in_document` (Search in Document)
 
 Search for text in a document. Returns matching items with metadata. Use parent_levels for ancestor breadcrumbs without a separate read_document call.
 
@@ -315,7 +317,7 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 }
 ```
 
-### `get_recent_changes`
+### `get_recent_changes` (Get Recent Changes)
 
 Get items created or modified within a time period. Accepts ISO 8601 date strings. Date-only strings like '2025-03-11' are start-of-day for 'since' and end-of-day for 'until'.
 
@@ -408,7 +410,7 @@ Get items created or modified within a time period. Accepts ISO 8601 date string
 }
 ```
 
-### `check_document_versions`
+### `check_document_versions` (Check Document Versions)
 
 Check document sync tokens without fetching content. Detect changes before an expensive read_document call. Empty string means not found or access denied.
 
@@ -446,9 +448,11 @@ Check document sync tokens without fetching content. Detect changes before an ex
 
 ## Write tools
 
-### `send_to_inbox`
+### `send_to_inbox` (Send to Inbox)
 
 Send an item to the Dynalist inbox. Target is the user's configured inbox. Returns the inbox document's file_id and created item_id. For specific documents or hierarchical content, use insert_items.
+
+**Not destructive, not idempotent.**
 
 **Parameters:**
 
@@ -488,9 +492,11 @@ Send an item to the Dynalist inbox. Target is the user's configured inbox. Retur
 }
 ```
 
-### `edit_items`
+### `edit_items` (Edit Items)
 
 Edit one or more items in a document. Only specified fields are updated; omitted fields are unchanged. Only include fields the user explicitly asked to change; do NOT clear fields (e.g. color, heading) as a side effect.
+
+**Destructive, idempotent.**
 
 **Parameters:**
 
@@ -549,9 +555,11 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 }
 ```
 
-### `insert_items`
+### `insert_items` (Insert Items)
 
 Insert items into a document as JSON trees. Each insertion targets an independent location, allowing inserts at different positions in a single call. Each insertion supports nested children and per-item metadata.
+
+**Not destructive, not idempotent.**
 
 **Parameters:**
 
@@ -636,9 +644,11 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 
 ## Structure tools
 
-### `delete_items`
+### `delete_items` (Delete Items)
 
 Delete items and their subtrees from a document.
+
+**Destructive, idempotent.**
 
 **Parameters:**
 
@@ -680,9 +690,11 @@ Delete items and their subtrees from a document.
 }
 ```
 
-### `move_items`
+### `move_items` (Move Items)
 
 Move items (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects.
+
+**Not destructive, idempotent.**
 
 **Parameters:**
 
@@ -733,9 +745,11 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 }
 ```
 
-### `reorder_items`
+### `reorder_items` (Reorder Items)
 
 Sort or reorder the children of one or more parent items by providing each parent's complete ordered child list. All children of each parent must be present.
+
+**Not destructive, idempotent.**
 
 **Parameters:**
 
@@ -788,9 +802,11 @@ Sort or reorder the children of one or more parent items by providing each paren
 
 ## File management tools
 
-### `create_document`
+### `create_document` (Create Document)
 
 Create an empty document in a folder. Use the returned file_id with insert_items to add content.
+
+**Not destructive, not idempotent.**
 
 **Parameters:**
 
@@ -822,9 +838,11 @@ Create an empty document in a folder. Use the returned file_id with insert_items
 }
 ```
 
-### `create_folder`
+### `create_folder` (Create Folder)
 
 Create an empty folder inside another folder.
+
+**Not destructive, not idempotent.**
 
 **Parameters:**
 
@@ -856,10 +874,12 @@ Create an empty folder inside another folder.
 }
 ```
 
-### `rename_document`
+### `rename_document` (Rename Document)
 
 Rename a document. The file_id does not change when renaming.
 
+**Destructive, idempotent.**
+
 **Parameters:**
 
 | Parameter | Type | Required | Description |
@@ -890,10 +910,12 @@ Rename a document. The file_id does not change when renaming.
 }
 ```
 
-### `rename_folder`
+### `rename_folder` (Rename Folder)
 
 Rename a folder. The file_id does not change when renaming.
 
+**Destructive, idempotent.**
+
 **Parameters:**
 
 | Parameter | Type | Required | Description |
@@ -924,9 +946,11 @@ Rename a folder. The file_id does not change when renaming.
 }
 ```
 
-### `move_document`
+### `move_document` (Move Document)
 
 Move a document to a different folder, or reorder within its current folder. Operates on the file tree, not document items.
+
+**Not destructive, idempotent.**
 
 **Parameters:**
 
@@ -959,9 +983,11 @@ Move a document to a different folder, or reorder within its current folder. Ope
 }
 ```
 
-### `move_folder`
+### `move_folder` (Move Folder)
 
 Move a folder to a different parent, or reorder within its current parent. Contents move with it.
+
+**Not destructive, idempotent.**
 
 **Parameters:**
 

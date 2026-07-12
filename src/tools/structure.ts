@@ -32,6 +32,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Delete items and their subtrees from a document.",
+      annotations: {
+        title: "Delete Items",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_ids: z.array(z.string()).describe("Item IDs to delete."),
@@ -237,6 +244,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         `${CONFIRM_GUIDANCE} ` +
         "Move items (with subtrees) to new positions in a document. Moves within a single " +
         "call are applied sequentially; later moves see earlier moves' effects.",
+      annotations: {
+        title: "Move Items",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moves: z.array(z.object({
@@ -440,6 +454,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         `${CONFIRM_GUIDANCE} ` +
         "Sort or reorder the children of one or more parent items by providing each parent's " +
         "complete ordered child list. All children of each parent must be present.",
+      annotations: {
+        title: "Reorder Items",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         reorders: z.array(z.object({

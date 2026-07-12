@@ -248,9 +248,17 @@ Dynalist's checkbox semantics are subtle: items can be checked with or without a
 
 Any mutation that requires multiple API calls (multi-level inserts, large batched edits/deletes, child promotion) can partially succeed. If a later API call fails after earlier ones succeeded, the tool returns a `PartialWrite` error with a message telling the agent to re-read the document and verify the result. The error carries the `file_id` so the agent knows which document to re-read.
 
-## Read-only annotations
+## Tool annotations
 
-Every tool in `read.ts` sets `annotations: { readOnlyHint: true }` in its `registerTool` config, a standard MCP annotation delivered at the protocol level. Some harnesses use it to run read-only calls concurrently instead of serializing every tool call, speeding up multi-call fetches (e.g. several `read_document` calls, or `search_in_document` combined with `read_document`).
+Every tool sets `annotations` in its `registerTool` config, standard MCP fields delivered at the protocol level that let clients tailor confirmation and retry behavior without parsing description prose.
+
+- **`readOnlyHint`**: `true` for tools that never mutate a document or file tree. Some harnesses use it to run read-only calls concurrently instead of serializing every tool call.
+- **`destructiveHint`**: `true` if a tool can irreversibly overwrite or remove data. Meaningless (and omitted) on read-only tools.
+- **`idempotentHint`**: `true` if repeating a call with the same arguments produces the same end state. Meaningless (and omitted) on read-only tools.
+- **`title`**: a human-readable name distinct from the tool's snake_case `name`, for clients that render tool titles in UI.
+- **`openWorldHint`**: `true` if a tool interacts with an open-ended external system rather than a closed, self-contained one. `true` on every tool that talks to the Dynalist API; `false` only on `get_instructions`, which returns a static string with no external call.
+
+`readOnlyHint`, `title`, and `openWorldHint` are set explicitly on every tool, per the MCP spec's guidance to not rely on defaults. `destructiveHint` and `idempotentHint` are specified on every mutating tool, but are omitted on read-only tools, where they carry no meaning. See `docs/tools.md` for each tool's actual values.
 
 ## Description architecture
 

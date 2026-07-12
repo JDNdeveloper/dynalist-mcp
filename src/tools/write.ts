@@ -65,6 +65,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "Send an item to the Dynalist inbox. Target is the user's configured inbox. " +
         "Returns the inbox document's file_id and created item_id. " +
         "For specific documents or hierarchical content, use insert_items.",
+      annotations: {
+        title: "Send to Inbox",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       inputSchema: {
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
@@ -125,6 +132,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "Edit one or more items in a document. Only specified fields are updated; " +
         "omitted fields are unchanged. Only include fields the user explicitly asked " +
         "to change; do NOT clear fields (e.g. color, heading) as a side effect.",
+      annotations: {
+        title: "Edit Items",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         items: z.array(z.object({
@@ -271,6 +285,13 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         "Insert items into a document as JSON trees. Each insertion targets an " +
         "independent location, allowing inserts at different positions in a single " +
         "call. Each insertion supports nested children and per-item metadata.",
+      annotations: {
+        title: "Insert Items",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         inserts: z.array(z.object({

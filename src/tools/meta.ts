@@ -14,6 +14,11 @@ export function registerMetaTools(server: McpServer): void {
       description:
         "Get additional instructions for working with this MCP server. " +
         "You MUST call this before using any other tools.",
+      annotations: {
+        title: "Get Instructions",
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {},
       outputSchema: {
         instructions: z.string().describe("Full MCP server instructions."),

@@ -39,6 +39,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Create an empty document in a folder. Use the returned file_id with " +
         "insert_items to add content.",
+      annotations: {
+        title: "Create Document",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       inputSchema: {
         title: z.string().optional().default("").describe(DOCUMENT_TITLE_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
@@ -107,6 +114,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Create an empty folder inside another folder.",
+      annotations: {
+        title: "Create Folder",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       inputSchema: {
         title: z.string().optional().default("").describe(FOLDER_TITLE_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
@@ -175,6 +189,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Rename a document. The file_id does not change when renaming.",
+      annotations: {
+        title: "Rename Document",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
@@ -220,6 +241,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Rename a folder. The file_id does not change when renaming.",
+      annotations: {
+        title: "Rename Folder",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
         title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
@@ -266,6 +294,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Move a document to a different folder, or reorder within its current folder. " +
         "Operates on the file tree, not document items.",
+      annotations: {
+        title: "Move Document",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
@@ -357,6 +392,13 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         `${CONFIRM_GUIDANCE} ` +
         "Move a folder to a different parent, or reorder within its current parent. " +
         "Contents move with it.",
+      annotations: {
+        title: "Move Folder",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       inputSchema: {
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
