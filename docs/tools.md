@@ -159,6 +159,8 @@ The starting item always shows its children regardless of collapsed state.
 
 Hidden children are signaled by depth_limited: true (max_depth cut off traversal). Call read_document with that item_id to expand.
 
+NEVER set include_collapsed_children: true on the initial read of a document or subtree: a user may have collapsed items intentionally to keep them out of view. Only set it true on a follow-up read, after the first read has shown which items are collapsed, and only when the user explicitly asks to see that content or several collapsed subtrees are needed at once.
+
 **Read-only.**
 
 **Parameters:**

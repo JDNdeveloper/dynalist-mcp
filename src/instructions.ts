@@ -64,7 +64,8 @@ Fallback: read_document with just file_id, then search the tree for the target i
 - **Sibling context**: Call read_document with the parent's item_id and max_depth: 1.
 - **Expanding collapsed sections**: If an item has collapsed: true and child_count > 0 but no children array, \
 pass the item's item_id to read_document (the starting item always expands), or \
-re-request with include_collapsed_children: true.
+re-request with include_collapsed_children: true. NEVER set include_collapsed_children: true on \
+the initial read.
 - **Drilling into depth-limited items**: Drilling into depth-limited items is the primary pattern for \
 exploring documents. If an item has depth_limited: true, call read_document with that item's item_id \
 to zoom into the subtree.

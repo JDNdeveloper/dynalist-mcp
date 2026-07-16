@@ -201,7 +201,7 @@ The Dynalist API does not have an "ancestors" endpoint, and several common tasks
 
 - **Parent chain.** Search within a document with full parent levels to get the ancestor chain without a separate read call.
 - **Sibling context.** Read a document starting from the parent item with depth 1.
-- **Expanding collapsed sections.** Read starting from the collapsed item (the starting item always expands), or re-request with collapsed children included.
+- **Expanding collapsed sections.** Read starting from the collapsed item (the starting item always expands), or re-request with collapsed children included. Agents must NEVER set collapsed children on the initial read: a collapsed item may be intentionally hidden by the user. Only set it on a follow-up read, after the first read has revealed which items are collapsed, and only when the user explicitly asks to see that content or several collapsed subtrees are needed at once.
 - **Drilling into depth-limited items.** Read starting from the depth-limited item to zoom into the subtree.
 - **File vs. item management.** The instructions distinguish file-tree tools from item-tree tools to prevent agents from confusing file IDs with item IDs.
 
