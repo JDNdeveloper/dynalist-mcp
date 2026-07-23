@@ -147,6 +147,11 @@ Example:
 - To issue several independent writes in one turn, pass the same expected_sync_token to each \
 call and number them with batch_index: 0, 1, 2, ... A later call in the batch that needs an ID \
 from an earlier call's result cannot be batched; issue it as a separate turn instead.
+- batch_index is a top-level argument of each mutating tool call, it is NOT a field on \
+individual array entries (e.g. items inside inserts, or reorders).
+- A request phrased as a sequence of steps (e.g. "do X, then do Y") describes narrative order, not \
+a data dependency. Check whether a later step actually needs an ID or value produced by an earlier \
+step; if it does not, batch them instead of issuing tool calls across turns.
 - If a mutating tool returns sync_warning, a concurrent edit may have occurred. Re-read and \
 verify before further edits.
 - Do NOT modify or fabricate sync tokens. They are opaque and unpredictable.
