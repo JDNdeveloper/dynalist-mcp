@@ -36,12 +36,21 @@ export interface VersionGuardResult<T> {
  * Post-write: compare version delta against the number of API calls
  * made. A mismatch indicates a concurrent edit occurred during the
  * write window.
+ *
+ * batchIndex generalizes the CAS check across a sequence of calls that
+ * share one expected_sync_token (see BATCH_INDEX_DESCRIPTION). A single
+ * batch member's write can advance the live version by more than 1 (see
+ * CHANGES_BATCH_SIZE in dynalist-client.ts and insertTreeUnderParent in
+ * dynalist-helpers.ts), so later members are validated against actual
+ * state (DocumentStore.getBatchState/setBatchState) rather than
+ * arithmetic on batchIndex. batchIndex:0 or an omitted batchIndex resets
+ * that state to start or bypass a batch.
  */
 export async function withVersionGuard<T>(
   options: VersionGuardOptions,
   guardedFn: () => Promise<{ result: T; apiCallCount: number }>,
 ): Promise<VersionGuardResult<T>> {
-  const { client, fileId, expectedSyncToken, batchIndex = 0, store } = options;
+  const { client, fileId, expectedSyncToken, batchIndex, store } = options;
 
   // Pre-write: get current version.
   const preCheck = await client.checkForUpdates([fileId]);
@@ -52,24 +61,37 @@ export async function withVersionGuard<T>(
     throw new DynalistApiError("NotFound", "Document not found.");
   }
 
-  // CAS check, generalized for batched calls. batchIndex counts how many
-  // prior batch members (each causing exactly one version bump) are
-  // expected to have already applied, so the version at token-issue time
-  // should be preWriteVersion - batchIndex. The token is a one-way hash,
-  // so we re-derive that implied original version and hash forward rather
-  // than decoding it. batchIndex 0 (the default) reduces to plain equality.
-  //
-  // A batch member whose write spans more than one /doc/edit call (see
-  // CHANGES_BATCH_SIZE in dynalist-client.ts) advances the live version by
-  // more than 1, desyncing every later index in the batch. This needs no
-  // special handling: the next indexed call's pre-write check fails this
-  // same comparison, producing the ordinary SyncTokenMismatchError.
-  const impliedOriginalVersion = preWriteVersion - batchIndex;
-  const currentToken = makeSyncToken(fileId, impliedOriginalVersion);
-  if (expectedSyncToken !== currentToken) {
+  // Non-batch write, or the first member of a new batch: starting fresh
+  // supersedes any stale in-progress batch for this document, so the old
+  // state is cleared regardless of whether this call itself conflicts.
+  const startingFresh = batchIndex === undefined || batchIndex === 0;
+  if (startingFresh && store) store.clearBatchState(fileId);
+
+  const state = startingFresh ? undefined : store?.getBatchState(fileId);
+  const conflict = startingFresh
+    ? expectedSyncToken !== makeSyncToken(fileId, preWriteVersion)
+    // A later batch member must match the state recorded by the previous
+    // member's call. Batch state is keyed by file_id, so this also catches
+    // a batch_index reused against a different document (that document's
+    // state simply never matches this file_id's lookup).
+    : !state ||
+      state.expectedSyncToken !== expectedSyncToken ||
+      state.nextBatchIndex !== batchIndex ||
+      state.expectedDocumentVersion !== preWriteVersion;
+
+  if (conflict) {
+    // Poison the batch: drop the state so no later call can resume it,
+    // even one presenting a checkpoint that would otherwise still match.
+    // No-op if there was nothing to drop.
+    if (store) store.clearBatchState(fileId);
+
     throw new SyncTokenMismatchError(
-      "Sync token mismatch: the document has changed since your last read. " +
-      "Re-read the document, check what changed, then retry.",
+      startingFresh
+        ? "Sync token mismatch: the document has changed since your last read. " +
+          "Re-read the document, check what changed, then retry."
+        : "Sync token mismatch: batch_index " + batchIndex + " does not follow the " +
+          "prior batch member for this document. Re-read the document, check what " +
+          "changed, then retry.",
     );
   }
 
@@ -101,6 +123,18 @@ export async function withVersionGuard<T>(
       syncWarning =
         "Write succeeded, but the post-write check failed. " +
         REREAD_GUIDANCE;
+    }
+
+    // Record batch state for the next member, keyed off the actual
+    // resulting version. Fall back to preWriteVersion + apiCallCount when
+    // the post-write check failed, on the assumption no concurrent edit
+    // occurred (the same assumption the syncWarning-less path above makes).
+    if (store && batchIndex !== undefined) {
+      store.setBatchState(fileId, {
+        expectedSyncToken,
+        nextBatchIndex: batchIndex + 1,
+        expectedDocumentVersion: postWriteVersion ?? preWriteVersion + apiCallCount,
+      });
     }
 
     return {

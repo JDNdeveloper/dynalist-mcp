@@ -94,6 +94,9 @@ describe("withVersionGuard post-write checkForUpdates failure", () => {
           invalidated = true;
         }
       },
+      clearBatchState: () => {},
+      getBatchState: () => undefined,
+      setBatchState: () => {},
     };
 
     await withVersionGuard(

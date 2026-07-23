@@ -234,11 +234,12 @@ describe("move_items version guard", () => {
 // batch_index across write tools
 // ═════════════════════════════════════════════════════════════════════
 describe("batch_index across write tools", () => {
-  test("edit_items accepts batch_index and checks the offset version", async () => {
+  test("edit_items accepts batch_index and rejects it with no prior batch member recorded", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const syncToken = makeSyncToken("doc1", doc.version);
 
-    // batch_index 1 implies the live version is one bump ahead of the token.
+    // batch_index 1 with no batch_index:0 call having run first: no batch
+    // state exists to match against.
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
@@ -248,7 +249,7 @@ describe("batch_index across write tools", () => {
     expect(err.error).toBe("SyncTokenMismatch");
   });
 
-  test("insert_items accepts batch_index and checks the offset version", async () => {
+  test("insert_items accepts batch_index and rejects it with no prior batch member recorded", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const syncToken = makeSyncToken("doc1", doc.version);
 
@@ -265,7 +266,7 @@ describe("batch_index across write tools", () => {
     expect(err.error).toBe("SyncTokenMismatch");
   });
 
-  test("delete_items accepts batch_index and checks the offset version", async () => {
+  test("delete_items accepts batch_index and rejects it with no prior batch member recorded", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const syncToken = makeSyncToken("doc1", doc.version);
 
@@ -278,7 +279,7 @@ describe("batch_index across write tools", () => {
     expect(err.error).toBe("SyncTokenMismatch");
   });
 
-  test("move_items accepts batch_index and checks the offset version", async () => {
+  test("move_items accepts batch_index and rejects it with no prior batch member recorded", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const syncToken = makeSyncToken("doc1", doc.version);
 
@@ -291,7 +292,7 @@ describe("batch_index across write tools", () => {
     expect(err.error).toBe("SyncTokenMismatch");
   });
 
-  test("reorder_items accepts batch_index and checks the offset version", async () => {
+  test("reorder_items accepts batch_index and rejects it with no prior batch member recorded", async () => {
     const doc = ctx.server.documents.get("doc1")!;
     const syncToken = makeSyncToken("doc1", doc.version);
 
@@ -329,8 +330,8 @@ describe("batch_index across write tools", () => {
   test("a batch call with a mismatched batch_index aborts with SyncTokenMismatch", async () => {
     const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
 
-    // batch_index 1 without a prior batch member having applied means the
-    // live version does not match the implied original version.
+    // batch_index 1 without a prior batch member having applied means no
+    // batch state is recorded for this document to match against.
     const err = await callToolError(ctx.mcpClient, "edit_items", {
       file_id: "doc1",
       items: [{ item_id: "n1", content: "Updated" }],
@@ -338,6 +339,41 @@ describe("batch_index across write tools", () => {
       batch_index: 1,
     });
     expect(err.error).toBe("SyncTokenMismatch");
+  });
+
+  // Regression test for a batch member that fails and is retried at the same
+  // batch_index: since batch state is only recorded on success, the retry
+  // must be checked against the same unchanged state as the original attempt.
+  test("retrying a failed batch member at the same batch_index succeeds if the document is unchanged", async () => {
+    const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+
+    const first = await callToolOk(ctx.mcpClient, "edit_items", {
+      file_id: "doc1",
+      items: [{ item_id: "n1", content: "First update" }],
+      expected_sync_token: syncToken,
+      batch_index: 0,
+    });
+    expect(first.sync_warning).toBeUndefined();
+
+    // A batch_index:1 call that fails for a reason unrelated to versioning
+    // (nonexistent item) must not corrupt the recorded batch state.
+    const failed = await callToolError(ctx.mcpClient, "edit_items", {
+      file_id: "doc1",
+      items: [{ item_id: "does_not_exist", content: "Nope" }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(failed.error).toBe("ItemNotFound");
+
+    // Retrying batch_index:1 against a valid item still succeeds, since the
+    // document's live version has not changed since the failed attempt.
+    const retried = await callToolOk(ctx.mcpClient, "edit_items", {
+      file_id: "doc1",
+      items: [{ item_id: "n2", content: "Second update" }],
+      expected_sync_token: syncToken,
+      batch_index: 1,
+    });
+    expect(retried.sync_warning).toBeUndefined();
   });
 });
 

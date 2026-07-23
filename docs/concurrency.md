@@ -48,9 +48,11 @@ At p_contention = 0.1 this is a flat 10x multiplier on expected days, independen
 
 ### Batched writes
 
-`withVersionGuard` accepts an optional `batchIndex`, generalizing the pre-write equality check into an offset check: it computes `impliedOriginalVersion = preWriteVersion - batchIndex`, hashes that into a token, and compares it against `expected_sync_token`. `batchIndex` counts how many prior batch members (each causing exactly one version bump) are expected to have already applied, so `impliedOriginalVersion` reconstructs what the live version was when the token was issued. This lets an agent issue several independent writes in one turn, all sharing the token from a single `read_document`, numbered by `batch_index` instead of re-reading between each call.
+`withVersionGuard` accepts an optional `batch_index`, letting an agent issue several writes in one turn sharing one `expected_sync_token`, numbered instead of re-reading between each call. A single batch member can itself span multiple `/doc/edit` calls (e.g. a multi-level `insert_items` tree issues one call per depth level, or a change list over `CHANGES_BATCH_SIZE`), so version bumps per member aren't uniform and can't be validated by arithmetic on `batch_index`; the guard checks actual state instead.
 
-The scheme relies on each batch member causing exactly one version bump. A write whose change list spans more than one `/doc/edit` call (see `CHANGES_BATCH_SIZE` in `dynalist-client.ts`) breaks this for later indices in the same batch; the next indexed call's pre-write check simply fails like any other stale token, with no special-cased error path.
+`DocumentStore` tracks this state per `file_id`: `expectedSyncToken`, `nextBatchIndex`, and `expectedDocumentVersion` (the real post-write version, or `preWriteVersion + apiCallCount` if the post-write check itself failed). `batch_index: 0` or omitted checks plain equality against `expected_sync_token` and clears any existing state for the document. `batch_index > 0` must match the recorded state exactly. Any mismatch, in either case, drops the state and aborts with `SyncTokenMismatch`, so a later call can never resume a broken batch. A batch member's write failing for a reason unrelated to versioning (e.g. item not found) leaves the state untouched, so retrying the same `batch_index` still works if the document hasn't changed.
+
+Batch state lives only in memory on the `DocumentStore` instance for the process lifetime; it is not persisted or size-bounded beyond one entry per document currently mid-batch.
 
 ## Relative positioning
 

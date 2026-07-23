@@ -35,10 +35,10 @@ const MAX_RETRY_DELAY_MS = 10000;
 // (~500 changes). Batches of 200 stay safely within the limit. No
 // inter-batch delay. The retry logic handles rate limits if needed.
 //
-// withVersionGuard's batch_index arithmetic (version-guard.ts) assumes
-// each write causes exactly one version bump. A change list that spans
-// more than one batch here breaks that assumption for any later index in
-// the same agent-issued batch; see the comment there.
+// A change list that spans more than one batch here advances the live
+// document version by more than 1 for a single agent-issued write. See
+// version-guard.ts for how withVersionGuard tracks the actual resulting
+// version across a batch_index sequence.
 export const CHANGES_BATCH_SIZE = 200;
 const INTER_BATCH_DELAY_MS = 0;
 
