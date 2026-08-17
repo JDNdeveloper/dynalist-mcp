@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { numberFromString } from "./schema-helpers";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { getConfig, type Config } from "../config";
@@ -153,7 +154,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
         }).strict()).describe("Array of item edits to apply."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
-        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
+        batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -313,7 +314,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           "can be placed at different parents or siblings in a single call."
         ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
-        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
+        batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),

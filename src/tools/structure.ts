@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { numberFromString } from "./schema-helpers";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { getConfig } from "../config";
@@ -48,7 +49,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           "(single-item only; use to remove a grouping item while keeping its children)."
         ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
-        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
+        batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -262,7 +263,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           ),
         }).strict()).describe("Array of moves to apply sequentially."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
-        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
+        batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -472,7 +473,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           ),
         }).strict()).describe("Array of reorders to apply."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
-        batch_index: z.number().int().min(0).optional().describe(BATCH_INDEX_DESCRIPTION),
+        batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
       },
       outputSchema: {
         file_id: z.string().describe(FILE_ID_DESCRIPTION),

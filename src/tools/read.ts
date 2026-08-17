@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { numberFromString } from "./schema-helpers";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { getConfig, getStartupConfig } from "../config";
@@ -173,7 +174,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         folder_id: z.string().optional().describe(
           "Starting folder. Omit to list from the top level."
         ),
-        max_depth: z.number().nullable().optional().default(null).describe(
+        max_depth: numberFromString(z.number().nullable()).optional().default(null).describe(
           "Depth of folder nesting to include. 1 = direct children only, " +
           "2 = children + grandchildren, null = unlimited."
         ),
@@ -454,7 +455,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         item_id: z.string().optional().describe(
           "Starting item. Omit for document root."
         ),
-        max_depth: z.number().nullable().optional().default(readDefaults.maxDepth).describe(
+        max_depth: numberFromString(z.number().nullable()).optional().default(readDefaults.maxDepth).describe(
           "Max traversal depth. 0 = target only, 1 = target + children, null = unlimited."
         ),
         include_collapsed_children: z.boolean().optional().default(readDefaults.includeCollapsedChildren).describe(
