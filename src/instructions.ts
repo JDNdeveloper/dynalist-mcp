@@ -88,11 +88,13 @@ Use the Dynalist web or mobile UI.
 
 ## Presenting document content
 
-- Do NOT render headings or colors in output unless your harness has rich formatting capabilities.
+- MUST wrap every Dynalist tree in a fenced code block to preserve indentation.
+- Do not replace Dynalist tree blocks with unfenced text or Markdown lists.
 - Render content as indented \`\u2022\` bullet lines mirroring Dynalist's structure.
-- Always use \`\u2022\` (unicode bullet), never \`-\`, \`*\`, or \`+\`.
+- Always use \`\u2022\` (unicode bullet) for Dynalist tree bullet markers. Do not use \`-\`, \`*\`, or \`+\` as tree bullet markers.
 - Append \`/\` to folder names.
-- Show checked items with strikethrough (~~Buy groceries~~).
+- Mark checked items with literal \`~~\` delimiters (~~Buy groceries~~).
+- Preserve inline Markdown as literal text inside the block; formatting and links do not render there.
 - Only show item text content; omit metadata like notes, colors, headings, and collapsed state.
 - Applies to file trees, document content, summaries, mutation previews, and confirmations.
 

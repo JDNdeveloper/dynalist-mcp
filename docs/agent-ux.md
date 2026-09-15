@@ -22,14 +22,15 @@ The tradeoff is one extra round trip at session start. That cost is paid once pe
 Dynalist content is a tree of nested bullet points. Left to their own defaults, agents tend to render tree data as flat lists, numbered items, or markdown headings. The MCP instructions define a specific rendering format that mirrors what users see in the Dynalist UI:
 
 - **Indented bullets.** Content is rendered as `• ` prefixed lines with exactly 2 spaces per indentation level. Siblings share the same indent. This is enforced in the instructions with an explicit "IMPORTANT" callout because misaligned indentation was the single most common agent mistake during development.
-- **Checked items.** Completed items render with strikethrough (`~~text~~`) to match Dynalist's visual treatment.
+- **Checked items.** Completed items use strikethrough syntax (`~~text~~`) to represent Dynalist's visual treatment.
+- **Fenced blocks.** Every tree must be enclosed in a fenced code block. Codex CLI strips indentation from unfenced `•` lines but preserves it inside fenced blocks. The tradeoff is that inline Markdown, including strikethrough and links, appears as literal text inside the block.
 - **Mutation previews.** Before any write, the agent shows a diff-style preview in a fenced code block. Lines are prefixed with `+` (addition), `-` (deletion), or a space (context). The prefix occupies a fixed 2-character column that does not shift the tree indentation. Edits appear as a `-`/`+` pair. Context is limited to the parent and siblings, with `...` indicating omitted siblings.
 
 These rendering rules apply uniformly: read results, summaries, and mutation confirmations all use the same format, so the user sees a consistent visual language throughout the conversation.
 
 ### Bullet character choice
 
-The instructions specify `•` (U+2022, unicode bullet) as the bullet character and explicitly forbid `-`, `*`, and `+`. This is a deliberate choice driven by weak-model compatibility testing with Haiku.
+The instructions specify `•` (U+2022, unicode bullet) as the bullet character and explicitly forbid `-`, `*`, and `+` as Dynalist tree bullet markers. This restriction does not apply to item text, diff prefixes, or output outside Dynalist tree blocks. This is a deliberate choice driven by weak-model compatibility testing with Haiku.
 
 When the instructions used `-` (markdown dash) as the bullet character, Haiku consistently broke the specified formatting and fell back to its pre-trained markdown habits. The `-` character triggers strong associations with standard markdown list syntax, causing the model to ignore the custom indentation rules defined in the instructions. Typical failures included:
 
