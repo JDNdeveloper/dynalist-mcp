@@ -72,12 +72,13 @@ Use `list_documents` (from step 0.5) to find the account root folder, then creat
 | 05-read-search | ~4    |
 | 06-inbox       | ~2    |
 | 07-file-mgmt   | ~8    |
+| 08-reorder     | ~3    |
 
 Agent 06 (inbox) does not use its sub-root folder since it only sends to the account inbox. Create the folder anyway for naming consistency.
 
 ### Step 2: Spawn subagents
 
-Launch one subagent per sub-root (7 total, all in parallel). Each subagent prompt should:
+Launch one subagent per sub-root (8 total, all in parallel). Each subagent prompt should:
 
 1. Reference this test plan file so the agent can read its assigned section.
 2. Specify the sub-root folder file_id to work within.
@@ -104,7 +105,7 @@ For each failure, read the agent's detailed output to determine whether the issu
 
 ### Cleanup
 
-The Dynalist API cannot delete documents or folders. After all subagents complete, prompt the user to delete the test root folder in the Dynalist web UI. Since every sub-root and test document lives under the single test root, deleting it removes all test artifacts in one action. Also clean up the temporary working directory created in step 0 (`rm -rf /tmp/dynalist-live-test`).
+The Dynalist API cannot delete documents or folders. After all subagents complete, prompt the user to delete the test root folder in the Dynalist web UI. This removes all sub-roots and test documents. Agent 06 creates items outside the test root, so also prompt the user to delete `Inbox Test With Metadata` and `Plain Inbox Item` from the inbox. Also clean up the temporary working directory created in step 0 (`rm -rf /tmp/dynalist-live-test`).
 
 ---
 
@@ -563,12 +564,12 @@ Read back. **PASS** if Alpha's children are `[Child 2, Child 1]`. **FAIL** other
 Call `reorder_items` with:
 - `file_id`: test document
 - `expected_sync_token`: current sync token
-- `reorderings`:
+- `reorders`:
   ```json
-  { "reorders": [
+  [
     { "item_ids": [<Beta>, <Gamma>, <Alpha>] },
     { "parent_item_id": <Alpha>, "item_ids": [<Child 1>, <Child 2>] }
-  ] }
+  ]
   ```
 
 Read back. **PASS** if the top-level order is `[Beta, Gamma, Alpha]` AND Alpha's children are `[Child 1, Child 2]`. **FAIL** otherwise.
