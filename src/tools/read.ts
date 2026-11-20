@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 import { numberFromString } from "./schema-helpers";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { getConfig, getStartupConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
@@ -170,21 +170,21 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         readOnlyHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         folder_id: z.string().optional().describe(
           "Starting folder. Omit to list from the top level."
         ),
-        max_depth: numberFromString(z.number().nullable()).optional().default(null).describe(
+        max_depth: numberFromString(z.number().nullable().default(null)).describe(
           "Depth of folder nesting to include. 1 = direct children only, " +
           "2 = children + grandchildren, null = unlimited."
         ),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         document_count: z.number().describe("Total number of documents in the result"),
         files: z.array(fileTreeEntrySchema).describe(
           "Recursive file tree of intermixed documents and folders."
         ),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       folder_id,
@@ -367,12 +367,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         readOnlyHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         query: z.string().describe("Regex pattern to match against document/folder names. Case-insensitive by default."),
         type: z.enum(["all", "document", "folder"]).optional().default("all").describe("Filter by type: 'document', 'folder', or 'all'"),
         case_sensitive: z.boolean().optional().default(false).describe("Case-sensitive matching."),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         count: z.number().describe(MATCH_COUNT_DESCRIPTION),
         matches: z.array(z.object({
           file_id: z.string().describe(FILE_ID_DESCRIPTION),
@@ -381,7 +381,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           permission: z.enum(["none", "read", "edit", "manage", "owner"]).optional().describe("Permission level (documents only)"),
           access_policy: z.enum(["read"]).optional().describe("Access policy if restricted. Omitted when unrestricted."),
         }).strict()).describe("Matching documents and/or folders"),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({ query, type, case_sensitive }: { query: string; type: string; case_sensitive: boolean }) => {
       const config = getConfig();
@@ -450,12 +450,12 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         readOnlyHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_id: z.string().optional().describe(
           "Starting item. Omit for document root."
         ),
-        max_depth: numberFromString(z.number().nullable()).optional().default(readDefaults.maxDepth).describe(
+        max_depth: numberFromString(z.number().nullable().default(readDefaults.maxDepth)).describe(
           "Max traversal depth. 0 = target only, 1 = target + children, null = unlimited."
         ),
         include_collapsed_children: z.boolean().optional().default(readDefaults.includeCollapsedChildren).describe(
@@ -469,14 +469,14 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           "Include checked/completed items."
         ),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
         sync_token: z.string().describe(SYNC_TOKEN_DESCRIPTION),
         item: outputNodeSchema.optional().describe("Root of the item tree"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,
@@ -566,22 +566,22 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         readOnlyHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         query: z.string().describe("Regex pattern to match against item content and notes. Case-insensitive by default."),
         search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
         case_sensitive: z.boolean().optional().default(false).describe("Case-sensitive matching."),
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
         sync_token: z.string().describe(SYNC_TOKEN_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         matches: z.array(searchMatchSchema).optional().describe("Matching items"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,
@@ -688,7 +688,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         readOnlyHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         since: z.string().describe("Start: ISO 8601 date or datetime (e.g. '2024-01-15', '2024-01-15T09:30:00Z')"),
         until: z.string().optional().describe("End: ISO 8601 date or datetime (default: now)"),
@@ -698,15 +698,15 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
         sort: z.enum(["newest_first", "oldest_first"]).optional().default("newest_first").describe("Sort order by timestamp"),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
         sync_token: z.string().describe(SYNC_TOKEN_DESCRIPTION),
         count: z.number().optional().describe(MATCH_COUNT_DESCRIPTION),
         matches: z.array(changeMatchSchema).optional().describe("Changed items"),
         warning: z.string().optional().describe(SIZE_WARNING_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,
@@ -844,14 +844,14 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         readOnlyHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_ids: z.array(z.string()).describe("Array of document file IDs to check"),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         sync_tokens: z.record(z.string(), z.string()).describe(
           "Map of file ID to sync token. Empty string means the document was not found."
         ),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({ file_ids }: { file_ids: string[] }) => {
       const config = getConfig();

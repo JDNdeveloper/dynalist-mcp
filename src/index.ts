@@ -11,8 +11,8 @@
  * Get your API token from: https://dynalist.io/developer
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { DynalistClient } from "./dynalist-client";
 import { log } from "./config";
 import { registerTools } from "./tools/index";

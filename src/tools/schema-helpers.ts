@@ -10,11 +10,11 @@ import { z } from "zod";
  * strings are passed through unconverted so they still fail validation
  * instead of silently coercing to 0, which z.coerce.number() would do.
  */
-export function numberFromString<Schema extends z.ZodTypeAny>(schema: Schema): z.ZodEffects<Schema> {
+export function numberFromString<Schema extends z.ZodType>(schema: Schema) {
   return z.preprocess((value) => {
     if (typeof value === "string" && value.trim() !== "") {
       return Number(value);
     }
     return value;
-  }, schema) as unknown as z.ZodEffects<Schema>;
+  }, schema);
 }

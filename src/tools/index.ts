@@ -3,7 +3,7 @@
  * Imports all tool modules and registers them with the MCP server.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { DynalistClient } from "../dynalist-client";
 import { DocumentStore } from "../document-store";
 import { AccessController } from "../access-control";

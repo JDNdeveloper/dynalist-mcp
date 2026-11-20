@@ -3,7 +3,7 @@
  * docs/instructions.md from source. Run with: bun scripts/generate-docs.ts
  */
 
-import type { ZodTypeAny } from "zod";
+import type { ZodType as ZodTypeAny } from "zod";
 import { readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import ts from "typescript";
@@ -16,9 +16,9 @@ import {
 // ─── Zod internal type helpers ──────────────────────────────────────
 
 /**
- * Minimal type for Zod's internal `_def` property. Zod does not export
- * this shape, so we declare just enough to introspect schemas without
- * resorting to `any`.
+ * Zod v3-style view of a schema's internal definition. The introspection
+ * below was written against this shape, so `zodDef()` translates Zod v4's
+ * `_zod.def` into it rather than spreading v4 internals through the file.
  */
 interface ZodInternalDef {
   typeName?: string;
@@ -34,9 +34,81 @@ interface ZodInternalDef {
   shape?: () => Record<string, ZodTypeAny>;
 }
 
-/** Access Zod's internal `_def` in a type-safe way. */
+/**
+ * Minimal type for Zod v4's internal `_zod.def` property. Zod does not
+ * export a stable shape for it, so we declare just enough to introspect
+ * schemas without resorting to `any`.
+ */
+interface ZodV4Def {
+  type: string;
+  innerType?: ZodTypeAny;
+  defaultValue?: unknown;
+  values?: unknown[];
+  entries?: Record<string, string>;
+  element?: ZodTypeAny;
+  valueType?: ZodTypeAny;
+  options?: ZodTypeAny[];
+  getter?: () => ZodTypeAny;
+  shape?: Record<string, ZodTypeAny>;
+  in?: ZodTypeAny;
+  out?: ZodTypeAny;
+}
+
+function zodV4Def(schema: ZodTypeAny): ZodV4Def | undefined {
+  return (schema as unknown as { _zod?: { def: ZodV4Def } })._zod?.def;
+}
+
+/**
+ * Access a schema's internal definition in the Zod v3-style shape.
+ *
+ * Zod v4 has no ZodEffects wrapper: `.refine()` attaches a check to the
+ * schema itself, while `.transform()` and `z.preprocess()` build a ZodPipe
+ * with a ZodTransform on one side. Pipes are reported as ZodEffects whose
+ * `schema` is the non-transform side, which is the side that carries the
+ * documented type. `.prefault()` is reported as ZodDefault because it
+ * documents the same way.
+ */
 function zodDef(schema: ZodTypeAny): ZodInternalDef {
-  return (schema as unknown as { _def: ZodInternalDef })._def;
+  const def = zodV4Def(schema);
+  if (!def) return {};
+  switch (def.type) {
+    case "optional":
+    case "nullable":
+      return { typeName: def.type === "optional" ? "ZodOptional" : "ZodNullable", innerType: def.innerType };
+    case "default":
+    case "prefault":
+      return { typeName: "ZodDefault", innerType: def.innerType, defaultValue: () => def.defaultValue };
+    case "pipe": {
+      const outIsTransform = def.out !== undefined && zodV4Def(def.out)?.type === "transform";
+      return { typeName: "ZodEffects", schema: outIsTransform ? def.in : def.out };
+    }
+    case "literal":
+      return { typeName: "ZodLiteral", value: def.values?.[0] };
+    case "enum":
+      return { typeName: "ZodEnum", values: Object.values(def.entries ?? {}) };
+    case "array":
+      return { typeName: "ZodArray", type: def.element };
+    case "record":
+      return { typeName: "ZodRecord", valueType: def.valueType };
+    case "union":
+      return { typeName: "ZodUnion", options: def.options };
+    case "lazy":
+      return { typeName: "ZodLazy", getter: def.getter };
+    case "object":
+      return { typeName: "ZodObject", shape: () => def.shape ?? {} };
+    default:
+      return { typeName: `Zod${def.type[0]!.toUpperCase()}${def.type.slice(1)}` };
+  }
+}
+
+/** Return the field shape of a top-level tool schema (a ZodObject). */
+function objectShape(schema: ZodTypeAny | undefined): Record<string, ZodTypeAny> {
+  if (!schema) return {};
+  const def = zodDef(schema);
+  if (def.typeName !== "ZodObject") {
+    throw new Error(`Expected a ZodObject tool schema, got '${def.typeName}'.`);
+  }
+  return def.shape!();
 }
 
 // ─── Zod introspection ──────────────────────────────────────────────
@@ -170,7 +242,7 @@ function zodTypeString(schema: ZodTypeAny, depth: number = 0): string {
 }
 
 /**
- * Extract fields from the top-level MCP Record<string, ZodType> format.
+ * Extract fields from a top-level tool schema's field shape (see `objectShape()`).
  */
 function extractFields(schemaMap: Record<string, ZodTypeAny>): FieldInfo[] {
   return Object.entries(schemaMap).map(([name, schema]) => {
@@ -434,7 +506,7 @@ interface CapturedTool {
 const capturedTools: CapturedTool[] = [];
 
 const mockServer = {
-  registerTool(name: string, options: { description?: string; annotations?: { title?: string; readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean }; inputSchema?: Record<string, ZodTypeAny>; outputSchema?: Record<string, ZodTypeAny> }) {
+  registerTool(name: string, options: { description?: string; annotations?: { title?: string; readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean }; inputSchema?: ZodTypeAny; outputSchema?: ZodTypeAny }) {
     capturedTools.push({
       name,
       title: options.annotations?.title ?? "",
@@ -442,8 +514,8 @@ const mockServer = {
       readOnly: options.annotations?.readOnlyHint ?? false,
       destructiveHint: options.annotations?.destructiveHint,
       idempotentHint: options.annotations?.idempotentHint,
-      inputSchema: options.inputSchema ?? {},
-      outputSchema: options.outputSchema ?? {},
+      inputSchema: objectShape(options.inputSchema),
+      outputSchema: objectShape(options.outputSchema),
     });
   },
   setRequestHandler() {},

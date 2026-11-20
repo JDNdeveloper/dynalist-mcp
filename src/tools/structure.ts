@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { numberFromString } from "./schema-helpers";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { DynalistClient, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
@@ -40,7 +40,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_ids: z.array(z.string()).describe("Item IDs to delete."),
         children: z.enum(["delete", "promote"]).optional().default("delete").describe(
@@ -50,13 +50,13 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
         batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         deleted_count: z.number().describe("Number of items deleted (targets and all descendants if children not promoted)."),
         promoted_children_count: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,
@@ -252,7 +252,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moves: z.array(z.object({
           item_id: z.string().describe("Item to move (subtree included)"),
@@ -264,12 +264,12 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         }).strict()).describe("Array of moves to apply sequentially."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
         batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moved_count: z.number().describe("Number of items moved"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,
@@ -462,7 +462,7 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         reorders: z.array(z.object({
           parent_item_id: z.string().optional().describe(
@@ -474,12 +474,12 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         }).strict()).describe("Array of reorders to apply."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
         batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         reordered_count: z.number().describe("Total number of children reordered across all reorders."),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,

@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { DynalistClient } from "../dynalist-client";
 import { getConfig } from "../config";
 import { AccessController, requireAccess } from "../access-control";
@@ -46,16 +46,16 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         idempotentHint: false,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         title: z.string().optional().default("").describe(DOCUMENT_TITLE_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
         position: z.enum(["after", "before", "first_child", "last_child"])
           .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       title,
@@ -121,16 +121,16 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         idempotentHint: false,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         title: z.string().optional().default("").describe(FOLDER_TITLE_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
         position: z.enum(["after", "before", "first_child", "last_child"])
           .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
         title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       title,
@@ -196,14 +196,14 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         title: z.string().describe(DOCUMENT_TITLE_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({ file_id, title }: { file_id: string; title: string }) => {
       const config = getConfig();
@@ -248,14 +248,14 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
         title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
         title: z.string().describe(FOLDER_TITLE_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({ file_id, title }: { file_id: string; title: string }) => {
       const config = getConfig();
@@ -301,16 +301,16 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
         position: z.enum(["after", "before", "first_child", "last_child"])
           .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         parent_folder_id: z.string().describe(PARENT_FOLDER_ID_OUTPUT_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,
@@ -399,16 +399,16 @@ export function registerFileTools(server: McpServer, client: DynalistClient, ac:
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
         reference_file_id: z.string().optional().describe(REFERENCE_FILE_ID_DESCRIPTION),
         position: z.enum(["after", "before", "first_child", "last_child"])
           .optional().default("last_child").describe(FILE_POSITION_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FOLDER_ID_DESCRIPTION),
         parent_folder_id: z.string().describe(PARENT_FOLDER_ID_OUTPUT_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,

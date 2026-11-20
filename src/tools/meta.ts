@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { makeResponse, wrapToolHandler } from "../utils/dynalist-helpers";
 import { INSTRUCTIONS } from "../instructions";
 
@@ -19,10 +19,10 @@ export function registerMetaTools(server: McpServer): void {
         readOnlyHint: true,
         openWorldHint: false,
       },
-      inputSchema: {},
-      outputSchema: {
+      inputSchema: z.object({}).strict(),
+      outputSchema: z.object({
         instructions: z.string().describe("Full MCP server instructions."),
-      },
+      }).strict(),
     },
     wrapToolHandler(async () => {
       return makeResponse({ instructions: INSTRUCTIONS });

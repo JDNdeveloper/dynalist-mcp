@@ -59,9 +59,9 @@ const CacheSchema = z.object({
 // Exported for codegen introspection by scripts/generate-docs.ts.
 export const ConfigSchema = z.object({
   access: AccessSchema.optional(),
-  readDefaults: ReadDefaultsSchema.default({}),
-  sizeWarning: SizeWarningSchema.default({}),
-  cache: CacheSchema.default({}),
+  readDefaults: ReadDefaultsSchema.prefault({}),
+  sizeWarning: SizeWarningSchema.prefault({}),
+  cache: CacheSchema.prefault({}),
   logLevel: z.enum(["error", "warn", "info", "debug"]).default("warn")
     .describe("Log verbosity"),
   logFile: z.string().optional()

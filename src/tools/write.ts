@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { numberFromString } from "./schema-helpers";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { DynalistClient, EditDocumentChange, buildNodeMap, buildParentMap, findRootNodeId } from "../dynalist-client";
 import { getConfig, type Config } from "../config";
 import { AccessController, requireAccess, type Policy } from "../access-control";
@@ -73,7 +73,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         idempotentHint: false,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         content: z.string().describe("The text content for the inbox item."),
         note: z.string().optional().describe("Optional note for the item."),
         checked: z.boolean().optional().describe(CHECKED_DESCRIPTION),
@@ -82,11 +82,11 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         ),
         heading: z.enum(HEADING_VALUES).optional().describe(HEADING_DESCRIPTION),
         color: z.enum(COLOR_VALUES).optional().describe(COLOR_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         item_id: z.string().describe(ITEM_ID_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({ content, note, show_checkbox, heading, color, checked }: { content: string; note?: string; show_checkbox?: boolean; heading?: HeadingValue; color?: ColorValue; checked?: boolean }) => {
       const config = getConfig();
@@ -140,7 +140,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         idempotentHint: true,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         items: z.array(z.object({
           item_id: z.string().describe("Item ID to edit"),
@@ -155,12 +155,12 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         }).strict()).describe("Array of item edits to apply."),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
         batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         edited_count: z.number().describe("Number of items edited"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,
@@ -293,7 +293,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         idempotentHint: false,
         openWorldHint: true,
       },
-      inputSchema: {
+      inputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         inserts: z.array(z.object({
           position: z.enum(["after", "before", "first_child", "last_child"])
@@ -315,8 +315,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         ),
         expected_sync_token: z.string().describe(EXPECTED_SYNC_TOKEN_DESCRIPTION),
         batch_index: numberFromString(z.number().int().min(0)).optional().describe(BATCH_INDEX_DESCRIPTION),
-      },
-      outputSchema: {
+      }).strict(),
+      outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         created_count: z.number().describe("Total number of items created across all inserts"),
         sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
@@ -324,7 +324,7 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
           created_count: z.number().describe("Number of items created by this insertion"),
           root_item_ids: z.array(z.string()).describe("IDs of the top-level inserted items for this insertion"),
         }).strict()).describe("Per-insertion results in the same order as the input inserts"),
-      },
+      }).strict(),
     },
     wrapToolHandler(async ({
       file_id,

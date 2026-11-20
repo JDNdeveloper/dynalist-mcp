@@ -3,9 +3,8 @@
  * Sets up an MCP client-server pair connected in-memory.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
+import { Client } from "@modelcontextprotocol/client";
 import { AccessController } from "../../access-control";
 import { setTestConfig, type Config } from "../../config";
 import { registerReadTools } from "../../tools/read";
