@@ -11,19 +11,11 @@
  */
 
 import type { DynalistClient, ReadDocumentResponse } from "./dynalist-client";
+import { InMemoryPersistentStore, type BatchState, type PersistentStore } from "./persistent-store";
 
-const DEFAULT_CAPACITY = 5;
+export type { BatchState } from "./persistent-store";
 
-/**
- * Tracks the live version recorded after the most recently applied
- * member of a batch of writes sharing one expected_sync_token, so the
- * next member can be checked against the actual resulting version.
- */
-export interface BatchState {
-  expectedSyncToken: string;
-  nextBatchIndex: number;
-  expectedDocumentVersion: number;
-}
+export const DEFAULT_DOCUMENT_CACHE_CAPACITY = 5;
 
 export class DocumentStore {
   private client: Pick<DynalistClient, "readDocument" | "checkForUpdates">;
@@ -34,11 +26,18 @@ export class DocumentStore {
 
   // One in-flight batch per document at a time. A batch is superseded by
   // a fresh batch_index:0 call, cleared by a non-batch write, or left to
-  // dangle harmlessly if the agent never finishes the sequence.
-  private batchStates = new Map<string, BatchState>();
+  // dangle harmlessly if the agent never finishes the sequence. Batch
+  // state lives in the persistent store because it must survive across
+  // requests, while the document cache above only saves API calls.
+  private persistent: PersistentStore;
 
-  constructor(client: Pick<DynalistClient, "readDocument" | "checkForUpdates">, capacity: number = DEFAULT_CAPACITY) {
+  constructor(
+    client: Pick<DynalistClient, "readDocument" | "checkForUpdates">,
+    capacity: number = DEFAULT_DOCUMENT_CACHE_CAPACITY,
+    persistent: PersistentStore = new InMemoryPersistentStore(),
+  ) {
     this.client = client;
+    this.persistent = persistent;
     this.capacity = capacity;
   }
 
@@ -93,7 +92,7 @@ export class DocumentStore {
    * Current batch state for a document, if a batch is in progress.
    */
   getBatchState(fileId: string): BatchState | undefined {
-    return this.batchStates.get(fileId);
+    return this.persistent.getBatchState(fileId);
   }
 
   /**
@@ -101,7 +100,7 @@ export class DocumentStore {
    * after a batch member applies.
    */
   setBatchState(fileId: string, state: BatchState): void {
-    this.batchStates.set(fileId, state);
+    this.persistent.setBatchState(fileId, state);
   }
 
   /**
@@ -109,7 +108,7 @@ export class DocumentStore {
    * occurs or a new batch starts at batch_index:0.
    */
   clearBatchState(fileId: string): void {
-    this.batchStates.delete(fileId);
+    this.persistent.clearBatchState(fileId);
   }
 
   private put(fileId: string, response: ReadDocumentResponse): void {

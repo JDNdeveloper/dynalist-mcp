@@ -9,6 +9,20 @@
 | `DYNALIST_API_TOKEN` | Yes | Your Dynalist API token from [dynalist.io/developer](https://dynalist.io/developer) |
 | `DYNALIST_MCP_CONFIG` | No | Override the config file path (default: `~/.dynalist-mcp.json`) |
 
+## Cloudflare Workers environment
+
+Set on the Worker instead of the variables above. `bun run worker-setup` sets the secrets. See [Remote hosting](remote-hosting.md).
+
+| Name | Kind | Required | Description |
+| --- | --- | --- | --- |
+| `DYNALIST_API_TOKEN` | Secret | Yes | Your Dynalist API token from [dynalist.io/developer](https://dynalist.io/developer) |
+| `GITHUB_CLIENT_ID` | Secret | Yes | Client ID of the GitHub OAuth app used for sign-in |
+| `GITHUB_CLIENT_SECRET` | Secret | Yes | Client secret of the GitHub OAuth app (40 lowercase hex characters) |
+| `ALLOWED_GITHUB_USERS` | Secret | Yes | Comma-separated GitHub usernames allowed to sign in. Case-insensitive. Removing a username revokes its existing grants |
+| `DYNALIST_MCP_CONFIG_JSON` | Secret | No | Config as JSON, using the same schema as the config file below. `logFile` is rejected. Update it with `bun run worker-config` |
+| `MCP_RESOURCE` | Variable | Yes | Public MCP URL (e.g. `https://dynalist-mcp.<subdomain>.workers.dev/mcp`). Must match the connector URL exactly |
+| `DYNALIST_API_BASE` | Variable | No | Testing only. Overrides the Dynalist API base URL |
+
 ## Config file
 
 Optional. Located at `~/.dynalist-mcp.json` by default (override with `DYNALIST_MCP_CONFIG`). All fields are optional with sensible defaults. Validated with Zod on load. Only `access`, `logLevel`, and `logFile` are hot-reloaded on file changes; all other settings are read once at startup. Invalid config fails closed (all tools error until fixed or removed).

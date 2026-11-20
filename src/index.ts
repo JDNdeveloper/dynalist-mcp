@@ -11,13 +11,15 @@
  * Get your API token from: https://dynalist.io/developer
  */
 
-import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { DynalistClient } from "./dynalist-client";
-import { log } from "./config";
-import { registerTools } from "./tools/index";
-import { SERVER_INSTRUCTIONS } from "./instructions";
-import pkg from "../package.json";
+import { AccessController } from "./access-control";
+import { DocumentStore } from "./document-store";
+import { log, setConfigLoader } from "./config";
+import { createFileConfigLoader } from "./config-file";
+import { createDynalistServer } from "./server";
+
+setConfigLoader(createFileConfigLoader());
 
 // Get API token from environment.
 const API_TOKEN = process.env.DYNALIST_API_TOKEN;
@@ -31,21 +33,12 @@ if (!API_TOKEN) {
 // Create Dynalist client.
 const dynalistClient = new DynalistClient(API_TOKEN);
 
-// Create MCP server.
-const server = new McpServer(
-  {
-    name: "dynalist-mcp",
-    version: pkg.version,
-    title: "Dynalist",
-    description: "Read, write, search, and organize content in Dynalist documents.",
-  },
-  {
-    instructions: SERVER_INSTRUCTIONS,
-  },
-);
-
-// Register all tools.
-registerTools(server, dynalistClient);
+// Create MCP server with all tools registered.
+const server = createDynalistServer({
+  client: dynalistClient,
+  ac: new AccessController(dynalistClient),
+  store: new DocumentStore(dynalistClient),
+});
 
 // Start server with stdio transport.
 async function main() {

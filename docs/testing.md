@@ -30,14 +30,22 @@ The behavioral rules the dummy server implements were discovered through exhaust
 
 ## Test architecture
 
-Tests are organized in two directories:
+Tests are organized in three directories:
 
-- `src/tests/*.test.ts`: Unit tests for individual modules (access control, config, document store, version guard, client batching, helpers).
+- `src/tests/*.test.ts`: Unit tests for individual modules (access control, config, document store, version guard, client batching, helpers, Worker env validation and config loading).
 - `src/tests/tools/*.test.ts`: Integration tests that exercise tools through the full MCP protocol stack. Each test creates an MCP server with the dummy client, connects via in-memory transport, and calls tools through the MCP client interface.
+- `src/tests/worker/`: Cloudflare Worker tests, run by `bun run test:worker` (see below).
 
 The integration test setup (`test-helpers.ts`) wires together the full server stack: `DummyDynalistServer` backing a `DynalistClient`, connected to the real `DocumentStore`, `AccessController`, `VersionGuard`, and tool handlers. This means integration tests exercise the same code paths as production, with only the HTTP layer replaced.
 
 Total test code as of 2026-03-14: ~800 tests and ~14,000 lines across ~20 test files.
+
+## Worker tests
+
+`bun run test:worker` runs two Vitest projects inside the Workers runtime (workerd) with `@cloudflare/vitest-plugin`, configured by `vitest.config.ts` and `src/tests/worker/wrangler.test.jsonc`. The tests, the Worker, and its Durable Object share one isolate, so the harness (`src/tests/worker/harness.ts`) stubs `globalThis.fetch` to route the Worker's outbound Dynalist requests to `DummyDynalistServer.handleHttpRequest` and its GitHub requests to a GitHub stub. Worker test files end in `.vitest.ts` so `bun test` skips them.
+
+- **`worker` project** (`*.vitest.ts`): OAuth (401 with `WWW-Authenticate`, allowlisted and non-allowlisted sign-in, allowlist re-check on existing tokens), env validation (503 on every route without naming the failing secret), `batch_index` sequences across separate HTTP requests including a Durable Object restart between members, the persisted file tree cache surviving a restart, and the platform-failure JSON-RPC error.
+- **`parity` project**: reruns every `src/tests/tools/*.test.ts` file unchanged over OAuth and Streamable HTTP into the Durable Object. Vitest aliases `bun:test` to `vitest` and the tool tests' `./test-helpers` import to `src/tests/worker/http-test-helpers.ts`, which resets the Durable Object between tests. Any behavior difference between the stdio and Worker transports fails this suite.
 
 ## Race simulation testing
 
@@ -83,6 +91,8 @@ A [comprehensive test plan](live-test-plan.md) covers 13 areas across ~120 test 
 - `send_to_inbox` edge cases.
 - Error recovery (URL handling, invalid IDs).
 - `check_document_versions` and `get_recent_changes` edge cases.
+
+The plan's [remote connector acceptance](live-test-plan.md#remote-connector-acceptance) section covers manual checks against a deployed Worker from Claude web.
 
 ### Weak-model instruction validation
 

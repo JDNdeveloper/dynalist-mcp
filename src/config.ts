@@ -1,11 +1,11 @@
 /**
- * Configuration loader for ~/.dynalist-mcp.json (or DYNALIST_MCP_CONFIG).
- * Validates with Zod, reloads on mtime change, fail-closed on invalid config.
+ * Platform-agnostic configuration core: the Zod schema, parsing, the
+ * active config, and logging. Where config comes from is decided by an
+ * installed ConfigLoader (a file on stdio, an environment secret on
+ * Cloudflare Workers). This module imports no Node modules so it runs on
+ * both platforms.
  */
 
-import { statSync, readFileSync, appendFileSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
 import { z } from "zod";
 
 // ─── Zod schemas ───────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 // Only these fields are updated when the config file changes after
 // startup. All other fields are frozen at init and baked into schemas.
 
-const HOT_RELOAD_KEYS = ["access", "logLevel", "logFile"] as const;
+export const HOT_RELOAD_KEYS = ["access", "logLevel", "logFile"] as const;
 type HotReloadKey = (typeof HOT_RELOAD_KEYS)[number];
 
 // Startup-only config fields (everything not hot-reloadable). The type
@@ -86,7 +86,7 @@ export type StartupConfig = Omit<Config, HotReloadKey>;
 // ─── ConfigError ───────────────────────────────────────────────────────
 
 /**
- * Thrown when the config file exists but fails validation. Caught by
+ * Thrown when the config exists but fails validation. Caught by
  * wrapToolHandler and returned as a structured MCP error.
  */
 export class ConfigError extends Error {
@@ -96,22 +96,81 @@ export class ConfigError extends Error {
   }
 }
 
-// ─── Default config (no file) ──────────────────────────────────────────
+// ─── Parsing ──────────────────────────────────────────────────────────
 
-const DEFAULT_CONFIG: Config = ConfigSchema.parse({});
+export const DEFAULT_CONFIG: Config = ConfigSchema.parse({});
 
-// ─── Mtime-based loader ───────────────────────────────────────────────
+/**
+ * Parse and validate raw config JSON. Throws ConfigError naming the
+ * source (e.g. "Config file") and ending with the remedy, so each
+ * platform can tell the operator how to fix its own config source.
+ */
+export function parseConfig(
+  raw: string,
+  source: string = "Config",
+  remedy: string = "Fix the config or remove it to use defaults.",
+): Config {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new ConfigError(
+      `${source} is invalid JSON: ${err instanceof Error ? err.message : String(err)}. ${remedy}`
+    );
+  }
 
-let cachedConfig: Config = DEFAULT_CONFIG;
-let cachedMtimeMs: number | null = null;
-// Tracks whether the config file existed on last check.
-let fileExisted = false;
-// True after the first successful config load. Once set, subsequent
-// reloads only propagate hot-reloadable fields.
-let initialLoadDone = false;
-// Incremented on every successful config reload. Consumers (e.g.
-// AccessController) compare against this to detect config changes.
+  const result = ConfigSchema.safeParse(parsed);
+  if (!result.success) {
+    const details = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    throw new ConfigError(`${source} is invalid: ${details}. ${remedy}`);
+  }
+  return result.data;
+}
+
+// ─── Loader hook ──────────────────────────────────────────────────────
+
+/**
+ * Supplies the active config. load() runs on every getConfig() call, so
+ * it must be cheap when nothing changed, and it throws ConfigError on
+ * invalid config (fail-closed). A loader calls notifyConfigChanged()
+ * whenever the config it returns changes.
+ */
+export interface ConfigLoader {
+  load(): Config;
+  /** Reset internal state for test isolation. */
+  reset?(): void;
+  /** Append a formatted log line to an extra sink (e.g. logFile). */
+  writeLog?(config: Config, line: string): void;
+}
+
+// Without an installed loader, the defaults apply.
+const defaultLoader: ConfigLoader = { load: () => DEFAULT_CONFIG };
+
+let loader: ConfigLoader = defaultLoader;
+// The config most recently returned by the loader. log() reads it
+// directly so logging never triggers a reload.
+let activeConfig: Config = DEFAULT_CONFIG;
+// Incremented whenever the loader reports a change.
 let configVersion = 0;
+
+/**
+ * Install the loader that supplies config. Entry points call this once
+ * before registering tools.
+ */
+export function setConfigLoader(next: ConfigLoader): void {
+  loader = next;
+  activeConfig = DEFAULT_CONFIG;
+}
+
+/**
+ * Record that the loader's config changed and make it active, so log()
+ * immediately uses the new logLevel. Loaders call this on every
+ * successful load or reload.
+ */
+export function notifyConfigChanged(config: Config): void {
+  activeConfig = config;
+  configVersion++;
+}
 
 export function getConfigVersion(): number {
   return configVersion;
@@ -123,107 +182,26 @@ let injectedConfig: Config | null = null;
 
 /**
  * Inject a config for testing. When set, getConfig() returns it
- * directly without reading any file. Pass null to clear and fully
- * reset internal state for test isolation.
+ * directly without consulting the loader. Pass null to clear and fully
+ * reset the loader's state for test isolation.
  */
 export function setTestConfig(config: Config | null): void {
   injectedConfig = config;
   if (config === null) {
-    // Reset all file-based state for test isolation.
-    cachedConfig = DEFAULT_CONFIG;
-    cachedMtimeMs = null;
-    fileExisted = false;
-    initialLoadDone = false;
+    loader.reset?.();
+    activeConfig = DEFAULT_CONFIG;
   }
   configVersion++;
-}
-
-function getConfigPath(): string {
-  return process.env.DYNALIST_MCP_CONFIG ?? join(homedir(), ".dynalist-mcp.json");
 }
 
 /**
- * Load the config, checking mtime for changes. Throws ConfigError if the
- * file exists but is invalid (fail-closed). Called on every tool invocation.
+ * Return the active config from the installed loader. Throws ConfigError
+ * if the config is invalid (fail-closed). Called on every tool invocation.
  */
 export function getConfig(): Config {
   if (injectedConfig !== null) return injectedConfig;
-  const configPath = getConfigPath();
-
-  let mtimeMs: number | null = null;
-  let exists = false;
-  try {
-    const stat = statSync(configPath);
-    mtimeMs = stat.mtimeMs;
-    exists = true;
-  } catch {
-    // File does not exist.
-  }
-
-  if (!exists) {
-    if (fileExisted) {
-      // File was deleted. Only revert hot-reloadable fields to defaults;
-      // startup-only fields stay frozen from initial load.
-      for (const key of HOT_RELOAD_KEYS) {
-        (cachedConfig as Record<string, unknown>)[key] = (DEFAULT_CONFIG as Record<string, unknown>)[key];
-      }
-      cachedMtimeMs = null;
-      fileExisted = false;
-      configVersion++;
-      log("info", "Config file removed, reverting hot-reloadable settings to defaults.");
-    }
-    return cachedConfig;
-  }
-
-  // File exists. Check if mtime changed.
-  if (fileExisted && mtimeMs === cachedMtimeMs) {
-    return cachedConfig;
-  }
-
-  // Load and validate.
-  let raw: string;
-  try {
-    raw = readFileSync(configPath, "utf-8");
-  } catch (err) {
-    throw new ConfigError(
-      `Config file is unreadable: ${err instanceof Error ? err.message : String(err)}. ` +
-      `Fix the file or remove it to use defaults.`
-    );
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new ConfigError(
-      `Config file is invalid JSON: ${err instanceof Error ? err.message : String(err)}. ` +
-      `Fix the file or remove it to use defaults.`
-    );
-  }
-
-  const result = ConfigSchema.safeParse(parsed);
-  if (!result.success) {
-    const details = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-    throw new ConfigError(
-      `Config file is invalid: ${details}. Fix the file or remove it to use defaults.`
-    );
-  }
-
-  if (initialLoadDone) {
-    // Subsequent reload: only propagate hot-reloadable fields.
-    for (const key of HOT_RELOAD_KEYS) {
-      (cachedConfig as Record<string, unknown>)[key] = (result.data as Record<string, unknown>)[key];
-    }
-  } else {
-    // Initial load: set all fields.
-    cachedConfig = result.data;
-    initialLoadDone = true;
-  }
-  cachedMtimeMs = mtimeMs;
-  fileExisted = true;
-  configVersion++;
-  log("info", "Config file loaded.");
-  return cachedConfig;
+  activeConfig = loader.load();
+  return activeConfig;
 }
 
 /**
@@ -244,23 +222,34 @@ export function getStartupConfig(): StartupConfig {
 // ─── Logger ────────────────────────────────────────────────────────────
 
 const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 } as const;
+export type LogLevel = keyof typeof LOG_LEVELS;
 
 /**
- * Log to stderr (stdout is reserved for MCP protocol) and optionally to
- * a file. Respects the configured logLevel.
+ * Writes one formatted log line. The default sink sends every level to
+ * stderr, since stdout is reserved for the MCP protocol on stdio.
  */
-export function log(level: keyof typeof LOG_LEVELS, message: string): void {
-  const threshold = LOG_LEVELS[cachedConfig.logLevel];
+export type LogSink = (level: LogLevel, line: string) => void;
+
+let logSink: LogSink = (_level, line) => console.error(line);
+
+/**
+ * Replace the log sink. Cloudflare Workers maps each level to the
+ * matching console method so Workers Logs can filter by level.
+ */
+export function setLogSink(sink: LogSink): void {
+  logSink = sink;
+}
+
+/**
+ * Log through the active sink and the loader's extra sink (if any).
+ * Respects the configured logLevel.
+ */
+export function log(level: LogLevel, message: string): void {
+  const threshold = LOG_LEVELS[activeConfig.logLevel];
   if (LOG_LEVELS[level] <= threshold) {
     const line = `[dynalist-mcp] [${level}] ${message}`;
-    console.error(line);
-    if (cachedConfig.logFile) {
-      try {
-        appendFileSync(cachedConfig.logFile, `${new Date().toISOString()} ${line}\n`);
-      } catch {
-        // Silently ignore write failures to avoid recursive error loops.
-      }
-    }
+    logSink(level, line);
+    loader.writeLog?.(activeConfig, line);
   }
 }
 
@@ -270,6 +259,17 @@ export function log(level: keyof typeof LOG_LEVELS, message: string): void {
 export const ENV_VARS = [
   { name: "DYNALIST_API_TOKEN", required: true, description: "Your Dynalist API token from [dynalist.io/developer](https://dynalist.io/developer)" },
   { name: "DYNALIST_MCP_CONFIG", required: false, description: "Override the config file path (default: `~/.dynalist-mcp.json`)" },
+] as const;
+
+// Secrets and variables for the Cloudflare Worker.
+export const WORKER_ENV_VARS = [
+  { name: "DYNALIST_API_TOKEN", kind: "Secret", required: true, description: "Your Dynalist API token from [dynalist.io/developer](https://dynalist.io/developer)" },
+  { name: "GITHUB_CLIENT_ID", kind: "Secret", required: true, description: "Client ID of the GitHub OAuth app used for sign-in" },
+  { name: "GITHUB_CLIENT_SECRET", kind: "Secret", required: true, description: "Client secret of the GitHub OAuth app (40 lowercase hex characters)" },
+  { name: "ALLOWED_GITHUB_USERS", kind: "Secret", required: true, description: "Comma-separated GitHub usernames allowed to sign in. Case-insensitive. Removing a username revokes its existing grants" },
+  { name: "DYNALIST_MCP_CONFIG_JSON", kind: "Secret", required: false, description: "Config as JSON, using the same schema as the config file below. `logFile` is rejected. Update it with `bun run worker-config`" },
+  { name: "MCP_RESOURCE", kind: "Variable", required: true, description: "Public MCP URL (e.g. `https://dynalist-mcp.<subdomain>.workers.dev/mcp`). Must match the connector URL exactly" },
+  { name: "DYNALIST_API_BASE", kind: "Variable", required: false, description: "Testing only. Overrides the Dynalist API base URL" },
 ] as const;
 
 export const LOG_LEVEL_DESCRIPTIONS: Record<string, string> = {

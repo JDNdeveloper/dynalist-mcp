@@ -52,7 +52,9 @@ At p_contention = 0.1 this is a flat 10x multiplier on expected days, independen
 
 `DocumentStore` tracks this state per `file_id`: `expectedSyncToken`, `nextBatchIndex`, and `expectedDocumentVersion` (the real post-write version, or `preWriteVersion + apiCallCount` if the post-write check itself failed). `batch_index: 0` or omitted checks plain equality against `expected_sync_token` and clears any existing state for the document. `batch_index > 0` must match the recorded state exactly. Any mismatch, in either case, drops the state and aborts with `SyncTokenMismatch`, so a later call can never resume a broken batch. A batch member's write failing for a reason unrelated to versioning (e.g. item not found) leaves the state untouched, so retrying the same `batch_index` still works if the document hasn't changed.
 
-Batch state lives only in memory on the `DocumentStore` instance for the process lifetime; it is not persisted or size-bounded beyond one entry per document currently mid-batch.
+Batch state lives in the `PersistentStore` passed to `DocumentStore`. The stdio server keeps it in process memory for the process lifetime. The Cloudflare Worker keeps it in Durable Object storage, because the object's memory is wiped when it hibernates (about 10 seconds after its last request), which would otherwise break a batch whenever the model pauses between members. Persisted state can outlive the object, which is harmless because every member is still checked against the live document version. It is not size-bounded beyond one entry per document currently mid-batch.
+
+The guard requires member N-1 to finish before member N is checked. Remote clients such as Claude web and ChatGPT run tool calls on their own backends, and whether they send batch members concurrently or out of order is not yet verified. A misordered member fails safe with `SyncTokenMismatch`. The [live test plan](live-test-plan.md#remote-connector-acceptance) measures the real behavior, and ordering support follows only if clients need it.
 
 ## Relative positioning
 

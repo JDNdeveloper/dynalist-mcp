@@ -8,17 +8,21 @@ The `DocumentStore` class maintains an LRU cache of up to 5 recent document read
 
 This matters because agents frequently read the same document multiple times in a conversation: once to display content, again before a write (to obtain the version), and again after a write (to verify). The cache eliminates redundant full reads for unchanged documents while still detecting concurrent edits via the version check.
 
+On Cloudflare Workers the cache lives in the Durable Object's memory, which is wiped when the object hibernates about 10 seconds after its last request. The cache is therefore nearly always cold at the start of a turn, which costs about one extra `/doc/read` per write. That is well within Dynalist's read rate limit, so the cache is not persisted.
+
 Cache entries are invalidated after writes (via the version guard's `finally` block) and after `send_to_inbox` (which modifies the inbox document). The `invalidateAll()` method is available but not currently used in normal operation.
 
 ## File tree cache
 
 The `AccessController` caches the file tree (the `listFiles()` response, resolved into a path map) with a configurable TTL (default 5 minutes). Every access control check uses this cached path map to resolve file IDs to title-based paths for rule evaluation.
 
+The cache lives in the `PersistentStore`: process memory on stdio, Durable Object storage on Cloudflare Workers. Persisting it on Workers matters because `/file/list` is limited to 6 calls per minute, and a cache wiped by every hibernation would cost one call per tool call.
+
 The cache is invalidated in three situations:
 
 - **After file mutations.** `create_document`, `create_folder`, `rename_document`, `move_document`, and `move_folder` all call `ac.invalidateCache()` after the API call succeeds, since file paths have changed.
 - **On denial retry.** When a file is denied by access control, the controller retries with a fresh cache to handle stale paths from external renames or moves. This prevents a false denial when a file was recently moved to an allowed path.
-- **On config reload.** The controller tracks a `configVersion` counter and invalidates the cache when the config changes, since access rules may have been added or modified.
+- **On access rule changes.** Each cache entry records a hash of the `access` config it was validated against, and is reused only while the current `access` config hashes the same. A hash survives restarts, unlike an in-memory counter, so it also protects a persisted entry across a redeploy that changes the rules. Reloads that change only other fields (e.g. `logLevel`) keep the cache.
 
 ## Config reloading
 
@@ -29,7 +33,9 @@ Config fields are split into two categories:
 - **Hot-reloaded** (`access`, `logLevel`, `logFile`): updated on every file change. Access rules must always be current for security; log settings are useful to change for live debugging.
 - **Startup-only** (`readDefaults`, `sizeWarning`, `cache`): read once at server initialization and frozen. Their values are baked into Zod schema `.default()` calls at tool registration time, so they become part of the JSON Schema transmitted to agents. Changing these fields in the config file after startup has no effect until the server is restarted.
 
-A `configVersion` counter increments on every reload. Other modules (like `AccessController`) compare against this counter to detect config changes with a simple integer comparison instead of redundant file reads.
+A `configVersion` counter increments on every reload. The file tree cache does not use it (see above).
+
+On Cloudflare Workers, config comes from the `DYNALIST_MCP_CONFIG_JSON` secret instead of a file. It is parsed once when the Durable Object starts and never reloaded. Updating the secret (`bun run worker-config`) deploys a new Worker version, which restarts the Durable Object with the new config.
 
 ## Rate limit handling
 

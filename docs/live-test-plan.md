@@ -572,3 +572,44 @@ Call `reorder_items` with:
   ```
 
 Read back. **PASS** if the top-level order is `[Beta, Gamma, Alpha]` AND Alpha's children are `[Child 1, Child 2]`. **FAIL** otherwise.
+
+---
+
+## Remote connector acceptance
+
+Manual checks against a deployed Worker (see [Remote hosting](remote-hosting.md)), connected as a custom connector from Claude web with a **test account** token. Run them by hand in the client, not as subagents. Watch the Worker logs with `bunx wrangler tail` during each test.
+
+ChatGPT acceptance is deferred: ChatGPT custom connectors require a plan that was not available for testing. Repeat every test below on ChatGPT web once one is.
+
+### Test R1: Connect, read, and write
+
+Add the connector, approve the consent page, and sign in with an allowlisted GitHub account. Ask the client to list documents, read one, and add an item to it. **PASS** if all three succeed and the write appears in Dynalist. **FAIL** otherwise.
+
+### Test R2: Non-allowlisted account
+
+Sign in with a GitHub account that is not in `ALLOWED_GITHUB_USERS`. **PASS** if sign-in stops at a "not allowed" page and the connector does not connect.
+
+### Test R3: Batch member ordering (required)
+
+Ask the client to make three independent edits to one document in one turn, so it issues a `batch_index` 0, 1, 2 sequence. From the Worker logs, record whether the members arrived sequentially, concurrently, or out of order, and whether any failed with `SyncTokenMismatch`. **PASS** if all three succeed. **FAIL** if any member conflicts because of arrival order. Record the result in `docs/concurrency.md` either way. A failure means batch member ordering must be designed before the remote server is considered complete.
+
+### Test R4: Server instructions
+
+Without mentioning `get_instructions`, ask the client to show a document. **PASS** if it renders the tree in a fenced code block with `•` bullets, which shows it received the server instructions. Record the result in `docs/client-setup.md`.
+
+### Test R5: Large reads
+
+Read a large document, accept the size warning, and re-read with `bypass_warning`. **PASS** if the client receives the full result. Record any connector result-size limit hit.
+
+### Test R6: Errors reach the agent
+
+Edit a document in the Dynalist web UI between the client's read and its write. **PASS** if the write fails with `SyncTokenMismatch` and the client re-reads before retrying.
+
+### Test R7: End-to-end skill
+
+Ask "Set short trip reminders using dl skill". **PASS** if the client follows the skill end to end, including adding the Todoist reminders. Then ask it to delete the reminders.
+
+### Test R8: Platform limits
+
+On the free plan, record Worker CPU time for a `read_document` of a large document, and for a large delete and a deep insert. Record whether any request is cut off by subrequest or CPU limits, and the outcome of forced rate limiting. Use the results to set the plan recommendation in `docs/remote-hosting.md`.
+

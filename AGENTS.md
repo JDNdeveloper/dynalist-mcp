@@ -21,12 +21,13 @@ bun run start        # Run the MCP server
 bun run check        # Typecheck + lint + tests + generate docs
 ```
 
-**This is mandatory before committing.** Under the hood, `check` runs four steps in order:
+**This is mandatory before committing.** Under the hood, `check` runs five steps in order:
 
-1. `bun run typecheck` (tsc --noEmit).
+1. `bun run typecheck` (tsc --noEmit, once with Bun types and once with Workers types via `tsconfig.worker.json`).
 2. `bun run lint` (ESLint).
 3. `bun test` (full test suite against dummy server).
-4. `bun run generate-docs` (regenerate docs/tools.md, docs/configuration.md, docs/api-coverage.md, docs/instructions.md from source).
+4. `bun run test:worker` (Worker tests and the HTTP parity suite in the Workers runtime, via Vitest).
+5. `bun run generate-docs` (regenerate docs/tools.md, docs/configuration.md, docs/api-coverage.md, docs/instructions.md from source).
 
 If any step fails, do not commit. Fix the issue first.
 
@@ -37,10 +38,11 @@ bun run typecheck    # Just tsc --noEmit
 bun run lint         # Just ESLint
 bun test             # Just the test suite
 bun test --watch     # Watch mode for development
+bun run test:worker  # Just the Worker tests (Vitest, Workers runtime)
 bun run generate-docs # Just regenerate docs
 ```
 
-Tests run against a dummy Dynalist server (in-memory) via the real MCP protocol. Test files are in `src/tests/tools/`.
+Tests run against a dummy Dynalist server (in-memory) via the real MCP protocol. Test files are in `src/tests/tools/`. Worker tests live in `src/tests/worker/` and end in `.vitest.ts` so `bun test` skips them. The parity suite reruns every `src/tests/tools/` file over OAuth and HTTP into the Durable Object, so tool tests must stay compatible with both `bun:test` and Vitest.
 
 ## Development workflow
 
@@ -57,9 +59,12 @@ Only files of note are listed. Use the filesystem for a complete listing.
 
 ```
 src/
-├── index.ts                      # Entry point, server identity
+├── index.ts                      # Stdio entry point
+├── server.ts                     # Shared MCP server factory (identity, instructions, tools)
 ├── instructions.ts               # MCP instructions prompt (shared with doc generator)
-├── config.ts                     # Zod-validated config with mtime-based reloading
+├── config.ts                     # Zod-validated config core with pluggable loaders (no Node imports)
+├── config-file.ts                # Config file loader with mtime-based reloading (stdio only)
+├── persistent-store.ts           # State that must survive across requests (batch state, file tree cache)
 ├── access-control.ts             # Path-based ACL (deny/read/allow policies)
 ├── document-store.ts             # LRU-cached document reader with version checks
 ├── types.ts                      # Shared types (OutputNode, NodeSummary, etc.)
@@ -77,14 +82,24 @@ src/
 │   └── files.ts                  # File management tools (create, rename, move)
 ├── utils/
 │   └── dynalist-helpers.ts       # Shared tool helpers (size check, tree builder, etc.)
+├── worker/
+│   ├── index.ts                  # Cloudflare Worker entry point
+│   ├── app.ts                    # OAuth provider wiring, allowlist re-check, Durable Object forwarding
+│   ├── github-handler.ts         # Consent page and GitHub sign-in (/authorize, /callback)
+│   ├── mcp-durable-object.ts     # Durable Object that owns shared state and serves MCP requests
+│   ├── durable-object-store.ts   # PersistentStore backed by Durable Object storage
+│   ├── env-validation.ts         # Secret and binding validators (shared with the setup script)
+│   └── env-config-loader.ts      # Config loader for DYNALIST_MCP_CONFIG_JSON
 └── tests/
-    └── tools/                    # Tool integration tests against dummy server
+    ├── tools/                    # Tool integration tests against dummy server
+    └── worker/                   # Worker tests and HTTP parity harness (Vitest, Workers runtime)
 scripts/
 ├── bundle.sh                     # Build the .mcpb distribution artifact
 ├── generate-docs.ts              # Generate docs/tools.md, configuration.md, api-coverage.md, instructions.md
 ├── generate-manifest.ts          # Generate dist/manifest.json from package.json
 ├── haiku-validation.ts           # Weak-model instruction validation harness
-└── release.sh                    # Tag, release, and upload .mcpb to GitHub
+├── release.sh                    # Tag, release, and upload .mcpb to GitHub
+└── worker-setup.ts               # Guided Cloudflare Workers setup (wrangler.jsonc, secrets)
 
 ```
 
@@ -180,7 +195,8 @@ The following docs must be kept up to date when the corresponding features chang
 - `docs/tools.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
 - `docs/configuration.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
 - `docs/access-control.md`: ACL rules, glob syntax, specificity, ID anchoring, examples. Update when access control behavior changes.
-- `docs/client-setup.md`: Claude Desktop, Claude Code, and general MCP client setup. Update when supported clients or connection instructions change.
+- `docs/client-setup.md`: Claude Desktop, Claude Code, remote connectors (Claude, ChatGPT), and general MCP client setup. Update when supported clients or connection instructions change.
+- `docs/remote-hosting.md`: Cloudflare Workers deployment, setup script, secrets, updating, and plan recommendation. Update when Worker setup, secrets, or deploy tooling change.
 - `docs/api-coverage.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
 - `docs/instructions.md`: **Generated.** Do not edit by hand. Run `bun run generate-docs` (or `bun run check`).
 - `docs/agent-ux.md`: How MCP instructions shape agent rendering, confirmations, size management, and composability. Update when instruction text or description constants change.

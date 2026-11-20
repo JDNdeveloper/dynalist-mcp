@@ -19,6 +19,8 @@ For Dynalist API documentation, see [apidocs.dynalist.io](https://apidocs.dynali
 
 ## Getting started
 
+These steps run the server locally. To host it on Cloudflare Workers for Claude web or ChatGPT, see [Remote hosting](docs/remote-hosting.md) instead.
+
 ### 1. Install
 
 ```bash
@@ -126,7 +128,8 @@ When directing your agent to a specific Dynalist item (e.g. "handle this item: h
 - [**Tools reference**](docs/tools.md): Parameter tables, response shapes, and examples for all tools.
 - [**Configuration**](docs/configuration.md): Config file reference, environment variables, field table, and logging.
 - [**Access control**](docs/access-control.md): Path-based ACL rules, glob syntax, specificity precedence, ID anchoring, and examples.
-- [**Client setup**](docs/client-setup.md): Troubleshooting, environment isolation, and additional MCP client details.
+- [**Client setup**](docs/client-setup.md): Troubleshooting, environment isolation, remote connectors, and additional MCP client details.
+- [**Remote hosting**](docs/remote-hosting.md): Deploying to Cloudflare Workers with GitHub sign-in.
 - [**API coverage**](docs/api-coverage.md): Mapping between Dynalist API endpoints and MCP tools.
 - [**Agent UX**](docs/agent-ux.md): How MCP instructions shape agent behavior for rendering, confirmations, size management, and composability.
 - [**Concurrency**](docs/concurrency.md): Version guards, position resolution, deletion ordering, cache invalidation, and race simulation testing.
@@ -140,6 +143,7 @@ bun run start        # Run the MCP server
 bun run typecheck    # Type-check without emitting (run after making changes)
 bun test             # Run the full test suite
 bun test --watch     # Run tests in watch mode
+bun run test:worker  # Run the Worker tests in the Workers runtime
 bun run inspector    # Debug with MCP Inspector
 ```
 
@@ -157,8 +161,11 @@ DYNALIST_API_TOKEN=your_token bun run inspector
 
 ```
 src/
-├── index.ts                      # Entry point, server identity, instructions
-├── config.ts                     # Zod-validated config with mtime-based reloading
+├── index.ts                      # Stdio entry point
+├── server.ts                     # Shared MCP server factory (identity, instructions, tools)
+├── config.ts                     # Zod-validated config core with pluggable loaders
+├── config-file.ts                # Config file loader with mtime-based reloading
+├── persistent-store.ts           # State that must survive across requests (batch state, file tree cache)
 ├── access-control.ts             # Path-based ACL (deny/read/allow policies)
 ├── document-store.ts             # LRU-cached document reader with version checks
 ├── types.ts                      # Shared types (OutputNode, NodeSummary, etc.)
@@ -176,8 +183,15 @@ src/
 │   └── files.ts                  # File management tools
 ├── utils/
 │   └── dynalist-helpers.ts       # Shared tool helpers
+├── worker/
+│   ├── index.ts                  # Cloudflare Worker entry point
+│   ├── app.ts                    # OAuth provider wiring, allowlist re-check, Durable Object forwarding
+│   ├── github-handler.ts         # Consent page and GitHub sign-in
+│   ├── mcp-durable-object.ts     # Durable Object that serves MCP requests
+│   └── env-validation.ts         # Secret and binding validators (shared with the setup script)
 └── tests/
-    └── tools/                    # Tool integration tests against dummy server
+    ├── tools/                    # Tool integration tests against dummy server
+    └── worker/                   # Worker tests and HTTP parity harness (Workers runtime)
 ```
 
 ## Bundling and releasing
@@ -195,11 +209,18 @@ bun run release      # Bundle + git tag + GitHub release with .mcpb asset (maint
 
 ### Transport
 
-This server uses MCP stdio transport: it runs as a local subprocess of the MCP client (e.g. Claude Desktop, Claude Code) and communicates via stdin/stdout. There is no network listener, no HTTP server, no port binding. The server is not accessible from outside the machine or from other processes on the same machine.
+**Local (stdio):** the server runs as a local subprocess of the MCP client (e.g. Claude Desktop, Claude Code) and communicates via stdin/stdout. In this mode there is no network listener, no HTTP server, no port binding. The server is not accessible from outside the machine or from other processes on the same machine.
+
+**Remote (Cloudflare Workers):** the server is reachable at a public URL, so anyone on the internet can send it requests. It protects them as follows:
+
+- **OAuth 2.1 with GitHub sign-in.** Every MCP request needs an access token. Tokens are issued only after GitHub sign-in, and only to the usernames in `ALLOWED_GITHUB_USERS`. The allowlist is re-checked on every request, so removing a username revokes its existing grants.
+- **Consent page.** Any client can register itself, so every authorization shows a consent page naming the client and where access is sent. This stops a link from silently authorizing someone else's client against your GitHub session. The page cannot be framed or forged.
+- **Worker secrets.** The Dynalist token and GitHub client secret live in Worker secrets, never in the repo or in responses. Grants store only your GitHub username. The GitHub access token is discarded after sign-in.
+- **Fail closed.** If any secret or binding is missing or invalid, including an empty allowlist, every route returns 503.
 
 ### LLM access risks
 
-While the server itself is local-only, the LLM interacting with it has full read/write access to your Dynalist data (subject to access control policy, if configured). The LLM could read sensitive content, modify or delete items, or exfiltrate data by including it in responses. Use the access control system to limit exposure.
+Whether local or remote, the LLM interacting with the server has full read/write access to your Dynalist data (subject to access control policy, if configured). The LLM could read sensitive content, modify or delete items, or exfiltrate data by including it in responses. Use the access control system to limit exposure.
 
 To enforce global read-only mode (all reads allowed, all writes blocked):
 

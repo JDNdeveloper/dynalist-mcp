@@ -6,9 +6,11 @@
  * file tree with configurable TTL.
  */
 
+import { createHash } from "node:crypto";
 import type { DynalistClient, DynalistFile } from "./dynalist-client";
 import type { Config, AccessRule } from "./config";
-import { log, getConfigVersion, ConfigError } from "./config";
+import { log, ConfigError } from "./config";
+import { InMemoryPersistentStore, type FileTreeCacheEntry, type PersistentStore } from "./persistent-store";
 
 export type Policy = "allow" | "read" | "deny";
 
@@ -176,9 +178,13 @@ function evaluateRules(filePath: string, rules: AccessRule[], defaultPolicy: Pol
 
 // ─── Path resolution ──────────────────────────────────────────────────
 
-interface PathCache {
-  pathMap: Map<string, string>;
-  fetchedAt: number;
+/**
+ * Hash the access config so a cached path map is reused only under the
+ * rules it was validated against. The hash survives process restarts,
+ * unlike an in-memory config version counter.
+ */
+function hashAccessConfig(access: Config["access"]): string {
+  return createHash("sha256").update(JSON.stringify(access ?? null)).digest("hex");
 }
 
 /**
@@ -347,13 +353,14 @@ function extractPathPrefixes(path: string): string[] {
 
 export class AccessController {
   private client: DynalistClient;
-  private cache: PathCache | null = null;
-  // Tracks the last seen config version so we can invalidate the path
-  // cache when the config file is reloaded (rules may have changed).
-  private lastConfigVersion = -1;
+  // The file tree cache lives in the persistent store so it survives
+  // Durable Object hibernation, where a cold cache would cost a rate-limited
+  // /file/list call on nearly every tool call.
+  private persistent: PersistentStore;
 
-  constructor(client: DynalistClient) {
+  constructor(client: DynalistClient, persistent: PersistentStore = new InMemoryPersistentStore()) {
     this.client = client;
+    this.persistent = persistent;
   }
 
   /**
@@ -361,7 +368,7 @@ export class AccessController {
    * operations and on denial retries.
    */
   invalidateCache(): void {
-    this.cache = null;
+    this.persistent.clearFileTreeCache();
   }
 
   /**
@@ -369,16 +376,13 @@ export class AccessController {
    * On fetch failure, returns null (fail-closed).
    */
   private async getPathMap(config: Config): Promise<Map<string, string> | null> {
-    // Invalidate cache if the config was reloaded (rules may have changed).
-    const currentVersion = getConfigVersion();
-    if (currentVersion !== this.lastConfigVersion) {
-      this.cache = null;
-      this.lastConfigVersion = currentVersion;
-    }
-
+    // The cached map was validated against specific access rules, so it
+    // is reused only while those rules are unchanged.
+    const accessConfigHash = hashAccessConfig(config.access);
     const ttlMs = config.cache.ttlSeconds * 1000;
-    if (this.cache && Date.now() - this.cache.fetchedAt < ttlMs) {
-      return this.cache.pathMap;
+    const cached = this.persistent.getFileTreeCache();
+    if (cached && cached.accessConfigHash === accessConfigHash && Date.now() - cached.fetchedAt < ttlMs) {
+      return cached.pathMap;
     }
 
     try {
@@ -394,13 +398,25 @@ export class AccessController {
         }
       }
 
-      this.cache = { pathMap, fetchedAt: Date.now() };
+      this.saveFileTreeCache({ fetchedAt: Date.now(), accessConfigHash, pathMap });
       return pathMap;
     } catch (err) {
       // Config errors must propagate to the agent, not be swallowed.
       if (err instanceof ConfigError) throw err;
       log("error", `Failed to fetch file tree for access control: ${err instanceof Error ? err.message : String(err)}`);
       return null;
+    }
+  }
+
+  /**
+   * Persist a freshly fetched path map. A storage failure only costs a
+   * refetch later, so it is logged rather than failing the access check.
+   */
+  private saveFileTreeCache(entry: FileTreeCacheEntry): void {
+    try {
+      this.persistent.setFileTreeCache(entry);
+    } catch (err) {
+      log("warn", `Failed to persist file tree cache: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

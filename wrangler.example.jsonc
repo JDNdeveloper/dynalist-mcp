@@ -1,0 +1,23 @@
+// Template for wrangler.jsonc. `bun run worker-setup` copies this file to
+// wrangler.jsonc (gitignored) and fills in the account-specific values.
+// Secrets are never stored here: the setup script sets them with
+// `wrangler secret put`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dynalist-mcp",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  // global_fetch_strictly_public is required for Client ID Metadata
+  // Document (CIMD) support in the OAuth provider.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [{ "name": "MCP_OBJECT", "class_name": "DynalistMcpDurableObject" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DynalistMcpDurableObject"] }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<OAUTH_KV_NAMESPACE_ID>" }],
+  "vars": {
+    // The public MCP URL. Claude requires it to match the connector URL exactly.
+    "MCP_RESOURCE": "https://<WORKER_NAME>.<WORKERS_SUBDOMAIN>.workers.dev/mcp"
+  }
+}

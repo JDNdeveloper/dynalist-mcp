@@ -6,7 +6,7 @@
 import type { DynalistApiResponse } from "./types";
 import { log } from "./config";
 
-const API_BASE = "https://dynalist.io/api/v1";
+const DEFAULT_API_BASE = "https://dynalist.io/api/v1";
 
 // Exported for codegen by scripts/generate-docs.ts.
 export const API_ENDPOINTS: Record<string, { path: string; docs: string }> = {
@@ -43,7 +43,7 @@ export const CHANGES_BATCH_SIZE = 200;
 const INTER_BATCH_DELAY_MS = 0;
 
 const ERROR_GUIDANCE: Record<string, string> = {
-  InvalidToken: "Check your DYNALIST_API_TOKEN environment variable.",
+  InvalidToken: "Check your Dynalist API token.",
   ItemNotFound: "The specified item ID does not exist.",
   NodeNotFound: "The specified item ID does not exist.",
   NotFound: "The specified document or file was not found.",
@@ -59,6 +59,8 @@ const ERROR_GUIDANCE: Record<string, string> = {
  */
 export class DynalistApiError extends Error {
   readonly code: string;
+  // The message as the API returned it, without the appended guidance.
+  readonly apiMessage: string;
 
   constructor(code: string, msg: string) {
     const guidance = ERROR_GUIDANCE[code];
@@ -66,6 +68,7 @@ export class DynalistApiError extends Error {
     super(fullMessage);
     this.name = "DynalistApiError";
     this.code = code;
+    this.apiMessage = msg;
   }
 }
 
@@ -151,16 +154,26 @@ export interface CheckForUpdatesResponse {
   versions: Record<string, number>;
 }
 
+export interface DynalistClientOptions {
+  /**
+   * Override the API base URL. Testing only: the Worker tests point it at
+   * the dummy server.
+   */
+  apiBase?: string;
+}
+
 export class DynalistClient {
   private token: string;
+  private apiBase: string;
 
-  constructor(token: string) {
+  constructor(token: string, options: DynalistClientOptions = {}) {
     this.token = token;
+    this.apiBase = options.apiBase ?? DEFAULT_API_BASE;
   }
 
   protected async request<T>(endpoint: string, body: Record<string, unknown> = {}): Promise<T> {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      const response = await fetch(`${this.apiBase}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: this.token, ...body }),

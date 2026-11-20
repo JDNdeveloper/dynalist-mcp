@@ -1,0 +1,22 @@
+// Wrangler config for the Worker tests only. Secret values here are
+// fake test fixtures. Outbound requests to DYNALIST_API_BASE and GitHub
+// are routed to in-memory stubs by the tests.
+{
+  "name": "dynalist-mcp-test",
+  "main": "../../worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "durable_objects": {
+    "bindings": [{ "name": "MCP_OBJECT", "class_name": "DynalistMcpDurableObject" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DynalistMcpDurableObject"] }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "test-oauth-kv" }],
+  "vars": {
+    "MCP_RESOURCE": "https://dynalist-mcp.example.workers.dev/mcp",
+    "DYNALIST_API_TOKEN": "test-dynalist-token",
+    "GITHUB_CLIENT_ID": "Iv1.testclientid",
+    "GITHUB_CLIENT_SECRET": "0123456789abcdef0123456789abcdef01234567",
+    "ALLOWED_GITHUB_USERS": "allowed-owner",
+    "DYNALIST_API_BASE": "https://dynalist.test/api/v1"
+  }
+}

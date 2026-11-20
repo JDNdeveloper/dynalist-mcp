@@ -24,6 +24,17 @@ export interface TestContext {
 }
 
 /**
+ * Config injected by every test context, isolating tests from the
+ * developer's real config file.
+ */
+export const DEFAULT_TEST_CONFIG: Config = {
+  readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
+  sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
+  cache: { ttlSeconds: 300 },
+  logLevel: "warn",
+};
+
+/**
  * Create a fully wired test context: dummy server, MCP server with
  * all tools registered, and an MCP client ready to call tools.
  *
@@ -35,13 +46,7 @@ export async function createTestContext(
 ): Promise<TestContext> {
   // Inject a default config to isolate tests from the developer's
   // real config file. Tests can pass overrides via the config parameter.
-  setTestConfig({
-    readDefaults: { maxDepth: 3, includeCollapsedChildren: false, includeNotes: true, includeChecked: true },
-    sizeWarning: { warningTokenThreshold: 5000, maxTokenThreshold: 24500 },
-    cache: { ttlSeconds: 300 },
-    logLevel: "warn",
-    ...config,
-  });
+  setTestConfig({ ...DEFAULT_TEST_CONFIG, ...config });
 
   const server = new DummyDynalistServer();
   server.init();

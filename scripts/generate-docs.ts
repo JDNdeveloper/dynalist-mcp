@@ -727,6 +727,7 @@ function generateToolsMarkdown(): string {
 import {
   ConfigSchema,
   ENV_VARS,
+  WORKER_ENV_VARS,
   LOG_LEVEL_DESCRIPTIONS,
   CONFIG_FILE_DESCRIPTION,
   LOGGING_DESCRIPTION,
@@ -823,6 +824,19 @@ function generateConfigurationMarkdown(): string {
   lines.push("| --- | --- | --- |");
   for (const env of ENV_VARS) {
     lines.push(`| \`${env.name}\` | ${env.required ? "Yes" : "No"} | ${env.description} |`);
+  }
+  lines.push("");
+  lines.push("## Cloudflare Workers environment");
+  lines.push("");
+  lines.push(
+    "Set on the Worker instead of the variables above. `bun run worker-setup` sets the secrets. " +
+    "See [Remote hosting](remote-hosting.md).",
+  );
+  lines.push("");
+  lines.push("| Name | Kind | Required | Description |");
+  lines.push("| --- | --- | --- | --- |");
+  for (const env of WORKER_ENV_VARS) {
+    lines.push(`| \`${env.name}\` | ${env.kind} | ${env.required ? "Yes" : "No"} | ${env.description} |`);
   }
   lines.push("");
   lines.push("## Config file");

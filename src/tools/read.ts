@@ -682,7 +682,8 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         "Get items created or modified within a time period. Accepts ISO 8601 date strings. " +
         "Date-only strings like '2025-03-11' are start-of-day for 'since' and " +
-        "end-of-day for 'until'.",
+        "end-of-day for 'until', in UTC. A datetime without an offset is interpreted " +
+        "in the server's timezone (UTC on Cloudflare Workers).",
       annotations: {
         title: "Get Recent Changes",
         readOnlyHint: true,

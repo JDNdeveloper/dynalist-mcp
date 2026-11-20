@@ -191,6 +191,60 @@ export class DummyDynalistServer {
     return `file_${++this.fileCounter}`;
   }
 
+  // ─── API dispatch ───────────────────────────────────────────────
+
+  /**
+   * Dispatch one Dynalist API request by endpoint path, as the real API
+   * would. Shared by MockDynalistClient and the HTTP adapter used by the
+   * Worker tests. Throws DynalistApiError for API-level errors.
+   */
+  async handleApiRequest(endpoint: string, body: Record<string, unknown>): Promise<unknown> {
+    switch (endpoint) {
+      case "/file/list":
+        return await this.listFiles();
+      case "/doc/read":
+        return await this.readDocument(body.file_id as string);
+      case "/doc/edit":
+        return await this.editDocument(
+          body.file_id as string,
+          body.changes as EditDocumentChange[],
+        );
+      case "/inbox/add":
+        return await this.sendToInbox(body as {
+          content: string;
+          note?: string;
+          index?: number;
+          checked?: boolean;
+          checkbox?: boolean;
+          heading?: number;
+          color?: number;
+        });
+      case "/file/edit":
+        return await this.editFiles(body.changes as FileEditChange[]);
+      case "/doc/check_for_updates":
+        return await this.checkForUpdates(body.file_ids as string[]);
+      default:
+        throw new Error(`DummyDynalistServer: unknown endpoint '${endpoint}'.`);
+    }
+  }
+
+  /**
+   * Serve one HTTP request in the Dynalist API wire format, for tests
+   * that route real fetch calls here. API errors become a `_code` and
+   * `_msg` response, as the real API returns them.
+   */
+  async handleHttpRequest(endpoint: string, body: Record<string, unknown>): Promise<Response> {
+    try {
+      const result = await this.handleApiRequest(endpoint, body) as Record<string, unknown>;
+      return Response.json({ _code: "Ok", ...result });
+    } catch (err) {
+      if (err instanceof DynalistApiError) {
+        return Response.json({ _code: err.code, _msg: err.apiMessage });
+      }
+      throw err;
+    }
+  }
+
   // ─── DynalistClient-compatible methods ───────────────────────────
 
   async listFiles(): Promise<ListFilesResponse> {
@@ -585,33 +639,7 @@ export class MockDynalistClient extends DynalistClient {
   }
 
   protected override async request<T>(endpoint: string, body: Record<string, unknown> = {}): Promise<T> {
-    switch (endpoint) {
-      case "/file/list":
-        return await this.server.listFiles() as T;
-      case "/doc/read":
-        return await this.server.readDocument(body.file_id as string) as T;
-      case "/doc/edit":
-        return await this.server.editDocument(
-          body.file_id as string,
-          body.changes as EditDocumentChange[],
-        ) as T;
-      case "/inbox/add":
-        return await this.server.sendToInbox(body as {
-          content: string;
-          note?: string;
-          index?: number;
-          checked?: boolean;
-          checkbox?: boolean;
-          heading?: number;
-          color?: number;
-        }) as T;
-      case "/file/edit":
-        return await this.server.editFiles(body.changes as FileEditChange[]) as T;
-      case "/doc/check_for_updates":
-        return await this.server.checkForUpdates(body.file_ids as string[]) as T;
-      default:
-        throw new Error(`MockDynalistClient: unknown endpoint '${endpoint}'.`);
-    }
+    return await this.server.handleApiRequest(endpoint, body) as T;
   }
 }
 
