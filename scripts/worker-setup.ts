@@ -6,7 +6,7 @@
  * a local config file and uploads it as DYNALIST_MCP_CONFIG_JSON. With a
  * path it does not prompt.
  *
- * Every step detects completed state and offers to skip, so rerunning
+ * Every step detects completed state and offers to keep it, so rerunning
  * the script to rotate one secret is safe. Secret values go to wrangler
  * on stdin only: they never appear in argv, on disk, or in output.
  */
@@ -27,6 +27,8 @@ import {
 const REPO_ROOT = resolve(import.meta.dir, "..");
 const TEMPLATE_PATH = join(REPO_ROOT, "wrangler.example.jsonc");
 const CONFIG_PATH = join(REPO_ROOT, "wrangler.jsonc");
+const DEFAULT_CONFIG_FILE = join(homedir(), ".dynalist-mcp.json");
+const CONFIG_SECRET = "DYNALIST_MCP_CONFIG_JSON";
 const DYNALIST_FILE_LIST_URL = "https://dynalist.io/api/v1/file/list";
 
 // Cloudflare Worker names and workers.dev subdomains: lowercase letters,
@@ -36,12 +38,24 @@ const CLOUDFLARE_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 // ─── Output ──────────────────────────────────────────────────────────
 
 function heading(text: string): void {
-  console.log(`\n== ${text} ==\n`);
+  console.log(`\n== ${text} ==`);
+}
+
+function subheading(text: string): void {
+  console.log(`\n-- ${text} --`);
 }
 
 function fatal(message: string): never {
   console.error(`\nError: ${message}`);
   process.exit(1);
+}
+
+/**
+ * Show a path with the home directory as `~`, so output stays short.
+ */
+function displayPath(path: string): string {
+  const home = homedir();
+  return path === home || path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
 // ─── Prompts ─────────────────────────────────────────────────────────
@@ -108,6 +122,21 @@ async function confirm(question: string, defaultYes: boolean): Promise<boolean> 
   }
 }
 
+/**
+ * Show a numbered menu and return the zero-based index of the chosen
+ * option. Pressing Enter picks the first option.
+ */
+async function choose(options: string[]): Promise<number> {
+  options.forEach((option, index) => console.log(`  ${index + 1}. ${option}`));
+  for (;;) {
+    const answer = await promptLine("Choose [1]: ");
+    if (answer === "") return 0;
+    const choice = Number(answer);
+    if (Number.isInteger(choice) && choice >= 1 && choice <= options.length) return choice - 1;
+    console.log(`Enter a number from 1 to ${options.length}.`);
+  }
+}
+
 // ─── Wrangler ────────────────────────────────────────────────────────
 
 interface WranglerResult {
@@ -142,25 +171,28 @@ async function wrangler(args: string[], stdin?: string): Promise<WranglerResult>
 // ─── Steps ───────────────────────────────────────────────────────────
 
 async function preflight(): Promise<void> {
-  heading("1. Preflight");
+  heading("Wrangler");
   const version = await wrangler(["--version"]);
   if (version.exitCode !== 0) {
-    fatal("wrangler did not run. Install dependencies with `bun install`, then rerun this script.");
+    fatal("wrangler did not run. Run `bun install`, then rerun this script.");
   }
-  console.log(`wrangler ${version.stdout.trim()}`);
-
   const whoami = await wrangler(["whoami"]);
   const output = whoami.stdout + whoami.stderr;
   if (whoami.exitCode !== 0 || /not authenticated/i.test(output)) {
     fatal("wrangler is not logged in. Run `bunx wrangler login`, then rerun this script.");
   }
-  console.log("wrangler is logged in.");
+  console.log("wrangler is installed and logged in.");
 }
 
 interface WorkerUrls {
   workerName: string;
   mcpUrl: string;
   callbackUrl: string;
+}
+
+function printUrls(urls: WorkerUrls): void {
+  console.log(`\nConnector URL:  ${urls.mcpUrl}`);
+  console.log(`Redirect URI:   ${urls.callbackUrl}`);
 }
 
 async function promptCloudflareName(question: string, fallback: string | undefined): Promise<string> {
@@ -173,29 +205,17 @@ async function promptCloudflareName(question: string, fallback: string | undefin
 }
 
 /**
- * Read the worker name and MCP URL from an existing wrangler.jsonc, to
- * offer them as defaults on reruns.
+ * Read the Worker URLs from an existing wrangler.jsonc, or undefined if
+ * there is none.
  */
-function readExistingConfig(): { workerName?: string; subdomain?: string } {
-  if (!existsSync(CONFIG_PATH)) return {};
+function readExistingUrls(): (WorkerUrls & { subdomain?: string }) | undefined {
+  if (!existsSync(CONFIG_PATH)) return undefined;
   const text = readFileSync(CONFIG_PATH, "utf-8");
   const workerName = /"name":\s*"([^"]+)"/.exec(text)?.[1];
-  const subdomain = /"MCP_RESOURCE":\s*"https:\/\/[^.]+\.([^.]+)\.workers\.dev\/mcp"/.exec(text)?.[1];
-  return { workerName, subdomain };
-}
-
-async function chooseWorkerUrls(): Promise<WorkerUrls> {
-  heading("2. Worker URL");
-  console.log("Your Worker is served at https://<worker name>.<workers.dev subdomain>.workers.dev.");
-  console.log("Find your workers.dev subdomain in the Cloudflare dashboard under Workers & Pages.\n");
-  const existing = readExistingConfig();
-  const workerName = await promptCloudflareName("Worker name", existing.workerName ?? "dynalist-mcp");
-  const subdomain = await promptCloudflareName("workers.dev subdomain", existing.subdomain);
-  const origin = `https://${workerName}.${subdomain}.workers.dev`;
-  const urls = { workerName, mcpUrl: `${origin}/mcp`, callbackUrl: `${origin}/callback` };
-  console.log(`\nMCP URL (add this as the connector URL): ${urls.mcpUrl}`);
-  console.log(`GitHub OAuth redirect URI:               ${urls.callbackUrl}`);
-  return urls;
+  const mcpUrl = /"MCP_RESOURCE":\s*"([^"]+)"/.exec(text)?.[1];
+  if (!workerName || !mcpUrl) fatal("wrangler.jsonc has no name or MCP_RESOURCE. Delete it and rerun this script.");
+  const subdomain = /^https:\/\/[^.]+\.([^.]+)\.workers\.dev\/mcp$/.exec(mcpUrl)?.[1];
+  return { workerName, mcpUrl, callbackUrl: mcpUrl.replace(/\/mcp$/, "/callback"), subdomain };
 }
 
 async function findKvNamespaceId(title: string): Promise<string | undefined> {
@@ -206,48 +226,48 @@ async function findKvNamespaceId(title: string): Promise<string | undefined> {
 }
 
 /**
- * Rebuild the URLs from a kept wrangler.jsonc, which wins over the names
- * typed in step 2, so the printed redirect URI matches what deploys.
+ * Choose the Worker URL, create or reuse the OAuth KV namespace, and
+ * write wrangler.jsonc. An existing wrangler.jsonc can be kept as-is.
  */
-function urlsFromKeptConfig(typed: WorkerUrls): WorkerUrls {
-  const text = readFileSync(CONFIG_PATH, "utf-8");
-  const workerName = /"name":\s*"([^"]+)"/.exec(text)?.[1];
-  const mcpUrl = /"MCP_RESOURCE":\s*"([^"]+)"/.exec(text)?.[1];
-  if (!workerName || !mcpUrl) fatal("wrangler.jsonc has no name or MCP_RESOURCE. Delete it and rerun this script.");
-  const urls = { workerName, mcpUrl, callbackUrl: mcpUrl.replace(/\/mcp$/, "/callback") };
-  if (urls.mcpUrl !== typed.mcpUrl) {
-    console.log("wrangler.jsonc names a different Worker URL than the one you entered. Using wrangler.jsonc:");
-    console.log(`  MCP URL:                   ${urls.mcpUrl}`);
-    console.log(`  GitHub OAuth redirect URI: ${urls.callbackUrl}`);
-  }
-  return urls;
-}
-
-async function setUpKvAndConfig(urls: WorkerUrls): Promise<WorkerUrls> {
-  heading("3. KV namespace and wrangler.jsonc");
-  if (existsSync(CONFIG_PATH) && await confirm("wrangler.jsonc already exists. Keep it?", true)) {
-    return urlsFromKeptConfig(urls);
+async function setUpWorker(): Promise<WorkerUrls> {
+  heading("Worker");
+  const existing = readExistingUrls();
+  if (existing) {
+    console.log(`Current connector URL: ${existing.mcpUrl}`);
+    if (await choose(["Keep this Worker", "Set up a different Worker"]) === 0) {
+      printUrls(existing);
+      return existing;
+    }
   }
 
-  const title = `${urls.workerName}-oauth-kv`;
+  console.log("Your Worker URL is https://<worker name>.<subdomain>.workers.dev.");
+  console.log("Find your subdomain in the Cloudflare dashboard under Workers & Pages.\n");
+  const workerName = await promptCloudflareName("Worker name", existing?.workerName ?? "dynalist-mcp");
+  const subdomain = await promptCloudflareName("workers.dev subdomain", existing?.subdomain);
+  const origin = `https://${workerName}.${subdomain}.workers.dev`;
+  const urls = { workerName, mcpUrl: `${origin}/mcp`, callbackUrl: `${origin}/callback` };
+
+  // The KV namespace stores OAuth state such as clients and grants.
+  const title = `${workerName}-oauth-kv`;
   let id = await findKvNamespaceId(title);
   if (id) {
-    console.log(`Reusing KV namespace "${title}".`);
+    console.log(`\nReusing KV namespace "${title}".`);
   } else {
     const created = await wrangler(["kv", "namespace", "create", title]);
     if (created.exitCode !== 0) fatal(`Creating the KV namespace failed:\n${created.stderr}`);
     id = await findKvNamespaceId(title);
     if (!id) fatal(`Created KV namespace "${title}" but could not find its ID.`);
-    console.log(`Created KV namespace "${title}".`);
+    console.log(`\nCreated KV namespace "${title}".`);
   }
 
   const template = readFileSync(TEMPLATE_PATH, "utf-8");
   const config = template
-    .replace('"name": "dynalist-mcp"', `"name": "${urls.workerName}"`)
+    .replace('"name": "dynalist-mcp"', `"name": "${workerName}"`)
     .replace("<OAUTH_KV_NAMESPACE_ID>", id)
     .replace("https://<WORKER_NAME>.<WORKERS_SUBDOMAIN>.workers.dev/mcp", urls.mcpUrl);
   writeFileSync(CONFIG_PATH, config);
   console.log("Wrote wrangler.jsonc (gitignored).");
+  printUrls(urls);
   return urls;
 }
 
@@ -265,7 +285,10 @@ async function listExistingSecrets(): Promise<Set<string>> {
 
 interface SecretSpec {
   name: string;
-  explanation: string[];
+  // One line saying what the secret is, shown every time.
+  summary: string;
+  // Where to get the value, shown only when entering a new one.
+  instructions: string[];
   hidden: boolean;
   // Rewrites raw input before validation (e.g. spaces around commas).
   normalize?: (value: string) => string;
@@ -299,21 +322,28 @@ async function putSecret(name: string, value: string): Promise<void> {
 
 /**
  * Prompt for one secret until a valid value is entered or the existing
- * value is kept, then upload it.
+ * value is kept, then upload it. An existing value is kept by default.
  */
 async function promptSecret(spec: SecretSpec, existing: Set<string>): Promise<void> {
-  console.log(`\n-- ${spec.name} --`);
-  for (const line of spec.explanation) console.log(line);
+  subheading(spec.name);
+  console.log(spec.summary);
   const alreadySet = existing.has(spec.name);
-  if (alreadySet) console.log("Already set. Press Enter to keep the existing value.");
+  if (alreadySet && await choose(["Keep the current value", "Enter a new value"]) === 0) {
+    console.log("Kept.");
+    return;
+  }
 
-  const label = alreadySet ? `${spec.name} (already set): ` : `${spec.name}: `;
+  for (const line of spec.instructions) console.log(line);
+  const label = spec.hidden ? "Value (hidden): " : "Value: ";
   for (;;) {
     const raw = spec.hidden ? await promptHidden(label) : await promptLine(label);
     const value = spec.normalize ? spec.normalize(raw) : raw;
     if (value === "") {
-      if (alreadySet && await confirm("Keep the existing value?", false)) return;
-      if (!alreadySet) console.log("A value is required.");
+      if (alreadySet) {
+        console.log("Kept the current value.");
+        return;
+      }
+      console.log("A value is required.");
       continue;
     }
     if (/\s/.test(value)) {
@@ -345,7 +375,7 @@ function readConfigFile(input: string): { ok: true; raw: string } | { ok: false;
   try {
     raw = readFileSync(path, "utf-8");
   } catch (err) {
-    return { ok: false, reason: `Could not read ${path}: ${err instanceof Error ? err.message : String(err)}` };
+    return { ok: false, reason: `Could not read ${displayPath(path)}: ${err instanceof Error ? err.message : String(err)}` };
   }
   const result = validateConfigJson(raw);
   if (!result.ok) return { ok: false, reason: `Invalid config: ${result.rule}` };
@@ -353,84 +383,92 @@ function readConfigFile(input: string): { ok: true; raw: string } | { ok: false;
 }
 
 /**
- * Prompt for a local config file path and upload its contents as
- * DYNALIST_MCP_CONFIG_JSON. Skipping leaves any existing value.
+ * Validate a config file and upload it. Returns false if the file was
+ * rejected, after printing the reason.
+ */
+async function uploadConfigFile(path: string): Promise<boolean> {
+  const file = readConfigFile(path);
+  if (!file.ok) {
+    console.log(file.reason);
+    return false;
+  }
+  await putSecret(CONFIG_SECRET, file.raw);
+  return true;
+}
+
+/**
+ * Offer a menu to upload a local config file as DYNALIST_MCP_CONFIG_JSON,
+ * or to leave the current value (or the defaults) in place.
  */
 async function promptConfigFile(existing: Set<string>): Promise<void> {
-  const name = "DYNALIST_MCP_CONFIG_JSON";
-  console.log(`\n-- ${name} (optional) --`);
-  console.log("Access rules and other settings, using the same JSON as the local ~/.dynalist-mcp.json.");
-  console.log("Enter the path to a local config file. The script uploads its contents.");
-  console.log("`logFile` is not supported on Workers.");
-  const defaultPath = join(homedir(), ".dynalist-mcp.json");
-  const fallback = existsSync(defaultPath) ? defaultPath : undefined;
-  const skipHint = existing.has(name) ? "keep the existing value" : "skip";
+  subheading(`${CONFIG_SECRET} (optional)`);
+  console.log("Access rules and other settings, from a local config file.");
+  const alreadySet = existing.has(CONFIG_SECRET);
 
   for (;;) {
-    const hint = fallback ? ` [${fallback}, or "-" to ${skipHint}]` : ` [Enter to ${skipHint}]`;
-    const setNote = existing.has(name) ? ` (${name} already set)` : "";
-    let input = await promptLine(`Config file path${setNote}${hint}: `);
-    if (input === "-" || (input === "" && !fallback)) {
-      console.log(existing.has(name) ? "Kept the existing value." : "Skipped. The Worker uses default settings.");
-      return;
+    const options: { label: string; run: () => Promise<boolean> }[] = [];
+    if (existsSync(DEFAULT_CONFIG_FILE)) {
+      const verb = alreadySet ? "Reload from" : "Upload";
+      options.push({ label: `${verb} ${displayPath(DEFAULT_CONFIG_FILE)}`, run: () => uploadConfigFile(DEFAULT_CONFIG_FILE) });
     }
-    if (input === "") input = fallback!;
+    options.push({
+      label: "Specify a file path",
+      run: async () => {
+        const path = await promptLine("Config file path: ");
+        return path === "" ? false : uploadConfigFile(path);
+      },
+    });
+    options.push({
+      label: alreadySet ? "Keep as-is" : "Skip (use default settings)",
+      run: async () => {
+        console.log(alreadySet ? "Kept." : "Skipped.");
+        return true;
+      },
+    });
 
-    const file = readConfigFile(input);
-    if (!file.ok) {
-      console.log(file.reason);
-      continue;
-    }
-    await putSecret(name, file.raw);
-    return;
+    if (await options[await choose(options.map((option) => option.label))].run()) return;
   }
 }
 
 async function setSecrets(urls: WorkerUrls): Promise<void> {
-  heading("4. Secrets");
+  heading("Secrets");
   const existing = await listExistingSecrets();
 
   const specs: SecretSpec[] = [
     {
       name: "DYNALIST_API_TOKEN",
-      explanation: [
-        "The Dynalist account this server reads and writes.",
-        "Get it at https://dynalist.io/developer. Input is hidden.",
-      ],
+      summary: "The Dynalist account this server reads and writes.",
+      instructions: ["Get it at https://dynalist.io/developer."],
       hidden: true,
       validate: verifyDynalistToken,
     },
     {
       name: "GITHUB_CLIENT_ID",
-      explanation: [
-        "GitHub sign-in protects the server. Create a GitHub OAuth app at",
-        "https://github.com/settings/applications/new with:",
+      summary: "Client ID of the GitHub OAuth app used for sign-in.",
+      instructions: [
+        "Create an OAuth app at https://github.com/settings/applications/new:",
         `  Application name:           ${urls.workerName}`,
         `  Homepage URL:               ${urls.mcpUrl.replace(/\/mcp$/, "")}`,
         `  Redirect URI:               ${urls.callbackUrl}`,
-        "  Allow wildcard matching:    unchecked (only the exact redirect URI above should receive codes)",
-        "  Enable Device Flow:         unchecked",
-        "  Expire user access tokens:  checked (the Worker needs the GitHub token only once, at sign-in)",
-        "Then paste the app's Client ID.",
+        "  Allow wildcard matching:    off",
+        "  Enable Device Flow:         off",
+        "  Expire user access tokens:  on",
+        "Then copy its Client ID.",
       ],
       hidden: false,
       validate: validateGithubClientId,
     },
     {
       name: "GITHUB_CLIENT_SECRET",
-      explanation: [
-        "In the same GitHub OAuth app, click \"Generate a new client secret\" and paste it.",
-        "Input is hidden.",
-      ],
+      summary: "Client secret of the same GitHub OAuth app.",
+      instructions: ["In the app, click \"Generate a new client secret\"."],
       hidden: true,
       validate: validateGithubClientSecret,
     },
     {
       name: "ALLOWED_GITHUB_USERS",
-      explanation: [
-        "Comma-separated GitHub usernames allowed to sign in (usually just yours).",
-        "Every other GitHub account is rejected.",
-      ],
+      summary: "GitHub usernames allowed to sign in. Everyone else is rejected.",
+      instructions: ["Separate usernames with commas."],
       hidden: false,
       // The Worker trims entries, so spaces after commas are accepted.
       normalize: (value) => value.split(",").map((entry) => entry.trim()).join(","),
@@ -438,9 +476,9 @@ async function setSecrets(urls: WorkerUrls): Promise<void> {
       confirmValue: async (value) => {
         const parsed = parseAllowedGithubUsers(value);
         if (!parsed.ok) return false;
-        console.log("Allowed GitHub users:");
-        for (const user of parsed.value) console.log(`  ${user}  (https://github.com/${user})`);
-        return confirm("Is this list correct?", false);
+        console.log("Allowed:");
+        for (const user of parsed.value) console.log(`  https://github.com/${user}`);
+        return confirm("Correct?", true);
       },
     },
   ];
@@ -458,13 +496,13 @@ const SECRETS_LIVE_MESSAGE = "Secret changes are live now. No deploy is needed f
 async function main(): Promise<void> {
   console.log("dynalist-mcp Cloudflare Workers setup");
   await preflight();
-  const urls = await setUpKvAndConfig(await chooseWorkerUrls());
+  const urls = await setUpWorker();
   await setSecrets(urls);
 
   heading("Done");
   console.log(SECRETS_LIVE_MESSAGE);
-  console.log("On first setup, or after code changes, deploy the code with: bun run deploy");
-  console.log(`Add ${urls.mcpUrl} as a custom connector (see docs/client-setup.md).`);
+  console.log("On first setup or after code changes, run: bun run deploy");
+  console.log("Then add the connector URL in your client (see docs/client-setup.md).");
 }
 
 /**
@@ -474,13 +512,13 @@ async function configOnly(path: string | undefined): Promise<void> {
   console.log("dynalist-mcp Cloudflare Workers config update");
   if (!existsSync(CONFIG_PATH)) fatal("wrangler.jsonc not found. Run `bun run worker-setup` first.");
   await preflight();
-  heading("Config");
+  heading("Secrets");
   if (path === undefined) {
     await promptConfigFile(await listExistingSecrets());
   } else {
     const file = readConfigFile(path);
     if (!file.ok) fatal(file.reason);
-    await putSecret("DYNALIST_MCP_CONFIG_JSON", file.raw);
+    await putSecret(CONFIG_SECRET, file.raw);
   }
   console.log(`\n${SECRETS_LIVE_MESSAGE}`);
 }

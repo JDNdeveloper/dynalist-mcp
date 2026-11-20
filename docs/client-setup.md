@@ -82,7 +82,7 @@ Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
 
 ## Remote connectors
 
-These clients connect to a server you deploy to Cloudflare Workers. Set it up first with [Remote hosting](remote-hosting.md). Your connector URL is the MCP URL that `bun run worker-setup` prints: `https://<worker>.<subdomain>.workers.dev/mcp`.
+These clients connect to a server you deploy to Cloudflare Workers. Set it up first with [Remote hosting](remote-hosting.md). Your connector URL is the "Connector URL" that `bun run worker-setup` prints: `https://<worker>.<subdomain>.workers.dev/mcp`.
 
 ### Claude custom connector
 

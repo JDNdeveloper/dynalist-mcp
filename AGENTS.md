@@ -216,3 +216,4 @@ Releasing requires maintainer push access. After pushing changes to `main`, rege
 3. Run `bun run check` as a final sanity check before release.
 4. Commit and push the version bump and release-ready changes before running the release pipeline.
 5. Run `bun run release` to bundle, tag, create a GitHub release, and upload the `.mcpb` as a release asset. Requires a clean working tree on the `main` branch and the tag must not already exist.
+6. Always run `bun run deploy` after a release, so the Cloudflare Worker serves the released code. This needs `wrangler.jsonc` from `bun run worker-setup` and a logged-in wrangler.

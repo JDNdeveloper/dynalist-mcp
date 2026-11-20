@@ -41,14 +41,13 @@ bun run worker-setup
 
 The script walks through each step and explains every value it asks for:
 
-1. **Preflight.** Checks that wrangler runs and is logged in.
-2. **Worker URL.** Asks for the Worker name and your workers.dev subdomain (shown in the Cloudflare dashboard under **Workers & Pages**), then prints your MCP URL and GitHub redirect URI.
-3. **KV namespace and `wrangler.jsonc`.** Creates the `OAUTH_KV` namespace that stores OAuth state, and writes `wrangler.jsonc` from `wrangler.example.jsonc`. `wrangler.jsonc` holds account-specific values and is gitignored.
-4. **Secrets.** Prompts for each secret and sets it with `wrangler secret put`:
+1. **Wrangler.** Checks that wrangler runs and is logged in.
+2. **Worker.** Asks for the Worker name and your workers.dev subdomain (shown in the Cloudflare dashboard under **Workers & Pages**). Creates the `OAUTH_KV` namespace that stores OAuth state, and writes `wrangler.jsonc` from `wrangler.example.jsonc`. `wrangler.jsonc` holds account-specific values and is gitignored. Then prints your connector URL and GitHub redirect URI.
+3. **Secrets.** Prompts for each secret and sets it with `wrangler secret put`:
    - `DYNALIST_API_TOKEN`: verified against Dynalist before it is saved.
    - `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`: from a GitHub OAuth app. The script prints the exact values to enter when you [create the app](https://github.com/settings/applications/new): the application name, the homepage URL, the **Redirect URI** (`https://<worker>.<subdomain>.workers.dev/callback`), and the other form options.
    - `ALLOWED_GITHUB_USERS`: comma-separated GitHub usernames allowed to sign in, usually just yours. The script echoes the parsed list for confirmation.
-   - `DYNALIST_MCP_CONFIG_JSON` (optional): the path to a local config file, for example `~/.dynalist-mcp.json`. The script uploads its contents. The same config works locally and remotely, except `logFile`, which Workers does not support.
+   - `DYNALIST_MCP_CONFIG_JSON` (optional): a local config file. The script offers `~/.dynalist-mcp.json` if it exists, or another path, and uploads its contents. The same config works locally and remotely, except `logFile`, which Workers does not support.
 
 The script rejects empty and malformed values and never passes them to wrangler. Hidden prompts echo nothing. Secret values go to wrangler on stdin, so they never appear in the process list, on disk, or in output.
 
@@ -64,13 +63,13 @@ Deploying is needed only for the first setup and for code changes. Setting a sec
 
 ### 5. Connect a client
 
-Add your MCP URL (`https://<worker>.<subdomain>.workers.dev/mcp`) as a custom connector. See [Client setup](client-setup.md#claude-custom-connector) for Claude and ChatGPT steps.
+Add your connector URL (`https://<worker>.<subdomain>.workers.dev/mcp`) as a custom connector. See [Client setup](client-setup.md#claude-custom-connector) for Claude and ChatGPT steps.
 
 ## Updating
 
 - **Code:** pull the latest changes and run `bun run deploy`.
 - **Config:** run `bun run worker-config` to validate a local config file and upload only `DYNALIST_MCP_CONFIG_JSON`. Pass the path to skip the prompt, e.g. `bun run worker-config ~/.dynalist-mcp.json`. The change is live immediately.
-- **Other secrets:** rerun `bun run worker-setup` and press Enter to keep each value you are not changing.
+- **Other secrets:** rerun `bun run worker-setup` and choose "Keep the current value" for each one you are not changing.
 - **Renaming your GitHub account:** the allowlist matches usernames, and GitHub lets anyone register a username once it is freed. Before renaming or deleting an allowlisted account, update `ALLOWED_GITHUB_USERS`.
 - **Revoking access:** remove the username from `ALLOWED_GITHUB_USERS` with `bun run worker-setup`. Existing grants for that account stop working on their next request.
 
