@@ -54,7 +54,7 @@ At p_contention = 0.1 this is a flat 10x multiplier on expected days, independen
 
 Batch state lives in the `PersistentStore` passed to `DocumentStore`. The stdio server keeps it in process memory for the process lifetime. The Cloudflare Worker keeps it in Durable Object storage, because the object's memory is wiped when it hibernates (about 10 seconds after its last request), which would otherwise break a batch whenever the model pauses between members. Persisted state can outlive the object, which is harmless because every member is still checked against the live document version. It is not size-bounded beyond one entry per document currently mid-batch.
 
-The guard requires member N-1 to finish before member N is checked. Remote clients such as Claude web and ChatGPT run tool calls on their own backends, and whether they send batch members concurrently or out of order is not yet verified. A misordered member fails safe with `SyncTokenMismatch`. The [live test plan](live-test-plan.md#remote-connector-acceptance) measures the real behavior, and ordering support follows only if clients need it.
+The guard requires member N-1 to finish before member N is checked. Remote clients such as Claude web and ChatGPT run tool calls on their own backends. In live testing (November 2026), Claude web sent a three-member batch one member at a time, in order, and every member succeeded. ChatGPT has not been tested. A misordered member fails safe with `SyncTokenMismatch`, so ordering support follows only if a client is found to need it.
 
 ## Relative positioning
 

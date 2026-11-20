@@ -95,11 +95,7 @@ Works on Claude web, desktop, and mobile on every plan (Free allows one custom c
 5. Sign in with an allowlisted GitHub account.
 6. In a conversation, enable the connector from the **+** button, under **Connectors**.
 
-If Claude renders Dynalist trees without fenced code blocks or skips previews before writes, add this to your Claude profile preferences or project instructions:
-
-```markdown
-Before your first Dynalist tool call in a conversation, call the Dynalist `get_instructions` tool and follow its instructions.
-```
+Claude calls `get_instructions` on its own before its first Dynalist tool call, so no extra setup is needed for it to follow the server's formatting and confirmation rules.
 
 ### ChatGPT custom MCP server
 

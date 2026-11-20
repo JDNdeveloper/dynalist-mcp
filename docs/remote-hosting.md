@@ -59,7 +59,7 @@ The script is safe to rerun. Each step detects what is already done and offers t
 bun run deploy
 ```
 
-Deploying is needed only for the first setup and for code changes. Setting a secret deploys a new Worker version on its own, so secret and config changes are live as soon as the script sets them.
+Deploying is needed only for the first setup and for code changes. Setting a secret deploys a new Worker version on its own, so secret and config changes are live as soon as the script sets them. On a new account, the first secret creates a placeholder Worker, which `bun run deploy` replaces with the server.
 
 ### 5. Connect a client
 
@@ -89,7 +89,7 @@ The Worker validates every secret and binding on the first request. If anything 
 
 ## Cloudflare plan
 
-The plan recommendation is pending measurement. Worker requests (OAuth and forwarding) fit the free plan's 10ms CPU limit. Large writes and Dynalist rate-limit retries have not yet been measured against subrequest limits and client tool timeouts. If a request is cut off partway, the client sees "The server failed while handling this request. A write may have been partially applied." Re-read the affected document before retrying.
+The free plan is enough for personal use. In the rare case a request hits a Cloudflare limit, the client reports that a write may have been partially applied. Check the document in Dynalist before asking it to try again.
 
 ## Environment reference
 
