@@ -42,11 +42,11 @@ bun run worker-setup
 The script walks through each step and explains every value it asks for:
 
 1. **Preflight.** Checks that wrangler runs and is logged in.
-2. **Worker URL.** Asks for the Worker name and your workers.dev subdomain (shown in the Cloudflare dashboard under **Workers & Pages**), then prints your MCP URL and GitHub callback URL.
+2. **Worker URL.** Asks for the Worker name and your workers.dev subdomain (shown in the Cloudflare dashboard under **Workers & Pages**), then prints your MCP URL and GitHub redirect URI.
 3. **KV namespace and `wrangler.jsonc`.** Creates the `OAUTH_KV` namespace that stores OAuth state, and writes `wrangler.jsonc` from `wrangler.example.jsonc`. `wrangler.jsonc` holds account-specific values and is gitignored.
 4. **Secrets.** Prompts for each secret and sets it with `wrangler secret put`:
    - `DYNALIST_API_TOKEN`: verified against Dynalist before it is saved.
-   - `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`: from a GitHub OAuth app. The script prints the exact values to enter when you [create the app](https://github.com/settings/applications/new): the homepage URL and the **Authorization callback URL** (`https://<worker>.<subdomain>.workers.dev/callback`).
+   - `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`: from a GitHub OAuth app. The script prints the exact values to enter when you [create the app](https://github.com/settings/applications/new): the application name, the homepage URL, the **Redirect URI** (`https://<worker>.<subdomain>.workers.dev/callback`), and the other form options.
    - `ALLOWED_GITHUB_USERS`: comma-separated GitHub usernames allowed to sign in, usually just yours. The script echoes the parsed list for confirmation.
    - `DYNALIST_MCP_CONFIG_JSON` (optional): the path to a local config file, for example `~/.dynalist-mcp.json`. The script uploads its contents. The same config works locally and remotely, except `logFile`, which Workers does not support.
 

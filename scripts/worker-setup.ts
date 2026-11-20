@@ -194,7 +194,7 @@ async function chooseWorkerUrls(): Promise<WorkerUrls> {
   const origin = `https://${workerName}.${subdomain}.workers.dev`;
   const urls = { workerName, mcpUrl: `${origin}/mcp`, callbackUrl: `${origin}/callback` };
   console.log(`\nMCP URL (add this as the connector URL): ${urls.mcpUrl}`);
-  console.log(`GitHub OAuth callback URL:               ${urls.callbackUrl}`);
+  console.log(`GitHub OAuth redirect URI:               ${urls.callbackUrl}`);
   return urls;
 }
 
@@ -207,7 +207,7 @@ async function findKvNamespaceId(title: string): Promise<string | undefined> {
 
 /**
  * Rebuild the URLs from a kept wrangler.jsonc, which wins over the names
- * typed in step 2, so the printed callback URL matches what deploys.
+ * typed in step 2, so the printed redirect URI matches what deploys.
  */
 function urlsFromKeptConfig(typed: WorkerUrls): WorkerUrls {
   const text = readFileSync(CONFIG_PATH, "utf-8");
@@ -218,7 +218,7 @@ function urlsFromKeptConfig(typed: WorkerUrls): WorkerUrls {
   if (urls.mcpUrl !== typed.mcpUrl) {
     console.log("wrangler.jsonc names a different Worker URL than the one you entered. Using wrangler.jsonc:");
     console.log(`  MCP URL:                   ${urls.mcpUrl}`);
-    console.log(`  GitHub OAuth callback URL: ${urls.callbackUrl}`);
+    console.log(`  GitHub OAuth redirect URI: ${urls.callbackUrl}`);
   }
   return urls;
 }
@@ -307,8 +307,9 @@ async function promptSecret(spec: SecretSpec, existing: Set<string>): Promise<vo
   const alreadySet = existing.has(spec.name);
   if (alreadySet) console.log("Already set. Press Enter to keep the existing value.");
 
+  const label = alreadySet ? `${spec.name} (already set): ` : `${spec.name}: `;
   for (;;) {
-    const raw = spec.hidden ? await promptHidden(`${spec.name}: `) : await promptLine(`${spec.name}: `);
+    const raw = spec.hidden ? await promptHidden(label) : await promptLine(label);
     const value = spec.normalize ? spec.normalize(raw) : raw;
     if (value === "") {
       if (alreadySet && await confirm("Keep the existing value?", false)) return;
@@ -367,7 +368,8 @@ async function promptConfigFile(existing: Set<string>): Promise<void> {
 
   for (;;) {
     const hint = fallback ? ` [${fallback}, or "-" to ${skipHint}]` : ` [Enter to ${skipHint}]`;
-    let input = await promptLine(`Config file path${hint}: `);
+    const setNote = existing.has(name) ? ` (${name} already set)` : "";
+    let input = await promptLine(`Config file path${setNote}${hint}: `);
     if (input === "-" || (input === "" && !fallback)) {
       console.log(existing.has(name) ? "Kept the existing value." : "Skipped. The Worker uses default settings.");
       return;
@@ -403,8 +405,12 @@ async function setSecrets(urls: WorkerUrls): Promise<void> {
       explanation: [
         "GitHub sign-in protects the server. Create a GitHub OAuth app at",
         "https://github.com/settings/applications/new with:",
+        `  Application name:           ${urls.workerName}`,
         `  Homepage URL:               ${urls.mcpUrl.replace(/\/mcp$/, "")}`,
-        `  Authorization callback URL: ${urls.callbackUrl}`,
+        `  Redirect URI:               ${urls.callbackUrl}`,
+        "  Allow wildcard matching:    unchecked (only the exact redirect URI above should receive codes)",
+        "  Enable Device Flow:         unchecked",
+        "  Expire user access tokens:  checked (the Worker needs the GitHub token only once, at sign-in)",
         "Then paste the app's Client ID.",
       ],
       hidden: false,

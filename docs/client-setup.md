@@ -82,14 +82,14 @@ Replace `<absolute-path-to>` with the absolute path where you cloned this repo.
 
 ## Remote connectors
 
-These clients connect to a server you deploy to Cloudflare Workers. Set it up first with [Remote hosting](remote-hosting.md). Your connector URL is `https://<worker>.<subdomain>.workers.dev/mcp`.
+These clients connect to a server you deploy to Cloudflare Workers. Set it up first with [Remote hosting](remote-hosting.md). Your connector URL is the MCP URL that `bun run worker-setup` prints: `https://<worker>.<subdomain>.workers.dev/mcp`.
 
 ### Claude custom connector
 
 Works on Claude web, desktop, and mobile on every plan (Free allows one custom connector). Connectors belong to your Claude account, so one added on the web is available in the other apps.
 
 1. Open **Customize > Connectors** ([claude.ai/customize/connectors](https://claude.ai/customize/connectors)), choose **+ Add**, then **Add custom connector**. On Team and Enterprise, an Owner adds it under **Organization settings > Connectors** (**Add > Custom > Web**) instead, and each member then chooses **Connect** on it under **Customize > Connectors**.
-2. Enter a name (e.g. "Dynalist") and your connector URL, then choose **Continue**.
+2. Enter a name (e.g. "Dynalist") and your [connector URL](#remote-connectors), then choose **Continue**.
 3. Review the detected authentication settings and choose **Continue**. Under **Authentication**, choose **Sign in now**. Under **OAuth client**, keep **Use Claude's published identity (Recommended)**. The Worker also supports **Register automatically**, but not **Use your own OAuth client**. Choose **Add**.
 4. On the consent page, check that the app is Claude and that access goes to `claude.ai`, then choose **Allow**.
 5. Sign in with an allowlisted GitHub account.
@@ -106,7 +106,7 @@ Before your first Dynalist tool call in a conversation, call the Dynalist `get_i
 Custom MCP servers are added from ChatGPT on the web. Write tools need a Business, Enterprise, or Edu plan, and on Business only workspace admins and owners can add the server. Pro allows read tools only. Free does not support custom MCP servers.
 
 1. Open **Plugins** ([chatgpt.com/plugins](https://chatgpt.com/plugins)), choose the plus button, then **Add custom MCP server**.
-2. Enter a name. Under **Connection**, enter your connector URL as the **Server URL**.
+2. Enter a name. Under **Connection**, enter your [connector URL](#remote-connectors) as the **Server URL**.
 3. Choose **OAuth** as the authentication method, without static client credentials. ChatGPT then registers itself with the Worker.
 4. Review the risk warning, choose **I understand and want to continue**, then **Create as a plugin**.
 5. Install the plugin from your personal plugins. On the consent page, check that access goes to `chatgpt.com`, then choose **Allow** and sign in with an allowlisted GitHub account.
