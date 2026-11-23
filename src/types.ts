@@ -23,6 +23,8 @@ export type DynalistApiResponse<T> = T & { _code: string; _msg: string };
 export interface OutputNode {
   item_id: string;
   content: string;
+  created?: string;
+  modified?: string;
   note?: string;
   checked?: boolean;
   show_checkbox?: boolean;

@@ -59,6 +59,9 @@ export const BYPASS_WARNING_DESCRIPTION =
   "ONLY set true AFTER receiving a size warning. NEVER set true on first request.";
 export const PARENT_LEVELS_DESCRIPTION =
   "Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root.";
+export const INCLUDE_TIMESTAMPS_DESCRIPTION =
+  "Include each item's created and modified timestamps (ISO 8601). " +
+  "Set true only when the task needs item creation or edit times.";
 
 // Item metadata fields (input).
 export const CHECKED_DESCRIPTION =

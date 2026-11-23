@@ -96,6 +96,7 @@ Tool responses omit properties at their default value to reduce token usage, unl
 - **`heading`** is omitted at its default value (`'none'`).
 - **`color`** is omitted at its default value (`'none'`).
 - **`note`** is omitted when empty.
+- **`created` and `modified`** are omitted unless the agent passes `include_timestamps: true` to `read_document` or `search_in_document`. In those tools they are emitted as a pair, directly after `content`. `get_recent_changes` always includes them (after `change_type`) because they define its results.
 
 ### Document tree shapes (`read_document`)
 

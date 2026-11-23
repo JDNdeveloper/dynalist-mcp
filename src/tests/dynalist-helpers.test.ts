@@ -156,6 +156,7 @@ const defaultOptions = {
   includeCollapsedChildren: true,
   includeNotes: true,
   includeChecked: true,
+  includeTimestamps: false,
 };
 
 describe("buildNodeTree", () => {

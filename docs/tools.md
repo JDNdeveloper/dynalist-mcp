@@ -173,6 +173,7 @@ NEVER set include_collapsed_children: true on the initial read of a document or 
 | `include_collapsed_children` | boolean | no | false | Include collapsed items' children. When false, collapsed items show child_count but omit children. |
 | `include_notes` | boolean | no | true | Include item notes. |
 | `include_checked` | boolean | no | true | Include checked/completed items. |
+| `include_timestamps` | boolean | no | false | Include each item's created and modified timestamps (ISO 8601). Set true only when the task needs item creation or edit times. |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 
 **Example input:**
@@ -199,6 +200,8 @@ NEVER set include_collapsed_children: true on the initial read of a document or 
 | --- | --- | --- | --- |
 | `item_id` | string | yes | Item ID |
 | `content` | string | yes | Item text content |
+| `created` | string | no | Creation timestamp (ISO 8601). Present only when include_timestamps is true. |
+| `modified` | string | no | Last modified timestamp (ISO 8601). Present only when include_timestamps is true. |
 | `note` | string | no | Item note. Omitted when empty. |
 | `checked` | boolean | no | Checked (completed) state. False if not present. |
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
@@ -218,6 +221,8 @@ NEVER set include_collapsed_children: true on the initial read of a document or 
   "item": {
     "item_id": "n_item789",
     "content": "Buy groceries",
+    "created": "2025-03-11T12:00:00.000Z",
+    "modified": "2025-03-11T14:30:00.000Z",
     "note": "Milk, eggs, bread",
     "checked": true,
     "show_checkbox": true,
@@ -251,6 +256,7 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 | `search_notes` | boolean | no | true | Also search in notes |
 | `case_sensitive` | boolean | no | false | Case-sensitive matching. |
 | `parent_levels` | `"none"`, `"immediate"`, `"all"` | no | "immediate" | Parent context depth: 'none' = no parents, 'immediate' = direct parent only, 'all' = full ancestor chain to root. |
+| `include_timestamps` | boolean | no | false | Include each item's created and modified timestamps (ISO 8601). Set true only when the task needs item creation or edit times. |
 | `bypass_warning` | boolean | no | false | ONLY set true AFTER receiving a size warning. NEVER set true on first request. |
 
 **Example input:**
@@ -278,6 +284,8 @@ Search for text in a document. Returns matching items with metadata. Use parent_
 | --- | --- | --- | --- |
 | `item_id` | string | yes | Item ID |
 | `content` | string | yes | Item text content |
+| `created` | string | no | Creation timestamp (ISO 8601). Present only when include_timestamps is true. |
+| `modified` | string | no | Last modified timestamp (ISO 8601). Present only when include_timestamps is true. |
 | `note` | string | no | Item note. Omitted when empty. |
 | `checked` | boolean | no | Checked (completed) state. False if not present. |
 | `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
@@ -303,6 +311,8 @@ Search for text in a document. Returns matching items with metadata. Use parent_
     {
       "item_id": "n_item789",
       "content": "Buy groceries",
+      "created": "2025-03-11T12:00:00.000Z",
+      "modified": "2025-03-11T14:30:00.000Z",
       "note": "Milk, eggs, bread",
       "checked": true,
       "show_checkbox": true,

@@ -102,14 +102,20 @@ export interface LevelNode {
 /**
  * Apply optional metadata fields from a DynalistNode onto an output object.
  *
+ * Timestamps are emitted as ISO 8601 strings, always as a created/modified pair.
+ *
  * Checkbox fields are always emitted as a pair or omitted together.
  * If either is true, include both so agents see the full state.
  */
 export function applyNodeMetadata(
   target: OutputNode | Record<string, unknown>,
   node: DynalistNode,
-  options?: { includeNotes?: boolean },
+  options?: { includeTimestamps?: boolean; includeNotes?: boolean },
 ): void {
+  if (options?.includeTimestamps) {
+    target.created = new Date(node.created).toISOString();
+    target.modified = new Date(node.modified).toISOString();
+  }
   if (options?.includeNotes && node.note && node.note.trim()) target.note = node.note;
   if (node.checked || node.checkbox) {
     target.checked = node.checked ?? false;
@@ -366,7 +372,8 @@ export function getPermissionLabel(permission: number): string {
 
 /**
  * Build a structured node tree for read_document output.
- * Respects max_depth, collapsed state, checked filtering, and notes filtering.
+ * Respects max_depth, collapsed state, checked filtering, notes filtering, and
+ * timestamp inclusion.
  */
 export function buildNodeTree(
   nodeMap: Map<string, DynalistNode>,
@@ -376,6 +383,7 @@ export function buildNodeTree(
     includeCollapsedChildren: boolean;
     includeNotes: boolean;
     includeChecked: boolean;
+    includeTimestamps: boolean;
   },
   currentDepth: number = 0,
   visited: Set<string> = new Set(),
@@ -425,6 +433,7 @@ export function buildNodeTree(
 
   // Include optional metadata only when present.
   applyNodeMetadata(output, node, {
+    includeTimestamps: options.includeTimestamps,
     includeNotes: options.includeNotes,
   });
   if (isCollapsed) output.collapsed = true;

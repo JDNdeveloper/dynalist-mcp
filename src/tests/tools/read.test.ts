@@ -1243,6 +1243,39 @@ describe("read_document", () => {
     expect(n1b.note).toBeUndefined();
   });
 
+  // ─── Timestamps ────────────────────────────────────────────────────
+
+  test("omits created and modified timestamps by default", async () => {
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+    });
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
+    expect(n1.created).toBeUndefined();
+    expect(n1.modified).toBeUndefined();
+  });
+
+  test("include_timestamps: true adds ISO 8601 timestamps to nested items", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1a = doc.nodes.find((n) => n.id === "n1a")!;
+    n1a.created = Date.UTC(2025, 0, 2, 3, 4, 5);
+    n1a.modified = Date.UTC(2025, 5, 6, 7, 8, 9);
+
+    const result = await callToolOk(ctx.mcpClient, "read_document", {
+      file_id: "doc1",
+      max_depth: 10,
+      include_timestamps: true,
+    });
+    const rootChildren = (result.item as Record<string, unknown>).children as Record<string, unknown>[];
+    const n1 = rootChildren.find((c) => c.item_id === "n1")!;
+    const n1aResult = (n1.children as Record<string, unknown>[]).find((c) => c.item_id === "n1a")!;
+    expect(n1aResult.created).toBe("2025-01-02T03:04:05.000Z");
+    expect(n1aResult.modified).toBe("2025-06-06T07:08:09.000Z");
+    // Timestamps sit directly after content, ahead of other metadata.
+    expect(Object.keys(n1aResult).slice(0, 4)).toEqual(["item_id", "content", "created", "modified"]);
+  });
+
   // ─── Section 4f: additional checked tests ──────────────────────────
 
   test("include_checked false: checked node entire subtree excluded", async () => {
@@ -1516,6 +1549,30 @@ describe("search_in_document", () => {
       expect(m.item_id).toBeDefined();
       expect(m.content).toBeDefined();
     }
+  });
+
+  test("include_timestamps: true adds ISO 8601 timestamps to matches", async () => {
+    const doc = ctx.server.documents.get("doc1")!;
+    const n1a = doc.nodes.find((n) => n.id === "n1a")!;
+    n1a.created = Date.UTC(2025, 0, 2, 3, 4, 5);
+    n1a.modified = Date.UTC(2025, 5, 6, 7, 8, 9);
+
+    const withTimestamps = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "Child A",
+      include_timestamps: true,
+    });
+    const match = (withTimestamps.matches as Record<string, unknown>[]).find((m) => m.item_id === "n1a")!;
+    expect(match.created).toBe("2025-01-02T03:04:05.000Z");
+    expect(match.modified).toBe("2025-06-06T07:08:09.000Z");
+
+    const withoutTimestamps = await callToolOk(ctx.mcpClient, "search_in_document", {
+      file_id: "doc1",
+      query: "Child A",
+    });
+    const plainMatch = (withoutTimestamps.matches as Record<string, unknown>[]).find((m) => m.item_id === "n1a")!;
+    expect(plainMatch.created).toBeUndefined();
+    expect(plainMatch.modified).toBeUndefined();
   });
 
   test("searches notes when search_notes is true", async () => {

@@ -25,7 +25,7 @@ import {
   FILE_ID_DESCRIPTION, FOLDER_ID_DESCRIPTION, ITEM_ID_DESCRIPTION,
   DOCUMENT_TITLE_DESCRIPTION, FOLDER_TITLE_DESCRIPTION,
   SYNC_TOKEN_DESCRIPTION, SIZE_WARNING_DESCRIPTION, MATCH_COUNT_DESCRIPTION,
-  BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION,
+  BYPASS_WARNING_DESCRIPTION, PARENT_LEVELS_DESCRIPTION, INCLUDE_TIMESTAMPS_DESCRIPTION,
   INSTRUCTIONS_FIRST_GUIDANCE,
 } from "./descriptions";
 import { makeSyncToken } from "../sync-token";
@@ -37,6 +37,17 @@ const nodeSummarySchema = z.object({
   item_id: z.string().describe(ITEM_ID_DESCRIPTION),
   content: z.string().describe("Item text content"),
 }).strict();
+
+// Optional timestamp fields present on output nodes and search matches when
+// include_timestamps is true. get_recent_changes always includes timestamps, so
+// its match schema declares them as required instead.
+const optionalTimestampFields = {
+  created: z.string().optional().describe("Creation timestamp (ISO 8601). Present only when include_timestamps is true."),
+  modified: z.string().optional().describe("Last modified timestamp (ISO 8601). Present only when include_timestamps is true."),
+};
+
+// Size-warning suggestion shared by tools that accept include_timestamps.
+const OMIT_TIMESTAMPS_SUGGESTION = "Use include_timestamps: false to omit created/modified timestamps";
 
 // Shared optional metadata fields present on output nodes and match objects.
 const nodeMetadataFields = {
@@ -64,6 +75,8 @@ const collapsedField = {
 const outputNodeSchema: z.ZodType<{
   item_id: string;
   content: string;
+  created?: string;
+  modified?: string;
   note?: string;
   checked?: boolean;
   show_checkbox?: boolean;
@@ -77,6 +90,7 @@ const outputNodeSchema: z.ZodType<{
   z.object({
     item_id: z.string().describe(ITEM_ID_DESCRIPTION),
     content: z.string().describe("Item text content"),
+    ...optionalTimestampFields,
     ...nodeMetadataFields,
     ...collapsedField,
     depth_limited: z.literal(true).optional().describe(
@@ -95,6 +109,7 @@ const outputNodeSchema: z.ZodType<{
 const searchMatchSchema = z.object({
   item_id: z.string().describe(ITEM_ID_DESCRIPTION),
   content: z.string().describe("Item text content"),
+  ...optionalTimestampFields,
   ...nodeMetadataFields,
   parents: z.array(nodeSummarySchema).optional().describe(
     "Ancestor chain. Present when parent_levels is not 'none' and ancestors exist."
@@ -468,6 +483,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         include_checked: z.boolean().optional().default(readDefaults.includeChecked).describe(
           "Include checked/completed items."
         ),
+        include_timestamps: z.boolean().optional().default(false).describe(INCLUDE_TIMESTAMPS_DESCRIPTION),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       }).strict(),
       outputSchema: z.object({
@@ -485,6 +501,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       include_collapsed_children,
       include_notes,
       include_checked,
+      include_timestamps,
       bypass_warning,
     }: {
       file_id: string;
@@ -493,6 +510,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       include_collapsed_children: boolean;
       include_notes: boolean;
       include_checked: boolean;
+      include_timestamps: boolean;
       bypass_warning: boolean;
     }) => {
       const config = getConfig();
@@ -517,6 +535,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         includeCollapsedChildren: include_collapsed_children,
         includeNotes: include_notes,
         includeChecked: include_checked,
+        includeTimestamps: include_timestamps,
       });
 
       if (!tree) {
@@ -531,6 +550,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         [
           "Use max_depth to limit traversal depth (e.g., max_depth: 2)",
           "Target a specific item_id instead of entire document",
+          ...(include_timestamps ? [OMIT_TIMESTAMPS_SUGGESTION] : []),
         ],
         config.sizeWarning.warningTokenThreshold,
         config.sizeWarning.maxTokenThreshold,
@@ -572,6 +592,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         search_notes: z.boolean().optional().default(true).describe("Also search in notes"),
         case_sensitive: z.boolean().optional().default(false).describe("Case-sensitive matching."),
         parent_levels: z.enum(["none", "immediate", "all"]).optional().default("immediate").describe(PARENT_LEVELS_DESCRIPTION),
+        include_timestamps: z.boolean().optional().default(false).describe(INCLUDE_TIMESTAMPS_DESCRIPTION),
         bypass_warning: z.boolean().optional().default(false).describe(BYPASS_WARNING_DESCRIPTION),
       }).strict(),
       outputSchema: z.object({
@@ -589,6 +610,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       search_notes,
       case_sensitive,
       parent_levels,
+      include_timestamps,
       bypass_warning,
     }: {
       file_id: string;
@@ -596,6 +618,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
       search_notes: boolean;
       case_sensitive: boolean;
       parent_levels: ParentLevels;
+      include_timestamps: boolean;
       bypass_warning: boolean;
     }) => {
       const config = getConfig();
@@ -629,7 +652,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
           };
 
           // Include optional metadata only when present, in canonical order.
-          applyNodeMetadata(match, node, { includeNotes: true });
+          applyNodeMetadata(match, node, { includeTimestamps: include_timestamps, includeNotes: true });
 
           // Nested structure always last.
           if (parent_levels !== "none") {
@@ -657,6 +680,7 @@ export function registerReadTools(server: McpServer, client: DynalistClient, ac:
         [
           "Use a more specific query to reduce matches",
           "Use parent_levels: \"none\" to exclude parent context",
+          ...(include_timestamps ? [OMIT_TIMESTAMPS_SUGGESTION] : []),
         ],
         config.sizeWarning.warningTokenThreshold,
         config.sizeWarning.maxTokenThreshold,
