@@ -87,6 +87,7 @@ src/
 │   ├── app.ts                    # OAuth provider wiring, allowlist re-check, Durable Object forwarding
 │   ├── github-handler.ts         # Consent page and GitHub sign-in (/authorize, /callback)
 │   ├── mcp-durable-object.ts     # Durable Object that owns shared state and serves MCP requests
+│   ├── audit-log.ts              # Long-term sign-in audit entries in Durable Object SQLite
 │   ├── durable-object-store.ts   # PersistentStore backed by Durable Object storage
 │   ├── env-validation.ts         # Secret and binding validators (shared with the setup script)
 │   └── env-config-loader.ts      # Config loader for DYNALIST_MCP_CONFIG_JSON

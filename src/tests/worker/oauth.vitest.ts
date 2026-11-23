@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { SELF, env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
+import { SELF, env, createExecutionContext, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
 import { DummyDynalistServer } from "../dummy-server";
 import { standardSetup } from "../tools/test-helpers";
 import { handleWorkerRequest, resetWorkerStateForTests } from "../../worker/app";
@@ -10,6 +10,7 @@ import {
   authorize,
   connectMcpClient,
   installOutboundStubs,
+  mcpObjectStub,
   mcpRequest,
   postMcp,
   runOAuthFlow,
@@ -90,6 +91,22 @@ describe("Worker OAuth", () => {
       // The callback stops before completeAuthorization, so no grant is added.
       const after = (await env.OAUTH_KV.list({ prefix: "grant:" })).keys.length;
       expect(after).toBe(before);
+    });
+
+    it("keeps sign-in and rejection entries in the audit log", async () => {
+      github.login = "audit-rejected";
+      await runOAuthFlow();
+      github.login = "Allowed-Owner";
+      await runOAuthFlow();
+
+      // The Worker writes the entries in the background after responding.
+      await vi.waitFor(async () => {
+        const lines = await runInDurableObject(mcpObjectStub(), (_instance, state) =>
+          state.storage.sql.exec("SELECT line FROM audit_log").toArray().map((row) => String(row.line)),
+        );
+        expect(lines.some((line) => line.includes('Rejected sign-in from GitHub account "audit-rejected"'))).toBe(true);
+        expect(lines.some((line) => line.includes('Signed in GitHub account "Allowed-Owner"'))).toBe(true);
+      });
     });
 
     it("rejects existing tokens once their login is removed from the allowlist", async () => {

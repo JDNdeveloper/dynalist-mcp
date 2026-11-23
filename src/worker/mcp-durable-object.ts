@@ -18,6 +18,7 @@ import { DEFAULT_DOCUMENT_CACHE_CAPACITY, DocumentStore } from "../document-stor
 import { createDynalistServer } from "../server";
 import { installEnvConfigLoader } from "./env-config-loader";
 import { DurableObjectPersistentStore } from "./durable-object-store";
+import { appendAuditLog, initAuditLog, runInDurableObjectContext, setLocalAuditSql } from "./audit-log";
 import { workersLogSink } from "./log-sink";
 import type { Env } from "./env";
 
@@ -26,6 +27,8 @@ export class DynalistMcpDurableObject extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    initAuditLog(ctx.storage.sql);
+    setLocalAuditSql(ctx.storage.sql);
     setLogSink(workersLogSink);
     installEnvConfigLoader(env.DYNALIST_MCP_CONFIG_JSON);
 
@@ -42,9 +45,14 @@ export class DynalistMcpDurableObject extends DurableObject<Env> {
     });
   }
 
+  /** Called by the Worker to store an audit entry from its own isolate. */
+  async recordAuditLog(line: string): Promise<void> {
+    runInDurableObjectContext(() => appendAuditLog(this.ctx.storage.sql, line));
+  }
+
   async fetch(request: Request): Promise<Response> {
     // The handler only reads OAuth props from its context argument, and
     // the Worker has already verified the token before forwarding.
-    return this.handler(request, this.env, this.ctx as unknown as ExecutionContext);
+    return runInDurableObjectContext(() => this.handler(request, this.env, this.ctx as unknown as ExecutionContext));
   }
 }

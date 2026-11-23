@@ -21,6 +21,7 @@ import {
   type OAuthHelpers,
 } from "@cloudflare/workers-oauth-provider";
 import { log } from "../config";
+import { recordAuditLog } from "./audit-log";
 import { isAllowedGithubUser, parseAllowedGithubUsers } from "./env-validation";
 import { createCodeVerifier, s256CodeChallenge } from "./pkce";
 import type { Env, GrantProps } from "./env";
@@ -185,12 +186,16 @@ async function handleCallback(request: Request, env: Env, oauth: OAuthHelpers): 
   // means it was changed underneath a running isolate. Reject.
   const allowlist = parseAllowedGithubUsers(env.ALLOWED_GITHUB_USERS);
   if (!allowlist.ok || !isAllowedGithubUser(login, allowlist.value)) {
-    log("warn", `Rejected sign-in from GitHub account "${login}", which is not on the allowlist.`);
+    const rejection = `Rejected sign-in from GitHub account "${login}", which is not on the allowlist.`;
+    log("warn", rejection);
+    recordAuditLog(rejection);
     return errorPage("This GitHub account is not allowed to use this server.", 403, headers);
   }
 
   // Logged at warn so the line shows with the default logLevel.
-  log("warn", `Signed in GitHub account "${login}".`);
+  const signIn = `Signed in GitHub account "${login}".`;
+  log("warn", signIn);
+  recordAuditLog(signIn);
   const props: GrantProps = { login: login.toLowerCase() };
   const { redirectTo } = await oauth.completeAuthorization({
     request: authRequest,

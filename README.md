@@ -188,6 +188,7 @@ src/
 │   ├── app.ts                    # OAuth provider wiring, allowlist re-check, Durable Object forwarding
 │   ├── github-handler.ts         # Consent page and GitHub sign-in
 │   ├── mcp-durable-object.ts     # Durable Object that serves MCP requests
+│   ├── audit-log.ts              # Long-term sign-in audit entries in Durable Object SQLite
 │   └── env-validation.ts         # Secret and binding validators (shared with the setup script)
 └── tests/
     ├── tools/                    # Tool integration tests against dummy server

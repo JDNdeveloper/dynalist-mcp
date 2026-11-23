@@ -7,6 +7,7 @@
 
 import { OAuthProvider, getOAuthApi, type OAuthProviderOptions } from "@cloudflare/workers-oauth-provider";
 import { log, setLogSink } from "../config";
+import { runWithAuditContext } from "./audit-log";
 import { installEnvConfigLoader } from "./env-config-loader";
 import { isAllowedGithubUser, parseAllowedGithubUsers, validateEnv } from "./env-validation";
 import { handleAuthorizationRoutes } from "./github-handler";
@@ -118,8 +119,10 @@ async function misconfiguredResponse(request: Request): Promise<Response> {
  * invalid.
  */
 export async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  if (!checkEnv(env)) return misconfiguredResponse(request);
-  return getProvider(env).fetch(request, env, ctx);
+  return runWithAuditContext(env, ctx, async () => {
+    if (!checkEnv(env)) return misconfiguredResponse(request);
+    return getProvider(env).fetch(request, env, ctx);
+  });
 }
 
 /**
