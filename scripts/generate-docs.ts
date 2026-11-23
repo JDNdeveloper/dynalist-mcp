@@ -211,7 +211,9 @@ function zodTypeString(schema: ZodTypeAny, depth: number = 0): string {
       break;
     case "ZodArray": {
       const elemType = zodTypeString(def.type, depth + 1);
-      result = `${elemType}[]`;
+      // Parenthesize union elements so `[]` applies to the whole union
+      // rather than reading as attached to the last option.
+      result = elemType.includes(" \\| ") ? `(${elemType})[]` : `${elemType}[]`;
       break;
     }
     case "ZodObject":
@@ -355,7 +357,7 @@ function extractUnionVariants(options: ZodTypeAny[], seen: Set<ZodTypeAny>): Fie
 /**
  * Find a discriminator label from a variant's fields by looking for a
  * ZodLiteral type (e.g. `"document"` or `"folder"`). Falls back to the
- * field list's first required field's type string.
+ * first field's name for unions exempt from the discriminator rule.
  */
 function findDiscriminatorLabel(fields: FieldInfo[]): string {
   for (const f of fields) {
@@ -364,7 +366,7 @@ function findDiscriminatorLabel(fields: FieldInfo[]): string {
       return f.type.slice(1, -1);
     }
   }
-  return "variant";
+  return fields[0].name;
 }
 
 // ─── Example generation ─────────────────────────────────────────────
@@ -471,6 +473,7 @@ function exampleNumber(name: string): number {
   if (name === "count" || name === "document_count" || name === "edited_count" || name === "moved_count" || name === "deleted_count" || name === "created_count" || name === "reordered_count") return 1;
   if (name === "promoted_children_count") return 1;
   if (name === "child_count") return 3;
+  if (name === "omitted") return 2;
   if (name === "max_depth") return 3;
   if (name === "index") return 0;
   if (name === "batch_index") return 0;

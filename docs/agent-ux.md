@@ -74,7 +74,110 @@ The lesson generalizes: when instructing models to produce structured text outpu
 
 ## Confirmation and verification
 
-Every mutation tool shares a confirmation directive telling the agent to present a diff preview and wait for user approval before executing a write. The instructions further require the agent to read back the affected area after a mutation and report any discrepancies. Together, these create a confirm-then-verify loop for all writes.
+Every mutation tool shares a confirmation directive telling the agent to present a diff preview and wait for user approval before executing a write. The instructions further require the agent to verify the result and report any discrepancies. Together, these create a confirm-then-verify loop for all writes.
+
+### Write readback
+
+Item write tools (`edit_items`, `insert_items`, `delete_items`, `move_items`, `reorder_items`) return a `readback` tree showing the changed area after the write, so the agent verifies from the response instead of spending a turn on a re-read. `send_to_inbox` and the file tools return no readback, so they keep the re-read rule.
+
+The readback uses `read_document`'s item shape, starting at the document root and pruned to the change:
+
+- Each changed position shows one sibling on each side. A parent with at most 5 children, or one that was reordered, shows every child.
+- Each ancestor on the path to the root shows only the child leading to the change.
+- Inserted items include their full subtree, since that is exactly what the agent asked to create. Other items are depth-limited.
+- Each run of hidden siblings becomes one `{ "omitted": n }` entry, and the instructions tell the agent to render it as a single `...` line. `child_count` counts every child, so at each level the shown items plus the `omitted` counts add up to `child_count`.
+
+This mirrors the context the diff-preview rules already require, so the agent can compare its preview against the readback line by line.
+
+**Example: insert.** Inserting `Pasta` (with child `Penne`) after `Rice` in an 8-item `Groceries` list returns:
+
+```json
+"readback": {
+  "item_id": "root",
+  "content": "Todo",
+  "child_count": 2,
+  "children": [
+    {
+      "item_id": "groceries",
+      "content": "Groceries",
+      "child_count": 9,
+      "children": [
+        { "omitted": 5 },
+        { "item_id": "g5", "content": "Rice" },
+        {
+          "item_id": "node_1",
+          "content": "Pasta",
+          "child_count": 1,
+          "children": [{ "item_id": "node_2", "content": "Penne" }]
+        },
+        { "item_id": "g6", "content": "Coffee" },
+        { "omitted": 1 }
+      ]
+    },
+    { "item_id": "errands", "content": "Errands", "depth_limited": true, "child_count": 2 }
+  ]
+}
+```
+
+The agent renders it as:
+
+```
+• Todo
+  • Groceries
+    ...
+    • Rice
+    • Pasta
+      • Penne
+    • Coffee
+    ...
+  • Errands
+```
+
+`Errands` appears because the root has only 2 children, so it shows all of them.
+
+**Example: move.** Moving `Pharmacy` from `Errands` to after `Eggs` in `Groceries` shows both the destination and the source in one tree:
+
+```json
+"readback": {
+  "item_id": "root",
+  "content": "Todo",
+  "child_count": 2,
+  "children": [
+    {
+      "item_id": "groceries",
+      "content": "Groceries",
+      "child_count": 10,
+      "children": [
+        { "omitted": 1 },
+        { "item_id": "g1", "content": "Eggs" },
+        { "item_id": "e2", "content": "Pharmacy" },
+        { "item_id": "g2", "content": "Bread", "depth_limited": true, "child_count": 1 },
+        { "omitted": 6 }
+      ]
+    },
+    {
+      "item_id": "errands",
+      "content": "Errands",
+      "child_count": 1,
+      "children": [{ "item_id": "e1", "content": "Post office" }]
+    }
+  ]
+}
+```
+
+```
+• Todo
+  • Groceries
+    ...
+    • Eggs
+    • Pharmacy
+    • Bread
+    ...
+  • Errands
+    • Post office
+```
+
+The readback is omitted with a `warning` when it exceeds the size warning threshold, and omitted along with `sync_token` whenever `sync_warning` is present. In both cases the instructions fall back to a re-read.
 
 ## Size management
 
@@ -129,7 +232,7 @@ Response arrays include a denormalized count field (e.g. `child_count` for `chil
 
 ### Response minimalism
 
-Responses never echo back input values the agent already knows from its own request. For mutations, this means item IDs are omitted. For searches, the query is omitted. Mutation success responses are minimal: `file_id`, a count of affected items (e.g. `edited_count`, `moved_count`, `deleted_count`), and an optional `sync_warning`.
+Responses never echo back input values the agent already knows from its own request. For mutations, this means item IDs are omitted outside the readback. For searches, the query is omitted. Mutation success responses are minimal: `file_id`, a count of affected items (e.g. `edited_count`, `moved_count`, `deleted_count`), and an optional `sync_warning`. Item write tools add `sync_token` and `readback` (see [Write readback](#write-readback)). The readback repeats item IDs and content because it shows the document's actual post-write state, not the agent's input.
 
 ## Property ordering
 
@@ -228,11 +331,11 @@ The tool accepts a `reorders` array so multiple parents can be sorted in a singl
 
 ## Sync token workflow
 
-The instructions establish a mandatory workflow: read a document before any write to obtain the sync token, pass it to the write tool, and re-read if the tool returns a sync warning. This is reinforced at the parameter level, where the sync token field description tells the agent to re-read on staleness. The sync token design is covered in depth in [concurrency.md](concurrency.md).
+The instructions establish a mandatory workflow: read a document before any write to obtain the sync token, pass it to the write tool, and re-read if the tool returns a sync warning. Item write responses also return a fresh `sync_token`, so consecutive writes across turns need no read in between. This is reinforced at the parameter level, where the sync token field description tells the agent to re-read on staleness. The sync token design is covered in depth in [concurrency.md](concurrency.md).
 
 ### Why opaque tokens
 
-Early versions exposed the numeric document version directly. Claude Opus 4.6 exploited this after a write: it called `insert_items`, incremented the version by 1, received a sync warning saying the version had actually advanced by 2 (the insert made two API calls under the hood), then used that leaked version number directly in the next mutation without re-reading the document. The arithmetic happened to be correct, but the behavior is unsafe because it bypasses the re-read that the version guard is designed to enforce. By hashing the version into a short opaque hex token, agents cannot predict the next value and are forced to re-read.
+Early versions exposed the numeric document version directly. Claude Opus 4.6 exploited this after a write: it called `insert_items`, incremented the version by 1, received a sync warning saying the version had actually advanced by 2 (the insert made two API calls under the hood), then used that leaked version number directly in the next mutation without re-reading the document. The arithmetic happened to be correct, but the behavior is unsafe because it bypasses the re-read that the version guard is designed to enforce. By hashing the version into a short opaque hex token, agents cannot predict the next value and are forced to take it from the server. Item write responses hand back that token directly, but only after the server has confirmed no concurrent edit occurred (see [concurrency.md](concurrency.md#post-write-readback)), so the guarded re-read still happens, just server-side.
 
 ### Batched writes without re-reading
 

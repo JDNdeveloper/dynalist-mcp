@@ -182,7 +182,8 @@ src/
 │   ├── structure.ts              # Structure tools (delete, move, reorder)
 │   └── files.ts                  # File management tools
 ├── utils/
-│   └── dynalist-helpers.ts       # Shared tool helpers
+│   ├── dynalist-helpers.ts       # Shared tool helpers
+│   └── write-response-helpers.ts # Post-write readback and sync token for item write tools
 ├── worker/
 │   ├── index.ts                  # Cloudflare Worker entry point
 │   ├── app.ts                    # OAuth provider wiring, allowlist re-check, Durable Object forwarding

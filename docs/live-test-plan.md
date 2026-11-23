@@ -82,7 +82,7 @@ Launch one subagent per sub-root (7 total, all in parallel). Each subagent promp
 1. Reference this test plan file so the agent can read its assigned section.
 2. Specify the sub-root folder file_id to work within.
 3. Instruct the agent to create its own test document(s) inside that folder.
-4. Instruct the agent to read back after every write and report PASS/FAIL per test case.
+4. Instruct the agent to verify every write (using the returned `readback`, or a re-read when `readback` is absent) and report PASS/FAIL per test case.
 5. Instruct the agent to move on quickly if a test case fails or behaves unexpectedly. Mark it FAIL (or SKIP if untestable) and proceed to the next test. Do not retry in a loop or spend time debugging.
 6. Instruct the agent to grade each test case from 1 to 5 stars based on how easy it was to complete using the MCP tools and instructions. 5 stars means it worked smoothly with no friction. 4 stars means it worked but hit minor snags (e.g. unclear parameter semantics, needed an extra read). 3 stars means it required significant effort or workarounds. 2 stars means it barely worked. 1 star means it failed or was essentially unusable. Include the star rating next to each PASS/FAIL result.
 7. Include the confirmation override (see below).
@@ -123,7 +123,7 @@ Call `read_document` on the new document to get the initial `sync_token`. Then c
   • Child C
 ```
 
-Extract the `item_id` for each item from the response. Read back the document to get the updated `sync_token`.
+Extract the `item_id` for each item from the response's `readback`. Use the response's `sync_token` for the next write.
 
 ### Test 1a: Insert at root as first_child
 
@@ -132,7 +132,7 @@ Call `insert_items` with:
 - `expected_sync_token`: current sync token
 - `inserts`: `[{ "position": "first_child", "items": [{ "content": "Root First" }] }]`
 
-Read back the document. **PASS** if `Root First` is the first top-level item. **FAIL** otherwise.
+Check the readback. **PASS** if `Root First` is the first top-level item. **FAIL** otherwise.
 
 ### Test 1b: Insert at root as last_child
 
@@ -141,7 +141,7 @@ Call `insert_items` with:
 - `expected_sync_token`: current sync token
 - `inserts`: `[{ "position": "last_child", "items": [{ "content": "Root Last" }] }]`
 
-Read back the document. **PASS** if `Root Last` is the last top-level item. **FAIL** otherwise.
+Check the readback. **PASS** if `Root Last` is the last top-level item. **FAIL** otherwise.
 
 ### Test 1c: Insert under a parent as last_child
 
@@ -150,7 +150,7 @@ Call `insert_items` with:
 - `expected_sync_token`: current sync token
 - `inserts`: `[{ "position": "last_child", "reference_item_id": <item_id of Existing Parent>, "items": [{ "content": "New Sibling" }] }]`
 
-Read back the document. **PASS** if children of `Existing Parent` are `[Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
+Check the readback. **PASS** if children of `Existing Parent` are `[Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
 ### Test 1d: Insert after a sibling
 
@@ -159,7 +159,7 @@ Call `insert_items` with:
 - `expected_sync_token`: current sync token
 - `inserts`: `[{ "position": "after", "reference_item_id": <item_id of Child A>, "items": [{ "content": "After Child A" }] }]`
 
-Read back. **PASS** if children of `Existing Parent` are `[Child A, After Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
+Check the readback. **PASS** if children of `Existing Parent` are `[Child A, After Child A, Child B, Child C, New Sibling]` in that order. **FAIL** otherwise.
 
 ### Test 1e: Insert before a sibling
 
@@ -168,7 +168,7 @@ Call `insert_items` with:
 - `expected_sync_token`: current sync token
 - `inserts`: `[{ "position": "before", "reference_item_id": <item_id of Child C>, "items": [{ "content": "Before Child C" }] }]`
 
-Read back. **PASS** if children of `Existing Parent` include `[..., Before Child C, Child C, ...]` with `Before Child C` immediately before `Child C`. **FAIL** otherwise.
+Check the readback. **PASS** if children of `Existing Parent` include `[..., Before Child C, Child C, ...]` with `Before Child C` immediately before `Child C`. **FAIL** otherwise.
 
 ### Test 1f: Insert with nested tree and metadata
 
@@ -194,7 +194,7 @@ Call `insert_items` with:
   }]
   ```
 
-Read back the document. **PASS** if all of the following are true:
+Check the readback. **PASS** if all of the following are true:
 - `H1 Parent` exists with `heading: "h1"`, `color: "blue"`, `note: "Parent note"`.
 - `H1 Parent` has one child `Checkbox Child` with `show_checkbox: true`, `checked: true`, `color: "green"`.
 
@@ -215,7 +215,7 @@ Call `read_document` on the new document to get the initial `sync_token`. Then c
 • Edit Target B
 ```
 
-Include metadata on `Edit Target A` in the same insert call: `note: "Original note"`, `heading: "h1"`, `color: "red"`. Read back to get item_ids and the updated sync_token.
+Include metadata on `Edit Target A` in the same insert call: `note: "Original note"`, `heading: "h1"`, `color: "red"`. Get item_ids from the response's `readback` and use its `sync_token` for the next write.
 
 ### Test 2a: Edit content
 
@@ -224,7 +224,7 @@ Call `edit_items` with:
 - `expected_sync_token`: current sync token
 - `items`: `[{ "item_id": <Edit Target A>, "content": "Renamed A" }]`
 
-Read back. **PASS** if the item's content is `Renamed A` and `heading`, `color`, and `note` are all unchanged (`heading: "h1"`, `color: "red"`, `note: "Original note"`). **FAIL** otherwise.
+Check the readback. **PASS** if the item's content is `Renamed A` and `heading`, `color`, and `note` are all unchanged (`heading: "h1"`, `color: "red"`, `note: "Original note"`). **FAIL** otherwise.
 
 ### Test 2b: Edit metadata (heading + color)
 
@@ -233,7 +233,7 @@ Call `edit_items` with:
 - `expected_sync_token`: current sync token
 - `items`: `[{ "item_id": <Edit Target B>, "heading": "h2", "color": "purple" }]`
 
-Read back. **PASS** if `Edit Target B` has `heading: "h2"` and `color: "purple"`, and content is unchanged. **FAIL** otherwise.
+Check the readback. **PASS** if `Edit Target B` has `heading: "h2"` and `color: "purple"`, and content is unchanged. **FAIL** otherwise.
 
 ### Test 2c: Clear a note
 
@@ -242,15 +242,15 @@ Call `edit_items` with:
 - `expected_sync_token`: current sync token
 - `items`: `[{ "item_id": <Edit Target A>, "note": "" }]`
 
-Read back. **PASS** if the `note` field is absent (cleared) on `Edit Target A`, and all other fields (`content`, `heading`, `color`) are unchanged. **FAIL** otherwise.
+Check the readback. **PASS** if the `note` field is absent (cleared) on `Edit Target A`, and all other fields (`content`, `heading`, `color`) are unchanged. **FAIL** otherwise.
 
 ### Test 2d: Batched writes with batch_index
 
-Without an intervening `read_document`, call `edit_items` twice using the *same* `expected_sync_token` (the one from Test 2c's read-back):
+Without an intervening `read_document`, call `edit_items` twice using the *same* `expected_sync_token` (the one from Test 2c's response):
 1. `items`: `[{ "item_id": <Edit Target A>, "content": "Batch A" }]`, `batch_index: 0`
 2. `items`: `[{ "item_id": <Edit Target B>, "content": "Batch B" }]`, `batch_index: 1`
 
-Read back. **PASS** if both calls succeed with no `sync_warning`, `Edit Target A` has content `Batch A`, and `Edit Target B` has content `Batch B`. **FAIL** if either call errors, returns `sync_warning`, or an item's content did not update as expected.
+Check the readback. **PASS** if both calls succeed with no `sync_warning`, `Edit Target A` has content `Batch A`, and `Edit Target B` has content `Batch B`. **FAIL** if either call errors, returns `sync_warning`, or an item's content did not update as expected.
 
 ---
 
@@ -270,7 +270,7 @@ Call `read_document` on the new document to get the initial `sync_token`. Then c
 • Keep B
 ```
 
-Read back to get item_ids and the updated sync_token.
+Get item_ids from the response's `readback` and use its `sync_token` for the next write.
 
 ### Test 3a: Delete a single item
 
@@ -279,7 +279,7 @@ Call `delete_items` with:
 - `expected_sync_token`: current sync token
 - `item_ids`: `[<Delete Me 1>]`
 
-Read back. **PASS** if `Delete Me 1` is gone and `Keep A`, `Delete Me 2`, `Delete Me 3`, `Keep B` remain in order. **FAIL** otherwise.
+Check the readback. **PASS** if `Delete Me 1` is gone and `Keep A`, `Delete Me 2`, `Delete Me 3`, `Keep B` remain in order. **FAIL** otherwise.
 
 ### Test 3b: Delete multiple items in one call
 
@@ -288,7 +288,7 @@ Call `delete_items` with:
 - `expected_sync_token`: current sync token
 - `item_ids`: `[<Delete Me 2>, <Delete Me 3>]`
 
-Read back. **PASS** if only `Keep A` and `Keep B` remain. **FAIL** otherwise.
+Check the readback. **PASS** if only `Keep A` and `Keep B` remain. **FAIL** otherwise.
 
 ---
 
@@ -307,7 +307,7 @@ Call `read_document` on the new document to get the initial `sync_token`. Then c
   • Target Child B
 ```
 
-Read back to get item_ids and the updated sync_token.
+Get item_ids from the response's `readback` and use its `sync_token` for the next write.
 
 Tests 4a, 4b, and 4c are sequential: each depends on the prior move's final state. If a test fails, SKIP all subsequent tests in this agent.
 
@@ -318,7 +318,7 @@ Call `move_items` with:
 - `expected_sync_token`: current sync token
 - `moves`: `[{ "item_id": <Move Source>, "reference_item_id": <Target Parent>, "position": "first_child" }]`
 
-Read back. **PASS** if children of `Target Parent` are `[Move Source, Target Child A, Target Child B]` in that order. **FAIL** otherwise.
+Check the readback. **PASS** if children of `Target Parent` are `[Move Source, Target Child A, Target Child B]` in that order. **FAIL** otherwise.
 
 ### Test 4b: Move as last_child
 
@@ -329,7 +329,7 @@ Call `move_items` with:
 
 (Note: `Move Source` is currently `first_child` of `Target Parent` from test 4a.)
 
-Read back. **PASS** if children of `Target Parent` are `[Target Child A, Target Child B, Move Source]` in that order. **FAIL** otherwise.
+Check the readback. **PASS** if children of `Target Parent` are `[Target Child A, Target Child B, Move Source]` in that order. **FAIL** otherwise.
 
 ### Test 4c: Move after a sibling
 
@@ -340,7 +340,7 @@ Call `move_items` with:
 
 (Note: `Move Source` is currently `last_child` of `Target Parent` from test 4b.)
 
-Read back. **PASS** if children of `Target Parent` are `[Target Child A, Move Source, Target Child B]` in that order. **FAIL** otherwise.
+Check the readback. **PASS** if children of `Target Parent` are `[Target Child A, Move Source, Target Child B]` in that order. **FAIL** otherwise.
 
 ### Test 4d: Move before a sibling
 
@@ -351,7 +351,7 @@ Call `move_items` with:
 
 (Note: `Move Source` is currently between `Target Child A` and `Target Child B` from test 4c.)
 
-Read back. **PASS** if children of `Target Parent` are `[Target Child A, Move Source, Target Child B]` in that order (unchanged, since "before Target Child B" is the same position). **FAIL** otherwise.
+Check the readback. **PASS** if children of `Target Parent` are `[Target Child A, Move Source, Target Child B]` in that order (unchanged, since "before Target Child B" is the same position). **FAIL** otherwise.
 
 ---
 
@@ -372,7 +372,7 @@ Call `read_document` on the new document to get the initial `sync_token`. Then c
 • Note Holder
 ```
 
-Include metadata in the same insert call: set `Note Holder` with `note: "secret keyword hydra"` and `Searchable Item` with `note: "visible text"`. Read back to get item_ids and the updated sync_token.
+Include metadata in the same insert call: set `Note Holder` with `note: "secret keyword hydra"` and `Searchable Item` with `note: "visible text"`. Get item_ids from the response's `readback` and use its `sync_token` for the next write.
 
 ### Test 5a: Read with max_depth
 
@@ -538,7 +538,7 @@ Call `read_document` on the new document to get the initial `sync_token`. Then c
 • Gamma
 ```
 
-Read back to get item_ids and the updated sync_token.
+Get item_ids from the response's `readback` and use its `sync_token` for the next write.
 
 ### Test 8a: Reorder document root children
 
@@ -547,7 +547,7 @@ Call `reorder_items` with:
 - `expected_sync_token`: current sync token
 - `reorders`: `[{ "item_ids": [<Gamma>, <Alpha>, <Beta>] }]`
 
-Read back. **PASS** if the top-level order is `[Gamma, Alpha, Beta]`. **FAIL** otherwise.
+Check the readback. **PASS** if the top-level order is `[Gamma, Alpha, Beta]`. **FAIL** otherwise.
 
 ### Test 8b: Reorder children of a specific parent
 
@@ -556,7 +556,7 @@ Call `reorder_items` with:
 - `expected_sync_token`: current sync token
 - `reorders`: `[{ "parent_item_id": <Alpha>, "item_ids": [<Child 2>, <Child 1>] }]`
 
-Read back. **PASS** if Alpha's children are `[Child 2, Child 1]`. **FAIL** otherwise.
+Check the readback. **PASS** if Alpha's children are `[Child 2, Child 1]`. **FAIL** otherwise.
 
 ### Test 8c: Reorder multiple parents in one call
 
@@ -571,7 +571,7 @@ Call `reorder_items` with:
   ] }
   ```
 
-Read back. **PASS** if the top-level order is `[Beta, Gamma, Alpha]` AND Alpha's children are `[Child 1, Child 2]`. **FAIL** otherwise.
+Check the readback. **PASS** if the top-level order is `[Beta, Gamma, Alpha]` AND Alpha's children are `[Child 1, Child 2]`. **FAIL** otherwise.
 
 ---
 

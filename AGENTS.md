@@ -49,6 +49,16 @@ Tests run against a dummy Dynalist server (in-memory) via the real MCP protocol.
 1. Make changes.
 2. Run `bun run check` to verify everything passes.
 
+## Staging for review
+
+When handing changes to the user for review, stage everything except the text the user reviews. Leave unstaged only files that change:
+
+- **Copy in user- or agent-facing places**, such as MCP instructions and tool descriptions. Review happens in the generated docs (`docs/tools.md`, `docs/configuration.md`, `docs/api-coverage.md`, `docs/instructions.md`), so leave those unstaged and stage their source files (e.g. `src/instructions.ts`, `src/tools/descriptions.ts`).
+- **Agent-facing text that no generated doc includes**, such as error messages, warnings, and other strings returned in tool responses, or prompts in scripts. Leave the source file unstaged even if it is mostly code.
+- **User-facing documentation**: `README.md`, `AGENTS.md`, and the hand-maintained `docs/*.md`.
+
+Stage everything else, including code comments. If the user edits a generated doc, port the edit to its source file and regenerate. Restage code files after each further change. A file the user stages counts as reviewed, so leave later edits to it unstaged and the user sees only the new diff.
+
 ## Updating package.json
 
 `package.json` is the single source of truth for project metadata. Keep it in sync when: adding or removing dependencies, adding new scripts, changing the project description, or bumping the version.
@@ -81,7 +91,8 @@ src/
 │   ├── structure.ts              # Structure tools (delete, move, reorder)
 │   └── files.ts                  # File management tools (create, rename, move)
 ├── utils/
-│   └── dynalist-helpers.ts       # Shared tool helpers (size check, tree builder, etc.)
+│   ├── dynalist-helpers.ts       # Shared tool helpers (size check, tree builder, etc.)
+│   └── write-response-helpers.ts # Post-write readback and sync token for item write tools
 ├── worker/
 │   ├── index.ts                  # Cloudflare Worker entry point
 │   ├── app.ts                    # OAuth provider wiring, allowlist re-check, Durable Object forwarding
@@ -158,7 +169,7 @@ Key rules:
 - **Recursive input schemas**: Codex renders some recursive input `$ref` schemas incorrectly. Observed April 2026: `insert_items.insertions[].items[].children` renders as `string[]` even though it accepts recursive child item objects. Before adding another recursive input schema to a non-readonly tool, scan all write-capable tool modules and make the parameter description state the recursive object shape directly, including that values are objects rather than strings or item IDs.
 - **Schema-driven property order**: the property order defined in a tool's `inputSchema` or `outputSchema` is the canonical order for that object. All other representations of the same object must match: handler destructuring, type annotations, function signatures, response construction, test call arguments, object literals, documentation parameter tables, and prose listings. When properties from one schema appear in a different context (e.g. `reference_item_id` and `position` appear in both `insert_items.insertions[]` sub-object schema and `move_items.moves[]` sub-object schema), they must use the same relative order everywhere.
 - **Enum value ordering**: `z.enum()` values define a canonical order. TypeScript union types, description strings, documentation prose, and any other listing of the same enum values must use the same order. When an enum is shared across tools (e.g. the position enum `after, before, first_child, last_child`), all tools must use the same value order.
-- **Union discriminators**: every variant in a `z.union()` must include a `z.literal()` field as a discriminator (e.g. `type: z.literal("document")`). `scripts/generate-docs.ts` uses the first literal field in each variant to label the per-variant sub-tables in `docs/tools.md`.
+- **Union discriminators**: every variant in a `z.union()` must include a `z.literal()` field as a discriminator (e.g. `type: z.literal("document")`). `scripts/generate-docs.ts` uses the first literal field in each variant to label the per-variant sub-tables in `docs/tools.md`. Exception: the readback `children` union (item or `{ omitted: n }` marker) has no literal, so readback items keep `read_document`'s exact item shape. The generator labels its variants by first field name.
 - **Denormalized counts**: response arrays include a companion count field (e.g. `child_count` for `children`, `count` for `matches`). When both the count and the array are present, the count always matches the array length. `list_documents` is a deliberate exception: `document_count` counts only documents in the `files` array, not folders.
 
 ## When tools change

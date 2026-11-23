@@ -1,7 +1,7 @@
 /**
  * Opaque sync token generation. Hashes the numeric document version into
- * a short hex string so agents cannot predict the next value and are
- * forced to re-read the document after writes.
+ * a short hex string so agents cannot predict the next value and must
+ * take it from a read or item write response.
  */
 
 import { createHash } from "node:crypto";

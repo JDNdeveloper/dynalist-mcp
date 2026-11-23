@@ -19,11 +19,12 @@ import {
 } from "../utils/dynalist-helpers";
 import type { DocumentStore } from "../document-store";
 import {
-  FILE_ID_DESCRIPTION, SYNC_WARNING_DESCRIPTION,
+  FILE_ID_DESCRIPTION,
   CONFIRM_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
   REREAD_GUIDANCE,
-  INSTRUCTIONS_FIRST_GUIDANCE, BATCH_INDEX_DESCRIPTION,
+  INSTRUCTIONS_FIRST_GUIDANCE, BATCH_INDEX_DESCRIPTION, WRITE_READBACK_GUIDANCE,
 } from "./descriptions";
+import { readBackWrite, readbackScalarOutputFields, readbackOutputField, type ReadbackTarget } from "../utils/write-response-helpers";
 
 export function registerStructureTools(server: McpServer, client: DynalistClient, ac: AccessController, store: DocumentStore): void {
   server.registerTool(
@@ -32,7 +33,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       description:
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
-        "Delete items and their subtrees from a document.",
+        "Delete items and their subtrees from a document. " +
+        WRITE_READBACK_GUIDANCE,
       annotations: {
         title: "Delete Items",
         readOnlyHint: false,
@@ -55,7 +57,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         deleted_count: z.number().describe("Number of items deleted (targets and all descendants if children not promoted)."),
         promoted_children_count: z.number().optional().describe("Number of direct children promoted to parent (only when children is 'promote')"),
-        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
+        ...readbackScalarOutputFields,
+        ...readbackOutputField,
       }).strict(),
     },
     wrapToolHandler(async ({
@@ -105,7 +108,10 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
       const guard = await withVersionGuard(
         { client, fileId: file_id, expectedSyncToken: expected_sync_token, batchIndex: batch_index, store },
-        async (): Promise<{ result: { deleted_count: number; promoted_children_count?: number }; apiCallCount: number }> => {
+        async (): Promise<{
+          result: { deleted_count: number; promoted_children_count?: number; readbackTargets: ReadbackTarget[] };
+          apiCallCount: number;
+        }> => {
           const doc = await store.read(file_id);
           const rootId = findRootNodeId(doc.nodes);
           const nodeMap = buildNodeMap(doc.nodes);
@@ -160,16 +166,25 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
                 });
               }
 
+              // Promoted children still exist after the write, so the readback
+              // locates them directly.
+              const promotedTargets = targetNode.children.map((childId) => ({ type: "item" as const, itemId: childId }));
+
               return {
-                result: { deleted_count: 1, promoted_children_count: promotedCount },
+                result: { deleted_count: 1, promoted_children_count: promotedCount, readbackTargets: promotedTargets },
                 apiCallCount: moveResponse.batches_sent + deleteResponse.batches_sent,
               };
             }
 
             // Leaf node (no children to promote). Just delete it.
+            const leafLocation = parentMap.get(node_id)!;
             const response = await client.editDocument(file_id, [{ action: "delete", node_id }]);
             return {
-              result: { deleted_count: 1, promoted_children_count: 0 },
+              result: {
+                deleted_count: 1,
+                promoted_children_count: 0,
+                readbackTargets: [{ type: "slot", parentId: leafLocation.parentId, index: leafLocation.index }],
+              },
               apiCallCount: response.batches_sent,
             };
           }
@@ -216,13 +231,26 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           // orphan children on partial failure with no way to recover them.
           const changes = allToDelete.reverse().map(id => ({ action: "delete" as const, node_id: id }));
 
+          // Each deleted subtree leaves a slot in its parent. Its post-write
+          // index shifts down by the number of deleted siblings before it.
+          const readbackTargets: ReadbackTarget[] = deduped.map((id) => {
+            const location = parentMap.get(id)!;
+            const earlierDeletedSiblings = deduped.filter((otherId) => {
+              const other = parentMap.get(otherId)!;
+              return other.parentId === location.parentId && other.index < location.index;
+            }).length;
+            return { type: "slot", parentId: location.parentId, index: location.index - earlierDeletedSiblings };
+          });
+
           const response = await editDocumentWithPartialGuard(client, file_id, changes);
           return {
-            result: { deleted_count: allToDelete.length },
+            result: { deleted_count: allToDelete.length, readbackTargets },
             apiCallCount: response.batches_sent,
           };
         },
       );
+
+      const postWrite = await readBackWrite(store, file_id, guard, guard.result.readbackTargets);
 
       const data: Record<string, unknown> = {
         file_id,
@@ -231,7 +259,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       if (guard.result.promoted_children_count !== undefined) {
         data.promoted_children_count = guard.result.promoted_children_count;
       }
-      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
+      Object.assign(data, postWrite.scalars);
+      if (postWrite.readback) data.readback = postWrite.readback;
 
       return makeResponse(data);
     })
@@ -244,7 +273,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Move items (with subtrees) to new positions in a document. Moves within a single " +
-        "call are applied sequentially; later moves see earlier moves' effects.",
+        "call are applied sequentially; later moves see earlier moves' effects. " +
+        WRITE_READBACK_GUIDANCE,
       annotations: {
         title: "Move Items",
         readOnlyHint: false,
@@ -268,7 +298,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         moved_count: z.number().describe("Number of items moved"),
-        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
+        ...readbackScalarOutputFields,
+        ...readbackOutputField,
       }).strict(),
     },
     wrapToolHandler(async ({
@@ -352,6 +383,11 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
 
           const allChanges: Array<{ action: "move"; node_id: string; parent_id: string; index: number }> = [];
 
+          // Each move leaves a gap in its source parent. Later moves can shift
+          // that gap's index, so the gap is recorded by its neighbours and
+          // resolved against the final planned state after all moves.
+          const sourceGaps: Array<{ parentId: string; leftId?: string; rightId?: string }> = [];
+
           for (const move of moves) {
             const { item_id, reference_item_id, position } = move;
 
@@ -411,6 +447,11 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             if (movedNodeInfo) {
               const oldSiblings = childrenMap.get(movedNodeInfo.parentId)!;
               oldSiblings.splice(movedNodeInfo.index, 1);
+              sourceGaps.push({
+                parentId: movedNodeInfo.parentId,
+                leftId: oldSiblings[movedNodeInfo.index - 1],
+                rightId: oldSiblings[movedNodeInfo.index],
+              });
 
               // Rebuild parentMap for the old parent's remaining children.
               for (let i = 0; i < oldSiblings.length; i++) {
@@ -432,16 +473,45 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
             }
           }
 
+          // The planned state matches the post-write document unless a
+          // concurrent edit occurred, in which case the readback is skipped. A
+          // gap whose neighbours both left the parent has no stable position,
+          // so only the moved items are shown for it.
+          const sourceSlots: ReadbackTarget[] = [];
+          for (const gap of sourceGaps) {
+            const left = gap.leftId !== undefined ? parentMap.get(gap.leftId) : undefined;
+            const right = gap.rightId !== undefined ? parentMap.get(gap.rightId) : undefined;
+            let index: number | undefined;
+            if (left?.parentId === gap.parentId) {
+              index = left.index + 1;
+            } else if (right?.parentId === gap.parentId) {
+              index = right.index;
+            } else if (gap.leftId === undefined) {
+              // The gap was at the start of the parent's children.
+              index = 0;
+            } else if (gap.rightId === undefined) {
+              // The gap was at the end of the parent's children.
+              index = childrenMap.get(gap.parentId)?.length ?? 0;
+            }
+            if (index !== undefined) sourceSlots.push({ type: "slot", parentId: gap.parentId, index });
+          }
+
           const response = await editDocumentWithPartialGuard(client, file_id, allChanges);
-          return { result: undefined, apiCallCount: response.batches_sent };
+          return { result: sourceSlots, apiCallCount: response.batches_sent };
         },
       );
+
+      const postWrite = await readBackWrite(store, file_id, guard, [
+        ...moves.map((move) => ({ type: "item" as const, itemId: move.item_id })),
+        ...guard.result,
+      ]);
 
       const data: Record<string, unknown> = {
         file_id,
         moved_count: moves.length,
+        ...postWrite.scalars,
       };
-      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
+      if (postWrite.readback) data.readback = postWrite.readback;
 
       return makeResponse(data);
     })
@@ -454,7 +524,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
         `${INSTRUCTIONS_FIRST_GUIDANCE} ` +
         `${CONFIRM_GUIDANCE} ` +
         "Sort or reorder the children of one or more parent items by providing each parent's " +
-        "complete ordered child list. All children of each parent must be present.",
+        "complete ordered child list. All children of each parent must be present. " +
+        WRITE_READBACK_GUIDANCE,
       annotations: {
         title: "Reorder Items",
         readOnlyHint: false,
@@ -478,7 +549,8 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
       outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         reordered_count: z.number().describe("Total number of children reordered across all reorders."),
-        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
+        ...readbackScalarOutputFields,
+        ...readbackOutputField,
       }).strict(),
     },
     wrapToolHandler(async ({
@@ -610,15 +682,22 @@ export function registerStructureTools(server: McpServer, client: DynalistClient
           }
 
           const response = await editDocumentWithPartialGuard(client, file_id, allChanges);
-          return { result: totalReordered, apiCallCount: response.batches_sent };
+          const readbackTargets: ReadbackTarget[] = reorders.map((reorder) => ({
+            type: "children",
+            parentId: reorder.parent_item_id ?? rootId,
+          }));
+          return { result: { totalReordered, readbackTargets }, apiCallCount: response.batches_sent };
         },
       );
 
+      const postWrite = await readBackWrite(store, file_id, guard, guard.result.readbackTargets);
+
       const data: Record<string, unknown> = {
         file_id,
-        reordered_count: guard.result,
+        reordered_count: guard.result.totalReordered,
+        ...postWrite.scalars,
       };
-      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
+      if (postWrite.readback) data.readback = postWrite.readback;
 
       return makeResponse(data);
     })

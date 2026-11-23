@@ -54,7 +54,7 @@ List documents and folders as a recursive tree.
 | Field | Type | Always present | Description |
 | --- | --- | --- | --- |
 | `document_count` | number | yes | Total number of documents in the result |
-| `files` | object \| object (recursive)[] | yes | Recursive file tree of intermixed documents and folders. |
+| `files` | (object \| object (recursive))[] | yes | Recursive file tree of intermixed documents and folders. |
 
 **`files` document element fields:**
 
@@ -75,7 +75,7 @@ List documents and folders as a recursive tree.
 | `type` | "folder" | yes | File type |
 | `depth_limited` | true | no | Present when max_depth cut off traversal. Call list_documents with this folder's file_id to expand. |
 | `child_count` | number | yes | Direct children count. Always present on folders, including empty folders with 0. |
-| `children` | object \| object (recursive)[] | no | Child documents and folders. Omitted when depth-limited. |
+| `children` | (object \| object (recursive))[] | no | Child documents and folders. Omitted when depth-limited. |
 
 **Example response:**
 ```json
@@ -506,7 +506,7 @@ Send an item to the Dynalist inbox. Target is the user's configured inbox. Retur
 
 ### `edit_items` (Edit Items)
 
-Edit one or more items in a document. Only specified fields are updated; omitted fields are unchanged. Only include fields the user explicitly asked to change; do NOT clear fields (e.g. color, heading) as a side effect.
+Edit one or more items in a document. Only specified fields are updated; omitted fields are unchanged. Only include fields the user explicitly asked to change; do NOT clear fields (e.g. color, heading) as a side effect. Returns a fresh sync_token and readback: the document tree after the write, pruned to the changed items, their adjacent siblings, and their ancestors. In readback, each { omitted: n } entry in children stands for n consecutive siblings not shown, and child_count includes them.
 
 **Destructive, idempotent.**
 
@@ -516,7 +516,7 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `items` | object[] | yes | Array of item edits to apply. |
-| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document or item write response. If stale, the tool aborts and requests a re-read. |
 | `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`items` element fields:**
@@ -557,19 +557,63 @@ Edit one or more items in a document. Only specified fields are updated; omitted
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `edited_count` | number | yes | Number of items edited |
+| `sync_token` | string | no | Opaque sync token for the document after this write. Pass as expected_sync_token to the next write. Omitted when sync_warning is present. |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
+| `warning` | string | no | Present when readback was omitted because it exceeded the size threshold. |
+| `readback` | object | no | Document tree after the write, from the root, pruned to the changed area. Omitted when sync_warning or warning is present. |
+
+**`readback` fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `note` | string | no | Item note. Omitted when empty. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
+| `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
+| `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
+| `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
+| `depth_limited` | true | no | Present when this item's children are not included. Call read_document with this item_id to expand. |
+| `child_count` | number | no | Total direct children, including omitted ones. Omitted on leaf items. |
+| `children` | (object (recursive) \| object)[] | no | Child items in order. Each { omitted: n } entry stands for n consecutive siblings not shown. |
+
+**`children` `omitted` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `omitted` | number | yes | Number of consecutive siblings not shown at this position. |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "edited_count": 1
+  "edited_count": 1,
+  "sync_token": "a1b2c3",
+  "readback": {
+    "item_id": "n_item789",
+    "content": "Buy groceries",
+    "note": "Milk, eggs, bread",
+    "checked": true,
+    "show_checkbox": true,
+    "heading": "h1",
+    "color": "red",
+    "collapsed": true,
+    "depth_limited": true,
+    "child_count": 3,
+    "children": [
+      {
+        "item_id": "n_item789",
+        "content": "Buy groceries"
+      }
+    ]
+  }
 }
 ```
 
 ### `insert_items` (Insert Items)
 
-Insert items into a document as JSON trees. Each insertion targets an independent location, allowing inserts at different positions in a single call. Each insertion supports nested children and per-item metadata.
+Insert items into a document as JSON trees. Each insertion targets an independent location, allowing inserts at different positions in a single call. Each insertion supports nested children and per-item metadata. Returns a fresh sync_token and readback: the document tree after the write, pruned to the changed items, their adjacent siblings, and their ancestors. In readback, each { omitted: n } entry in children stands for n consecutive siblings not shown, and child_count includes them.
 
 **Not destructive, not idempotent.**
 
@@ -579,7 +623,7 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `inserts` | object[] | yes | Array of independent inserts. Each targets its own location, so items can be placed at different parents or siblings in a single call. |
-| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document or item write response. If stale, the tool aborts and requests a re-read. |
 | `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`inserts` element fields:**
@@ -628,8 +672,11 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `created_count` | number | yes | Total number of items created across all inserts |
+| `sync_token` | string | no | Opaque sync token for the document after this write. Pass as expected_sync_token to the next write. Omitted when sync_warning is present. |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
+| `warning` | string | no | Present when readback was omitted because it exceeded the size threshold. |
 | `inserts` | object[] | yes | Per-insertion results in the same order as the input inserts |
+| `readback` | object | no | Document tree after the write, from the root, pruned to the changed area. Omitted when sync_warning or warning is present. |
 
 **`inserts` element fields:**
 
@@ -638,11 +685,34 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 | `created_count` | number | yes | Number of items created by this insertion |
 | `root_item_ids` | string[] | yes | IDs of the top-level inserted items for this insertion |
 
+**`readback` fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `note` | string | no | Item note. Omitted when empty. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
+| `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
+| `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
+| `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
+| `depth_limited` | true | no | Present when this item's children are not included. Call read_document with this item_id to expand. |
+| `child_count` | number | no | Total direct children, including omitted ones. Omitted on leaf items. |
+| `children` | (object (recursive) \| object)[] | no | Child items in order. Each { omitted: n } entry stands for n consecutive siblings not shown. |
+
+**`children` `omitted` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `omitted` | number | yes | Number of consecutive siblings not shown at this position. |
+
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
   "created_count": 1,
+  "sync_token": "a1b2c3",
   "inserts": [
     {
       "created_count": 1,
@@ -650,7 +720,25 @@ Insert items into a document as JSON trees. Each insertion targets an independen
         "n_new001"
       ]
     }
-  ]
+  ],
+  "readback": {
+    "item_id": "n_item789",
+    "content": "Buy groceries",
+    "note": "Milk, eggs, bread",
+    "checked": true,
+    "show_checkbox": true,
+    "heading": "h1",
+    "color": "red",
+    "collapsed": true,
+    "depth_limited": true,
+    "child_count": 3,
+    "children": [
+      {
+        "item_id": "n_item789",
+        "content": "Buy groceries"
+      }
+    ]
+  }
 }
 ```
 
@@ -658,7 +746,7 @@ Insert items into a document as JSON trees. Each insertion targets an independen
 
 ### `delete_items` (Delete Items)
 
-Delete items and their subtrees from a document.
+Delete items and their subtrees from a document. Returns a fresh sync_token and readback: the document tree after the write, pruned to the changed items, their adjacent siblings, and their ancestors. In readback, each { omitted: n } entry in children stands for n consecutive siblings not shown, and child_count includes them.
 
 **Destructive, idempotent.**
 
@@ -669,7 +757,7 @@ Delete items and their subtrees from a document.
 | `file_id` | string | yes |  | Document file ID |
 | `item_ids` | string[] | yes |  | Item IDs to delete. |
 | `children` | `"delete"`, `"promote"` | no | "delete" | What to do with children of deleted items. 'delete': remove entire subtree. 'promote': re-parent children to the deleted item's parent (single-item only; use to remove a grouping item while keeping its children). |
-| `expected_sync_token` | string | yes |  | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes |  | Sync token from your most recent read_document or item write response. If stale, the tool aborts and requests a re-read. |
 | `batch_index` | number | no |  | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **Example input:**
@@ -691,20 +779,64 @@ Delete items and their subtrees from a document.
 | `file_id` | string | yes | Document file ID |
 | `deleted_count` | number | yes | Number of items deleted (targets and all descendants if children not promoted). |
 | `promoted_children_count` | number | no | Number of direct children promoted to parent (only when children is 'promote') |
+| `sync_token` | string | no | Opaque sync token for the document after this write. Pass as expected_sync_token to the next write. Omitted when sync_warning is present. |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
+| `warning` | string | no | Present when readback was omitted because it exceeded the size threshold. |
+| `readback` | object | no | Document tree after the write, from the root, pruned to the changed area. Omitted when sync_warning or warning is present. |
+
+**`readback` fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `note` | string | no | Item note. Omitted when empty. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
+| `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
+| `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
+| `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
+| `depth_limited` | true | no | Present when this item's children are not included. Call read_document with this item_id to expand. |
+| `child_count` | number | no | Total direct children, including omitted ones. Omitted on leaf items. |
+| `children` | (object (recursive) \| object)[] | no | Child items in order. Each { omitted: n } entry stands for n consecutive siblings not shown. |
+
+**`children` `omitted` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `omitted` | number | yes | Number of consecutive siblings not shown at this position. |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
   "deleted_count": 1,
-  "promoted_children_count": 1
+  "promoted_children_count": 1,
+  "sync_token": "a1b2c3",
+  "readback": {
+    "item_id": "n_item789",
+    "content": "Buy groceries",
+    "note": "Milk, eggs, bread",
+    "checked": true,
+    "show_checkbox": true,
+    "heading": "h1",
+    "color": "red",
+    "collapsed": true,
+    "depth_limited": true,
+    "child_count": 3,
+    "children": [
+      {
+        "item_id": "n_item789",
+        "content": "Buy groceries"
+      }
+    ]
+  }
 }
 ```
 
 ### `move_items` (Move Items)
 
-Move items (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects.
+Move items (with subtrees) to new positions in a document. Moves within a single call are applied sequentially; later moves see earlier moves' effects. Returns a fresh sync_token and readback: the document tree after the write, pruned to the changed items, their adjacent siblings, and their ancestors. In readback, each { omitted: n } entry in children stands for n consecutive siblings not shown, and child_count includes them.
 
 **Not destructive, idempotent.**
 
@@ -714,7 +846,7 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `moves` | object[] | yes | Array of moves to apply sequentially. |
-| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document or item write response. If stale, the tool aborts and requests a re-read. |
 | `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`moves` element fields:**
@@ -747,19 +879,63 @@ Move items (with subtrees) to new positions in a document. Moves within a single
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `moved_count` | number | yes | Number of items moved |
+| `sync_token` | string | no | Opaque sync token for the document after this write. Pass as expected_sync_token to the next write. Omitted when sync_warning is present. |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
+| `warning` | string | no | Present when readback was omitted because it exceeded the size threshold. |
+| `readback` | object | no | Document tree after the write, from the root, pruned to the changed area. Omitted when sync_warning or warning is present. |
+
+**`readback` fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `note` | string | no | Item note. Omitted when empty. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
+| `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
+| `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
+| `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
+| `depth_limited` | true | no | Present when this item's children are not included. Call read_document with this item_id to expand. |
+| `child_count` | number | no | Total direct children, including omitted ones. Omitted on leaf items. |
+| `children` | (object (recursive) \| object)[] | no | Child items in order. Each { omitted: n } entry stands for n consecutive siblings not shown. |
+
+**`children` `omitted` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `omitted` | number | yes | Number of consecutive siblings not shown at this position. |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "moved_count": 1
+  "moved_count": 1,
+  "sync_token": "a1b2c3",
+  "readback": {
+    "item_id": "n_item789",
+    "content": "Buy groceries",
+    "note": "Milk, eggs, bread",
+    "checked": true,
+    "show_checkbox": true,
+    "heading": "h1",
+    "color": "red",
+    "collapsed": true,
+    "depth_limited": true,
+    "child_count": 3,
+    "children": [
+      {
+        "item_id": "n_item789",
+        "content": "Buy groceries"
+      }
+    ]
+  }
 }
 ```
 
 ### `reorder_items` (Reorder Items)
 
-Sort or reorder the children of one or more parent items by providing each parent's complete ordered child list. All children of each parent must be present.
+Sort or reorder the children of one or more parent items by providing each parent's complete ordered child list. All children of each parent must be present. Returns a fresh sync_token and readback: the document tree after the write, pruned to the changed items, their adjacent siblings, and their ancestors. In readback, each { omitted: n } entry in children stands for n consecutive siblings not shown, and child_count includes them.
 
 **Not destructive, idempotent.**
 
@@ -769,7 +945,7 @@ Sort or reorder the children of one or more parent items by providing each paren
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `reorders` | object[] | yes | Array of reorders to apply. |
-| `expected_sync_token` | string | yes | Sync token from your most recent read_document. If stale, the tool aborts and requests a re-read. |
+| `expected_sync_token` | string | yes | Sync token from your most recent read_document or item write response. If stale, the tool aborts and requests a re-read. |
 | `batch_index` | number | no | Zero-based position of this call within a batch of writes issued in the same turn against the same document. Omit for a single write. All calls in a batch pass the same expected_sync_token. |
 
 **`reorders` element fields:**
@@ -802,13 +978,57 @@ Sort or reorder the children of one or more parent items by providing each paren
 | --- | --- | --- | --- |
 | `file_id` | string | yes | Document file ID |
 | `reordered_count` | number | yes | Total number of children reordered across all reorders. |
+| `sync_token` | string | no | Opaque sync token for the document after this write. Pass as expected_sync_token to the next write. Omitted when sync_warning is present. |
 | `sync_warning` | string | no | Warning if a concurrent edit was detected during the mutation. |
+| `warning` | string | no | Present when readback was omitted because it exceeded the size threshold. |
+| `readback` | object | no | Document tree after the write, from the root, pruned to the changed area. Omitted when sync_warning or warning is present. |
+
+**`readback` fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `item_id` | string | yes | Item ID |
+| `content` | string | yes | Item text content |
+| `note` | string | no | Item note. Omitted when empty. |
+| `checked` | boolean | no | Checked (completed) state. False if not present. |
+| `show_checkbox` | boolean | no | Whether a checkbox is shown. False if not present. |
+| `heading` | `"h1"`, `"h2"`, `"h3"` | no | Heading level: 'h1', 'h2', 'h3'. Omitted when none. |
+| `color` | `"red"`, `"orange"`, `"yellow"`, `"green"`, `"blue"`, `"purple"` | no | Color label: 'red', 'orange', 'yellow', 'green', 'blue', 'purple'. Omitted when none. |
+| `collapsed` | boolean | no | Whether the item is collapsed in the UI. Omitted when not collapsed. |
+| `depth_limited` | true | no | Present when this item's children are not included. Call read_document with this item_id to expand. |
+| `child_count` | number | no | Total direct children, including omitted ones. Omitted on leaf items. |
+| `children` | (object (recursive) \| object)[] | no | Child items in order. Each { omitted: n } entry stands for n consecutive siblings not shown. |
+
+**`children` `omitted` element fields:**
+
+| Field | Type | Always present | Description |
+| --- | --- | --- | --- |
+| `omitted` | number | yes | Number of consecutive siblings not shown at this position. |
 
 **Example response:**
 ```json
 {
   "file_id": "f_abc123",
-  "reordered_count": 1
+  "reordered_count": 1,
+  "sync_token": "a1b2c3",
+  "readback": {
+    "item_id": "n_item789",
+    "content": "Buy groceries",
+    "note": "Milk, eggs, bread",
+    "checked": true,
+    "show_checkbox": true,
+    "heading": "h1",
+    "color": "red",
+    "collapsed": true,
+    "depth_limited": true,
+    "child_count": 3,
+    "children": [
+      {
+        "item_id": "n_item789",
+        "content": "Buy groceries"
+      }
+    ]
+  }
 }
 ```
 

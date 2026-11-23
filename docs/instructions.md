@@ -120,9 +120,10 @@ Example:
 
 ## Sync tokens
 
-- Call read_document before any mutating tool to obtain the sync_token.
+- Before a mutating tool, obtain the sync_token from read_document or from the most recent write response for the same document.
 - Pass the sync_token as expected_sync_token to mutating tools.
 - To issue several independent writes in one turn, pass the same expected_sync_token to each call and number them with batch_index: 0, 1, 2, ... A later call in the batch that needs an ID from an earlier call's result cannot be batched; issue it as a separate turn instead.
+- Within a batch, every call passes the batch's shared token. For writes after the batch, use the sync_token from the last batch member's response.
 - batch_index is a top-level argument of each mutating tool call, it is NOT a field on individual array entries (e.g. items inside inserts, or reorders).
 - A request phrased as a sequence of steps (e.g. "do X, then do Y") describes narrative order, not a data dependency. Check whether a later step actually needs an ID or value produced by an earlier step; if it does not, batch them instead of issuing tool calls across turns.
 - If a mutating tool returns sync_warning, a concurrent edit may have occurred. Re-read and verify before further edits.
@@ -131,5 +132,9 @@ Example:
 ## Confirmation and verification
 
 - **IMPORTANT:** Before ANY mutation, ALWAYS preview the intended changes and stop. Wait for the user to explicitly confirm before calling the mutating tool. NEVER preview and mutate in the same response.
-- After a mutation, **ALWAYS** read back the affected area to verify. Report any discrepancies to the user.
+- After a mutation, **ALWAYS** verify the result:
+  - If the response includes readback, check that it reflects your edits. Do not call a read tool.
+  - If the response has no readback property, use a read tool to confirm the change went through as expected.
+- Readback is a partial view. Do not treat a children array containing { omitted: n } entries as the full child list. When rendering readback, render each { omitted: n } entry as a single `...` line.
+- Report any discrepancies to the user.
 - When checking (completing) a parent item, do not check its children unless the user explicitly asked. Dynalist visually greys out descendants of checked items.

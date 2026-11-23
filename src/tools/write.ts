@@ -21,12 +21,13 @@ import {
 import type { DocumentStore } from "../document-store";
 import {
   FILE_ID_DESCRIPTION, ITEM_ID_DESCRIPTION,
-  SYNC_WARNING_DESCRIPTION, SHOW_CHECKBOX_DESCRIPTION,
+  SHOW_CHECKBOX_DESCRIPTION,
   CHECKED_DESCRIPTION,
   HEADING_DESCRIPTION, COLOR_DESCRIPTION, CONFIRM_GUIDANCE, MULTILINE_GUIDANCE,
   CONTENT_MULTILINE_GUIDANCE, EXPECTED_SYNC_TOKEN_DESCRIPTION,
-  INSTRUCTIONS_FIRST_GUIDANCE, BATCH_INDEX_DESCRIPTION,
+  INSTRUCTIONS_FIRST_GUIDANCE, BATCH_INDEX_DESCRIPTION, WRITE_READBACK_GUIDANCE,
 } from "./descriptions";
+import { readBackWrite, readbackScalarOutputFields, readbackOutputField } from "../utils/write-response-helpers";
 import { HEADING_VALUES, COLOR_VALUES, HEADING_TO_NUMBER, COLOR_TO_NUMBER } from "./node-metadata";
 import type { HeadingValue, ColorValue } from "./node-metadata";
 
@@ -132,7 +133,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         `${CONFIRM_GUIDANCE} ` +
         "Edit one or more items in a document. Only specified fields are updated; " +
         "omitted fields are unchanged. Only include fields the user explicitly asked " +
-        "to change; do NOT clear fields (e.g. color, heading) as a side effect.",
+        "to change; do NOT clear fields (e.g. color, heading) as a side effect. " +
+        WRITE_READBACK_GUIDANCE,
       annotations: {
         title: "Edit Items",
         readOnlyHint: false,
@@ -159,7 +161,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         edited_count: z.number().describe("Number of items edited"),
-        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
+        ...readbackScalarOutputFields,
+        ...readbackOutputField,
       }).strict(),
     },
     wrapToolHandler(async ({
@@ -240,11 +243,17 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         },
       );
 
+      const postWrite = await readBackWrite(
+        store, file_id, guard,
+        items.map((entry) => ({ type: "item" as const, itemId: entry.item_id })),
+      );
+
       const data: Record<string, unknown> = {
         file_id,
         edited_count: items.length,
+        ...postWrite.scalars,
       };
-      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
+      if (postWrite.readback) data.readback = postWrite.readback;
 
       return makeResponse(data);
     })
@@ -285,7 +294,8 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
         `${CONFIRM_GUIDANCE} ` +
         "Insert items into a document as JSON trees. Each insertion targets an " +
         "independent location, allowing inserts at different positions in a single " +
-        "call. Each insertion supports nested children and per-item metadata.",
+        "call. Each insertion supports nested children and per-item metadata. " +
+        WRITE_READBACK_GUIDANCE,
       annotations: {
         title: "Insert Items",
         readOnlyHint: false,
@@ -319,11 +329,12 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       outputSchema: z.object({
         file_id: z.string().describe(FILE_ID_DESCRIPTION),
         created_count: z.number().describe("Total number of items created across all inserts"),
-        sync_warning: z.string().optional().describe(SYNC_WARNING_DESCRIPTION),
+        ...readbackScalarOutputFields,
         inserts: z.array(z.object({
           created_count: z.number().describe("Number of items created by this insertion"),
           root_item_ids: z.array(z.string()).describe("IDs of the top-level inserted items for this insertion"),
         }).strict()).describe("Per-insertion results in the same order as the input inserts"),
+        ...readbackOutputField,
       }).strict(),
     },
     wrapToolHandler(async ({
@@ -467,15 +478,21 @@ export function registerWriteTools(server: McpServer, client: DynalistClient, ac
       const insertionResults = guard.result;
       const totalCreated = insertionResults.reduce((sum, r) => sum + r.totalCreated, 0);
 
+      const postWrite = await readBackWrite(
+        store, file_id, guard,
+        insertionResults.flatMap((r) => r.rootNodeIds.map((itemId) => ({ type: "item" as const, itemId, expand: true }))),
+      );
+
       const data: Record<string, unknown> = {
         file_id,
         created_count: totalCreated,
+        ...postWrite.scalars,
       };
-      if (guard.syncWarning) data.sync_warning = guard.syncWarning;
       data.inserts = insertionResults.map(r => ({
         created_count: r.totalCreated,
         root_item_ids: r.rootNodeIds,
       }));
+      if (postWrite.readback) data.readback = postWrite.readback;
 
       return makeResponse(data);
     })

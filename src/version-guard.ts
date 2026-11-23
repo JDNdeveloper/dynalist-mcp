@@ -8,6 +8,10 @@ import type { DocumentStore } from "./document-store";
 import { makeSyncToken } from "./sync-token";
 import { REREAD_GUIDANCE } from "./tools/descriptions";
 
+export const CONCURRENT_EDIT_WARNING =
+  "Write succeeded, but another edit may have occurred concurrently. " +
+  REREAD_GUIDANCE;
+
 export interface VersionGuardOptions {
   client: Pick<DynalistClient, "checkForUpdates">;
   fileId: string;
@@ -112,9 +116,7 @@ export async function withVersionGuard<T>(
 
       const actualDelta = postWriteVersion - preWriteVersion;
       if (actualDelta !== apiCallCount) {
-        syncWarning =
-          "Write succeeded, but another edit may have occurred concurrently. " +
-          REREAD_GUIDANCE;
+        syncWarning = CONCURRENT_EDIT_WARNING;
       }
     } catch {
       // The write succeeded but the post-write version check failed.

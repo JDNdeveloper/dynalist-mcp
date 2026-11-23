@@ -16,6 +16,12 @@ After the write succeeds, the guard fetches the version again and compares the d
 
 The post-write check is best-effort: if the version fetch itself fails (network error, rate limit), the write result is still returned with a warning. The write already succeeded; discarding its result would be worse than surfacing uncertainty.
 
+### Post-write readback
+
+After the guard returns, item write tools re-read the document (`readBackWrite` in `src/utils/write-response-helpers.ts`) to build the `readback` tree and `sync_token` in the response. The post-write check and the readback are separate API calls, so another client can edit the document between them. To keep the returned token and readback consistent with each other, the token is derived from the readback's own version and returned only when that version equals the guard's `postWriteVersion`. On a mismatch, a failed readback, or any guard `sync_warning`, the response carries `sync_warning` and omits both `sync_token` and `readback`, so the agent falls back to a full re-read.
+
+The returned token covers the whole document even though the readback shows only the changed area. This matches `read_document` with an `item_id`, which also returns a document-wide token for a subtree view. Within a batch, members keep passing the batch's shared token. Only the last member's returned token is valid for writes after the batch.
+
 ### Multi-batch writes
 
 Tree inserts and large change sets may require multiple `editDocument` calls (one per depth level for inserts, batches of 200 for bulk changes). The version guard tracks the total `apiCallCount` across all batches and validates the cumulative delta. A concurrent edit during any batch is detected.

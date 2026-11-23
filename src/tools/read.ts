@@ -50,7 +50,7 @@ const optionalTimestampFields = {
 const OMIT_TIMESTAMPS_SUGGESTION = "Use include_timestamps: false to omit created/modified timestamps";
 
 // Shared optional metadata fields present on output nodes and match objects.
-const nodeMetadataFields = {
+export const nodeMetadataFields = {
   note: z.string().optional().describe("Item note. Omitted when empty."),
   checked: z.boolean().optional().describe("Checked (completed) state. False if not present."),
   show_checkbox: z.boolean().optional().describe("Whether a checkbox is shown. False if not present."),
@@ -67,7 +67,7 @@ const nodeMetadataFields = {
 // does not currently expose it.
 //
 // TODO: Expose collapsed folder state.
-const collapsedField = {
+export const collapsedField = {
   collapsed: z.boolean().optional().describe("Whether the item is collapsed in the UI. Omitted when not collapsed."),
 };
 

@@ -43,13 +43,30 @@ export const SYNC_TOKEN_DESCRIPTION =
   "Opaque sync token. Pass as expected_sync_token to mutating tools.";
 export const SYNC_WARNING_DESCRIPTION =
   "Warning if a concurrent edit was detected during the mutation.";
+export const WRITE_SYNC_TOKEN_DESCRIPTION =
+  "Opaque sync token for the document after this write. Pass as expected_sync_token " +
+  "to the next write. Omitted when sync_warning is present.";
+export const WRITE_READBACK_WARNING_DESCRIPTION =
+  "Present when readback was omitted because it exceeded the size threshold.";
+export const WRITE_READBACK_DESCRIPTION =
+  "Document tree after the write, from the root, pruned to the changed area. " +
+  "Omitted when sync_warning or warning is present.";
+
+// Tool description sentence for item write tools whose responses include a
+// readback of the changed area. Output schemas are not shown to agents, so the tool
+// description must state this behavior.
+export const WRITE_READBACK_GUIDANCE =
+  "Returns a fresh sync_token and readback: the document tree after the write, " +
+  "pruned to the changed items, their adjacent siblings, and their ancestors. In " +
+  "readback, each { omitted: n } entry in children stands for n consecutive siblings " +
+  "not shown, and child_count includes them.";
 export const SIZE_WARNING_DESCRIPTION =
   "Size warning message when result exceeds token threshold";
 export const MATCH_COUNT_DESCRIPTION = "Number of matches found";
 
 // Common input fields.
 export const EXPECTED_SYNC_TOKEN_DESCRIPTION =
-  "Sync token from your most recent read_document. " +
+  "Sync token from your most recent read_document or item write response. " +
   "If stale, the tool aborts and requests a re-read.";
 export const BATCH_INDEX_DESCRIPTION =
   "Zero-based position of this call within a batch of writes issued in " +
