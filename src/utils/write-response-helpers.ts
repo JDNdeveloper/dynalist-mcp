@@ -164,7 +164,11 @@ function buildReadback(nodes: DynalistNode[], targets: ReadbackTarget[]): Readba
   const parentMap = buildParentMap(nodes);
   const rootId = findRootNodeId(nodes);
 
+  // isChangeSite is false for groups that exist only because they are
+  // ancestors on the path to a change. Those show only the child on the
+  // path, even when they have few children.
   interface ParentGroup {
+    isChangeSite: boolean;
     showAll: boolean;
     indices: Set<number>;
   }
@@ -173,9 +177,14 @@ function buildReadback(nodes: DynalistNode[], targets: ReadbackTarget[]): Readba
   function groupFor(parentId: string): ParentGroup {
     let group = groups.get(parentId);
     if (!group) {
-      group = { showAll: false, indices: new Set() };
+      group = { isChangeSite: false, showAll: false, indices: new Set() };
       groups.set(parentId, group);
     }
+    return group;
+  }
+  function changeSiteGroupFor(parentId: string): ParentGroup {
+    const group = groupFor(parentId);
+    group.isChangeSite = true;
     return group;
   }
   function addRange(group: ParentGroup, start: number, end: number): void {
@@ -189,7 +198,7 @@ function buildReadback(nodes: DynalistNode[], targets: ReadbackTarget[]): Readba
       const location = parentMap.get(target.itemId);
       if (!location) continue;
       addRange(
-        groupFor(location.parentId),
+        changeSiteGroupFor(location.parentId),
         location.index - READBACK_CONTEXT_SIBLINGS,
         location.index + READBACK_CONTEXT_SIBLINGS,
       );
@@ -199,13 +208,13 @@ function buildReadback(nodes: DynalistNode[], targets: ReadbackTarget[]): Readba
       // A slot sits between index - 1 and index, so the window covers the
       // siblings on either side of the gap.
       addRange(
-        groupFor(target.parentId),
+        changeSiteGroupFor(target.parentId),
         target.index - READBACK_CONTEXT_SIBLINGS,
         target.index + READBACK_CONTEXT_SIBLINGS - 1,
       );
     } else {
       if (!nodeMap.has(target.parentId)) continue;
-      groupFor(target.parentId).showAll = true;
+      changeSiteGroupFor(target.parentId).showAll = true;
     }
   }
 
@@ -245,7 +254,7 @@ function buildReadback(nodes: DynalistNode[], targets: ReadbackTarget[]): Readba
     const childCount = childIds.length;
     if (childCount === 0) return output;
 
-    const showAll = group.showAll || childCount <= READBACK_SHOW_ALL_MAX_CHILDREN;
+    const showAll = group.showAll || (group.isChangeSite && childCount <= READBACK_SHOW_ALL_MAX_CHILDREN);
     const indices = showAll
       ? childIds.map((_, i) => i)
       : [...group.indices].filter((i) => i >= 0 && i < childCount).sort((a, b) => a - b);

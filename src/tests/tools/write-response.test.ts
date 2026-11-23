@@ -95,8 +95,7 @@ describe("write response readback", () => {
         "  • First item",
         "    • Edited A",
         "    • Child B",
-        "  • Second item",
-        "  • Third item",
+        "  ...",
       ]);
       expect(result.sync_token).toBe(await getSyncToken(ctx.mcpClient, "doc1"));
     });
@@ -132,14 +131,37 @@ describe("write response readback", () => {
 
       expect(outlineOf(readbackOf(result))).toEqual([
         "• Test Document",
-        "  • First item",
+        "  ...",
         "  • Second item",
         "    • Nested child",
         "    • New",
         "      • Kid",
         "        • Grandkid",
-        "  • Third item",
+        "  ...",
       ]);
+    });
+
+    // The root has only three children, which would be shown in full if the
+    // root were a changed parent. As an ancestor on the path it shows only
+    // the child leading to the change.
+    test("an insert below a small root shows only the path through the root", async () => {
+      const syncToken = await getSyncToken(ctx.mcpClient, "doc1");
+      const result = await callToolOk(ctx.mcpClient, "insert_items", {
+        file_id: "doc1",
+        inserts: [{ position: "last_child", reference_item_id: "n2", items: [{ content: "New" }] }],
+        expected_sync_token: syncToken,
+      });
+
+      const root = readbackOf(result);
+      expect(outlineOf(root)).toEqual([
+        "• Test Document",
+        "  ...",
+        "  • Second item",
+        "    • Nested child",
+        "    • New",
+        "  ...",
+      ]);
+      expectChildCountsConsistent(root);
     });
 
     test("delete_items shows the parent as a leaf when it loses all children", async () => {
@@ -188,7 +210,7 @@ describe("write response readback", () => {
         "  • Second item",
         "    • Nested child",
         "    • Child A",
-        "  • Third item",
+        "  ...",
       ]);
     });
 

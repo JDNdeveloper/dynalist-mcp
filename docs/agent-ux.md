@@ -82,7 +82,7 @@ Item write tools (`edit_items`, `insert_items`, `delete_items`, `move_items`, `r
 
 The readback uses `read_document`'s item shape, starting at the document root and pruned to the change:
 
-- Each changed position shows one sibling on each side. A parent with at most 5 children, or one that was reordered, shows every child.
+- Each changed position shows one sibling on each side. A changed parent with at most 5 children, or one that was reordered, shows every child.
 - Each ancestor on the path to the root shows only the child leading to the change.
 - Inserted items include their full subtree, since that is exactly what the agent asked to create. Other items are depth-limited.
 - Each run of hidden siblings becomes one `{ "omitted": n }` entry, and the instructions tell the agent to render it as a single `...` line. `child_count` counts every child, so at each level the shown items plus the `omitted` counts add up to `child_count`.
@@ -114,7 +114,7 @@ This mirrors the context the diff-preview rules already require, so the agent ca
         { "omitted": 1 }
       ]
     },
-    { "item_id": "errands", "content": "Errands", "depth_limited": true, "child_count": 2 }
+    { "omitted": 1 }
   ]
 }
 ```
@@ -130,10 +130,10 @@ The agent renders it as:
       • Penne
     • Coffee
     ...
-  • Errands
+  ...
 ```
 
-`Errands` appears because the root has only 2 children, so it shows all of them.
+The root has only 2 children, but `Errands` is still omitted because the root is only an ancestor on the path, not a changed parent.
 
 **Example: move.** Moving `Pharmacy` from `Errands` to after `Eggs` in `Groceries` shows both the destination and the source in one tree:
 
