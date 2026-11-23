@@ -185,10 +185,12 @@ async function handleCallback(request: Request, env: Env, oauth: OAuthHelpers): 
   // means it was changed underneath a running isolate. Reject.
   const allowlist = parseAllowedGithubUsers(env.ALLOWED_GITHUB_USERS);
   if (!allowlist.ok || !isAllowedGithubUser(login, allowlist.value)) {
-    log("warn", "Rejected sign-in from a GitHub account that is not on the allowlist.");
+    log("warn", `Rejected sign-in from GitHub account "${login}", which is not on the allowlist.`);
     return errorPage("This GitHub account is not allowed to use this server.", 403, headers);
   }
 
+  // Logged at warn so the line shows with the default logLevel.
+  log("warn", `Signed in GitHub account "${login}".`);
   const props: GrantProps = { login: login.toLowerCase() };
   const { redirectTo } = await oauth.completeAuthorization({
     request: authRequest,
